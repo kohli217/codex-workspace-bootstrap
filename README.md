@@ -125,7 +125,7 @@ The lint is intentionally conservative: different files may contain additional c
 
 ### Risk signals
 
-The audit warns about common secret-bearing filenames without printing their contents. When Git is available, it distinguishes **tracked**, **ignored**, and **untracked/unknown** candidates. Tracked risky filenames can become blocking findings in strict mode.
+The audit warns about common secret-bearing filenames without printing their contents, including environment-specific `.env.*` files while excluding common template names such as `.env.example` and `.env.sample`. When Git is available, it distinguishes **tracked**, **ignored**, and **untracked/unknown** candidates. Tracked risky filenames can become blocking findings in strict mode.
 
 This is intentionally a lightweight preflight check, not a replacement for deep scanners such as Gitleaks or Trivy.
 
