@@ -148,13 +148,80 @@ def _frontmatter_value(text: str, keys: tuple[str, ...]) -> str | None:
     return None
 
 
+def _split_top_level_commas(value: str) -> list[str]:
+    items: list[str] = []
+    current: list[str] = []
+    quote: str | None = None
+    escaped = False
+    braces = 0
+    brackets = 0
+    parens = 0
+
+    for char in value:
+        if escaped:
+            current.append(char)
+            escaped = False
+            continue
+
+        if char == "\\":
+            current.append(char)
+            escaped = True
+            continue
+
+        if quote:
+            current.append(char)
+            if char == quote:
+                quote = None
+            continue
+
+        if char in {"'", '"'}:
+            quote = char
+            current.append(char)
+            continue
+
+        if char == "{":
+            braces += 1
+        elif char == "}":
+            braces = max(0, braces - 1)
+        elif char == "[":
+            brackets += 1
+        elif char == "]":
+            brackets = max(0, brackets - 1)
+        elif char == "(":
+            parens += 1
+        elif char == ")":
+            parens = max(0, parens - 1)
+
+        if char == "," and braces == 0 and brackets == 0 and parens == 0:
+            item = "".join(current).strip()
+            if item:
+                items.append(item)
+            current = []
+            continue
+
+        current.append(char)
+
+    item = "".join(current).strip()
+    if item:
+        items.append(item)
+    return items
+
+
 def _split_patterns(value: str) -> list[str]:
     value = value.strip().strip('"').strip("'")
-    if value.startswith("[") and value.endswith("]"):
+
+    # GitHub Copilot commonly uses a brace-wrapped applyTo selector such as
+    # {src/**/test/**,src/**/*.test.ts}. Treat a brace that wraps the entire
+    # selector as alternatives while preserving embedded brace expansion such
+    # as src/{client,server}/**.
+    if value.startswith("{") and value.endswith("}"):
         value = value[1:-1]
+    elif value.startswith("[") and value.endswith("]"):
+        value = value[1:-1]
+
     return [
         item.strip().strip('"').strip("'")
-        for item in value.split(",")
+        for item in _split_top_level_commas(value)
         if item.strip().strip('"').strip("'")
     ]
 
