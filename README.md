@@ -263,7 +263,9 @@ The intent is to complement those tools, not replace them.
 - Suspected secret files are not opened or printed by the filename-risk check.
 - Repository contents are not sent to a remote AI service by the core audit.
 - Instruction files are read locally for deterministic linting; extracted commands are never executed by the integrity lint.
-- Existing `AGENTS.md` files are protected unless overwrite is explicit.
+- Repository instruction/configuration inputs are not read through symbolic links.
+- `init-agents` and automatic fixes refuse symlinked `AGENTS.md` targets rather than writing through them.
+- Existing regular `AGENTS.md` files are protected unless overwrite is explicit.
 - A passing preflight is evidence about the checks performed, **not a security guarantee**.
 
 See [SECURITY.md](SECURITY.md).
