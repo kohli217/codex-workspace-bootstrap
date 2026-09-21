@@ -102,3 +102,31 @@ cwb fix . --apply
 ```
 
 Conflicting existing instruction files are never auto-rewritten.
+
+
+## Nested and path-specific instructions
+
+`cwb` detects nested Codex instructions such as:
+
+```text
+AGENTS.md
+services/payments/AGENTS.override.md
+```
+
+It also reads common frontmatter scopes such as:
+
+```yaml
+---
+applyTo: "services/api/**/*.py"
+---
+```
+
+and:
+
+```yaml
+---
+globs: extensions/intellij/**/*Test.kt
+---
+```
+
+The inferred scope is shown in CLI and Markdown output. Different scopes are not compared as if they were repository-wide rules.
