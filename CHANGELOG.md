@@ -15,11 +15,13 @@ All notable changes to this project will be documented here.
 - Scope-aware discovery for nested `AGENTS.md` / `AGENTS.override.md`.
 - Static scope inference from common `applyTo` and `globs` frontmatter.
 - Validation-command recognition for uv/poetry/pdm pytest flows, make/just, Gradle, Maven, and dotnet.
+- Comprehensive preflight SARIF containing repository-audit and instruction-integrity findings with file locations.
 
 ### Changed
 - Readiness becomes NEEDS ATTENTION when instruction-integrity findings exist.
 - Validation drift comparison now uses command families, shared baselines, and instruction scopes to reduce false positives.
 - READY now requires a repository-wide instruction baseline, not only nested/path-specific rules.
+- Integrity gate terminology now reflects all integrity findings rather than only drift.
 
 ## [0.4.0] - 2026-09-21
 
