@@ -84,6 +84,14 @@ See [docs/GITHUB_ACTION.md](docs/GITHUB_ACTION.md) for the full workflow and inp
 
 ## Commands
 
+### Diagnose setup problems
+
+```powershell
+codex-workspace-bootstrap doctor .
+```
+
+`doctor` reuses the audit findings and prints non-destructive remediation guidance. It does not install software or modify system configuration.
+
 ### Audit a repository
 
 ```powershell
