@@ -130,3 +130,8 @@ globs: extensions/intellij/**/*Test.kt
 ```
 
 The inferred scope is shown in CLI and Markdown output. Different scopes are not compared as if they were repository-wide rules.
+
+
+### Conservative path-specific comparison
+
+Path-specific rules are still checked against nearby repository evidence such as `packageManager`, lockfiles, and `package.json` scripts. They are not cross-compared with repository-wide or other path-specific rules when only a coarse static prefix is known. This avoids false drift findings between selectors such as `**/*.py` and `**/*.ts`.
