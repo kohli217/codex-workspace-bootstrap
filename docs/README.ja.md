@@ -32,7 +32,7 @@ preflightは、次に何をすべきかをP0/P1/P2の優先度付きで表示し
 - .env / private-key系などsecret-riskになりやすいファイル名
 - Git追跡済み / ignore済み / untrackedの区別
 
-さらに、packageManager / lockfile / package.json scriptsを根拠に、AI指示間のpackage manager不一致、存在しないscript、test/lint/build系コマンドの食い違いを保守的に検出します。ネストされた `AGENTS.md` / `AGENTS.override.md` / `CLAUDE.md` と、Copilotの `applyTo` やruleの `globs` から適用scopeも判定し、別scopeの指示を無理に矛盾扱いしません。
+さらに、packageManager / lockfile / package.json scriptsを根拠に、AI指示間のpackage manager不一致、存在しないscript、test/lint/build系コマンドの食い違いを保守的に検出します。ネストされた `AGENTS.md` / `AGENTS.override.md` / `CLAUDE.md` / `GEMINI.md` と、Copilotの `applyTo` やruleの `globs` から適用scopeも判定し、別scopeの指示を無理に矛盾扱いしません。
 
 Secret候補のファイル内容は表示しません。
 
@@ -129,6 +129,7 @@ GitHub Actionでは `fail_on_integrity: "true"` を指定します。
 - rootのrepository-wide指示と、特定ディレクトリ向けの指示を区別します。
 - Codexのnested `AGENTS.md` / `AGENTS.override.md` を検出します。
 - Claude Codeのnested `CLAUDE.md` を検出し、配置ディレクトリをscopeとして扱います。
+- Gemini CLIのnested `GEMINI.md` を検出し、配置ディレクトリをscopeとして扱います。
 - Cursorのnested `.cursor/rules/*.mdc` を検出し、配置ディレクトリと `globs` / `alwaysApply` を考慮します。
 - path-specific instructionの `applyTo` / `globs` から静的なscope prefixを推定します。
 - repository-wide / nested指示は同一scopeを中心にdrift比較します。path-specific ruleはRepo根拠との個別検証は行いますが、selector全体の意味を安全に保持できないため相互drift比較から除外します。
