@@ -20,6 +20,7 @@ All notable changes to this project will be documented here.
 ### Changed
 - Readiness becomes NEEDS ATTENTION when instruction-integrity findings exist.
 - Validation drift comparison now uses command families, shared baselines, and instruction scopes to reduce false positives.
+- Path-specific rules are validated individually but excluded from coarse cross-file drift comparison when full selector semantics are unavailable.
 - READY now requires a repository-wide instruction baseline, not only nested/path-specific rules.
 - Integrity gate terminology now reflects all integrity findings rather than only drift.
 
