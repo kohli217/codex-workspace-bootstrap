@@ -82,15 +82,30 @@ def _pyproject_has_pytest(root: Path) -> bool:
         return False
 
     try:
-        text = path.read_text(encoding="utf-8")
+        text = path.read_text(encoding="utf-8").lower()
     except (OSError, UnicodeDecodeError):
         return False
 
-    if re.search(r"(?mi)^\\[tool\\.pytest(?:\\.|\\])", text):
+    if "[tool.pytest" in text:
         return True
 
-    dependency_pattern = r"""(?i)["']pytest(?:[<>=!~\\[].*?)?["']"""
-    return re.search(dependency_pattern, text) is not None
+    dependency_prefixes = (
+        '"pytest"',
+        "'pytest'",
+        '"pytest<',
+        "'pytest<",
+        '"pytest>',
+        "'pytest>",
+        '"pytest=',
+        "'pytest=",
+        '"pytest!',
+        "'pytest!",
+        '"pytest~',
+        "'pytest~",
+        '"pytest[',
+        "'pytest[",
+    )
+    return any(prefix in text for prefix in dependency_prefixes)
 
 
 def validation_plan(root: Path) -> list[ValidationCommand]:
