@@ -110,10 +110,10 @@ GitHub Marketplaceの再利用可能Actionとして利用できます。v0.5.0�
 ## AI指示のdriftをCIで止める
 
 ```powershell
-cwb preflight . --fail-on-drift
+cwb preflight . --fail-on-integrity
 ```
 
-GitHub Actionでは `fail_on_drift: "true"` を指定します。
+GitHub Actionでは `fail_on_integrity: "true"` を指定します。
 
 ## 安全なfix preview
 
