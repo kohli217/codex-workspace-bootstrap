@@ -379,3 +379,51 @@ def test_cursor_rules_ignore_non_mdc_files(tmp_path: Path) -> None:
 
     assert ".cursor/rules/rule.mdc" in paths
     assert ".cursor/rules/README.md" not in paths
+
+
+def test_cursor_multiline_globs_set_common_scope(tmp_path: Path) -> None:
+    rules = tmp_path / ".cursor" / "rules"
+    rules.mkdir(parents=True)
+    (rules / "typescript.mdc").write_text(
+        "---\n"
+        "globs:\n"
+        "  - \"apps/web/src/**/*.ts\"\n"
+        "  - \"apps/web/tests/**/*.ts\"\n"
+        "alwaysApply: false\n"
+        "---\n"
+        "Run §pnpm test§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+
+    signal = next(
+        item
+        for item in detect_instruction_signals(tmp_path)
+        if item.path.endswith("typescript.mdc")
+    )
+
+    assert signal.scope == "apps/web"
+    assert signal.kind == "path-specific"
+
+
+def test_multiline_globs_stop_at_next_frontmatter_key(tmp_path: Path) -> None:
+    rules = tmp_path / ".cursor" / "rules"
+    rules.mkdir(parents=True)
+    (rules / "python.mdc").write_text(
+        "---\n"
+        "globs:\n"
+        "  - \"services/api/**/*.py\"\n"
+        "description: API Python rules\n"
+        "alwaysApply: false\n"
+        "---\n"
+        "Run §python -m pytest§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+
+    signal = next(
+        item
+        for item in detect_instruction_signals(tmp_path)
+        if item.path.endswith("python.mdc")
+    )
+
+    assert signal.scope == "services/api"
+    assert signal.kind == "path-specific"
