@@ -456,3 +456,46 @@ def test_instruction_discovery_prunes_large_generated_directories(tmp_path: Path
     assert ".cursor/rules/rule.mdc" in paths
     assert "node_modules/pkg/AGENTS.md" not in paths
     assert ".venv/nested/.cursor/rules/rule.mdc" not in paths
+
+
+def test_package_manager_flags_do_not_become_fake_scripts(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps(
+            {
+                "packageManager": "pnpm@10",
+                "scripts": {"test": "vitest"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    (tmp_path / "AGENTS.md").write_text(
+        "Run §pnpm --filter web test§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+    assert not any(item.kind == "package-manager-mismatch" for item in findings)
+
+
+def test_npm_workspace_flag_is_not_treated_as_script(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps(
+            {
+                "packageManager": "npm@11",
+                "scripts": {"test": "vitest"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "package-lock.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "AGENTS.md").write_text(
+        "Run §npm --workspace app run test§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
