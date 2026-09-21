@@ -11,6 +11,7 @@ All notable changes to this project will be documented here.
 - Dependabot updates for Python and GitHub Actions.
 - Usage examples, citation metadata, Code of Conduct, and support guidance.
 - Reusable GitHub Action integration with Windows and Ubuntu self-tests.
+- Ecosystem motivation, maintainer identity, and usage-reporting documentation.
 
 ### Changed
 - README onboarding now recommends a pinned release artifact instead of piping a remote PowerShell script directly into `iex`.
