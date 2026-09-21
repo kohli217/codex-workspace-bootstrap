@@ -57,19 +57,23 @@ runs:
         if [[ -n "$CWB_SARIF_PATH" ]]; then
           preflight_args+=(--sarif "$CWB_SARIF_PATH")
         fi
-        cwb "${preflight_args[@]}"
-        cat "$report" >> "$GITHUB_STEP_SUMMARY"
-
-        if [[ "$CWB_FAIL_ON_INTEGRITY" == "true" ]]; then
-          cwb preflight "$CWB_TARGET_PATH" --fail-on-integrity
-        fi
-
-        args=(audit)
         if [[ "$CWB_STRICT" == "true" ]]; then
-          args+=(--strict)
+          preflight_args+=(--strict)
         fi
-        args+=(-- "$CWB_TARGET_PATH")
-        cwb "${args[@]}"
+        if [[ "$CWB_FAIL_ON_INTEGRITY" == "true" ]]; then
+          preflight_args+=(--fail-on-integrity)
+        fi
+
+        set +e
+        cwb "${preflight_args[@]}"
+        status=$?
+        set -e
+
+        if [[ -f "$report" ]]; then
+          cat "$report" >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+        exit "$status"
 
 branding:
   icon: "check-circle"
