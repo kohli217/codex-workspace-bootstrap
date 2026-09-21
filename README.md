@@ -7,186 +7,221 @@
 [![License](https://img.shields.io/github/license/kohli217/codex-workspace-bootstrap)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](pyproject.toml)
 
-Make Windows repositories **Codex-ready** with automated environment checks, project instructions, safety audits, and maintainer workflows.
+**Preflight your repository before an AI coding agent touches it.**
 
-[日本語ガイド](docs/README.ja.md) · [Examples](docs/EXAMPLES.md) · [Roadmap](docs/ROADMAP.md) · [Releases](https://github.com/kohli217/codex-workspace-bootstrap/releases)
+Windows-first. Local by default. CI-friendly. Designed for repositories used with Codex, Copilot, Cline, Claude Code, Gemini CLI, Continue, Cursor, and similar coding agents.
 
-> Community-maintained project. It is not an official OpenAI product and is not affiliated with OpenAI.
+[日本語ガイド](docs/README.ja.md) · [Examples](docs/EXAMPLES.md) · [GitHub Action](docs/GITHUB_ACTION.md) · [Roadmap](docs/ROADMAP.md) · [Releases](https://github.com/kohli217/codex-workspace-bootstrap/releases)
 
-## What problem does it solve?
+> Community-maintained project. Not an official OpenAI product and not affiliated with OpenAI.
 
-Codex works better when a repository clearly states its toolchain, validation commands, constraints, and maintenance workflow. On Windows, those details are often scattered across README files, shell history, and machine-specific assumptions.
-
-`codex-workspace-bootstrap` gives maintainers one repeatable entry point to:
-
-- audit Git, Python, Node.js, npm, PowerShell, WSL, and Codex availability;
-- inspect repository basics such as README, license, ignore rules, manifests, and `AGENTS.md`;
-- warn about common secret-bearing filenames without reading their contents;
-- distinguish tracked risky files from ignored or untracked files when Git is available;
-- generate a project-aware `AGENTS.md` for Python, Node.js, mixed, or unknown projects;
-- write machine-readable JSON and SARIF 2.1.0 reports;
-- fail CI on blocking findings with `--strict`;
-- validate releases through automated tests, self-audit, and build checks.
-
-## Why Windows-first?
-
-The project targets a real repository-readiness problem around Windows and Windows+WSL development. It does not claim to fix upstream Codex product bugs. See [docs/MOTIVATION.md](docs/MOTIVATION.md) for the scope and public upstream references.
-
-## 30-second start
-
-Install from PyPI:
+## The 20-second demo
 
 ```powershell
 py -m pip install codex-workspace-bootstrap
+cwb preflight .
 ```
 
-PyPI releases are published through GitHub OIDC Trusted Publishing. A pinned GitHub release wheel remains available for users who want an explicit release artifact:
+Typical output:
 
-```powershell
-py -m pip install "https://github.com/kohli217/codex-workspace-bootstrap/releases/download/v0.3.0/codex_workspace_bootstrap-0.3.0-py3-none-any.whl"
+```text
+AI Repository Preflight
+State: NEEDS ATTENTION
+Project: Python
+AI instructions: none detected
+Audit: 10 passed, 4 warnings, 0 blocking
+Next actions:
+  [P1] Add repository instructions for AI coding agents -> cwb init-agents .
+  [P2] Make the Codex CLI available when local Codex workflows are intended -> codex --version
 ```
 
-Audit the current repository:
+Fix the highest-value gap:
 
 ```powershell
-codex-workspace-bootstrap audit .
+cwb init-agents .
+cwb preflight .
 ```
 
-Generate project instructions:
+The goal is not a vanity score. The result is one of:
+
+- **READY** — core repository signals and AI instructions are present, with no blocking finding;
+- **NEEDS ATTENTION** — usable, but important repository or AI-instruction signals are missing;
+- **BLOCKED** — a blocking finding such as a tracked secret-risk filename needs review.
+
+## What it checks
+
+### Repository readiness
+
+- Git repository
+- README
+- license
+- `.gitignore`
+- common project manifests
+- local Git / Python / Node.js / npm / PowerShell / WSL / Codex signals
+
+### AI instruction coverage
+
+The preflight detects repository instruction/config signals for:
+
+- **Codex / OpenAI agents** — `AGENTS.md`
+- **GitHub Copilot** — repository instructions
+- **Cline**
+- **Claude Code**
+- **Gemini CLI**
+- **Continue**
+- **Cursor**
+
+It does not claim these files are correct merely because they exist. It tells you what was detected so a maintainer can review the actual instructions.
+
+### Risk signals
+
+The audit warns about common secret-bearing filenames without printing their contents. When Git is available, it distinguishes **tracked**, **ignored**, and **untracked/unknown** candidates. Tracked risky filenames can become blocking findings in strict mode.
+
+This is intentionally a lightweight preflight check, not a replacement for deep scanners such as Gitleaks or Trivy.
+
+## Why this exists
+
+AI coding tools are good at editing code. They are not a substitute for repository hygiene.
+
+Before handing a repository to an agent, maintainers still need answers to questions such as:
+
+- Is this the right repository root?
+- Is the expected toolchain available?
+- Does the repository explain how to validate changes?
+- Are AI instructions present?
+- Are risky files accidentally tracked?
+- Can CI surface the same checks for every pull request?
+
+`codex-workspace-bootstrap` turns those questions into one repeatable preflight.
+
+## Short CLI
+
+The package installs both command names:
 
 ```powershell
-codex-workspace-bootstrap init-agents .
-```
-
-Check the installed version:
-
-```powershell
+cwb --version
 codex-workspace-bootstrap --version
 ```
 
-For more examples, see [docs/EXAMPLES.md](docs/EXAMPLES.md).
+Use `cwb` for day-to-day work.
 
-## Why a pinned release instead of `irm ... | iex`?
+## Commands
 
-The recommended quick start installs a specific published wheel so users can see exactly which release they are installing. A PowerShell helper script remains available in [scripts/install.ps1](scripts/install.ps1), but piping remote scripts directly into PowerShell is not the recommended path.
+### One-command preflight
+
+```powershell
+cwb preflight .
+```
+
+Write reports for automation or review:
+
+```powershell
+cwb preflight . --json preflight.json
+cwb preflight . --markdown preflight.md
+```
+
+Use strict mode when blocking findings should return a non-zero exit code:
+
+```powershell
+cwb preflight . --strict
+```
+
+### Detailed audit
+
+```powershell
+cwb audit .
+cwb audit . --json audit.json
+cwb audit . --sarif audit.sarif
+cwb audit . --strict
+```
+
+### Non-destructive doctor
+
+```powershell
+cwb doctor .
+```
+
+`doctor` prints remediation guidance only. It does not install software or modify system configuration.
+
+### Generate `AGENTS.md`
+
+```powershell
+cwb init-agents .
+```
+
+Generation is evidence-based: the tool cross-checks project manifests, package scripts, pytest configuration, and README commands. Plausible but unconfirmed commands are separated for maintainer review. Existing `AGENTS.md` files are never overwritten unless `--force` is explicit.
 
 ## GitHub Action
 
-The v0.3.0 reusable Action is published on GitHub Marketplace for third-party discovery and installation.
-
-Use the tool directly in an OSS repository workflow:
+The reusable Action is published on GitHub Marketplace.
 
 ```yaml
 - uses: actions/checkout@v7
 - uses: actions/setup-python@v7
   with:
     python-version: "3.13"
-- uses: kohli217/codex-workspace-bootstrap@v0.3.0
+- uses: kohli217/codex-workspace-bootstrap@v0.4.0
   with:
     path: .
     strict: "true"
 ```
 
-See [docs/GITHUB_ACTION.md](docs/GITHUB_ACTION.md) for the full workflow and input reference.
+The Action adds the preflight Markdown report to the **GitHub Actions job summary**, so maintainers get a readable readiness snapshot without digging through raw logs. Optional SARIF output can be uploaded to GitHub Code Scanning.
 
-## Commands
+See [docs/GITHUB_ACTION.md](docs/GITHUB_ACTION.md).
 
-### Diagnose setup problems
+## Where it fits
 
-```powershell
-codex-workspace-bootstrap doctor .
-```
+This project is a **preflight layer**, not an AI coding agent and not a deep security scanner.
 
-`doctor` reuses the audit findings and prints non-destructive remediation guidance. It does not install software or modify system configuration.
+| Need | Use |
+| --- | --- |
+| Edit or generate code | Codex, Copilot, Cline, Claude Code, Continue, etc. |
+| Deep secret/vulnerability scanning | Gitleaks, Trivy, dedicated security tooling |
+| Reproducible toolchain management | Dev Containers, mise, project-specific tooling |
+| **Check whether a repository is ready before AI coding starts** | **codex-workspace-bootstrap** |
 
-### Audit a repository
-
-```powershell
-codex-workspace-bootstrap audit .
-```
-
-Write JSON output:
-
-```powershell
-codex-workspace-bootstrap audit . --json audit-report.json
-```
-
-Use strict mode in CI:
-
-```powershell
-codex-workspace-bootstrap audit . --strict
-```
-
-### SARIF / Code Scanning
-
-```powershell
-codex-workspace-bootstrap audit . --sarif codex-workspace-bootstrap.sarif
-```
-
-Blocking findings are emitted as SARIF errors and other warnings as SARIF warnings. See [docs/SARIF.md](docs/SARIF.md) for GitHub Code Scanning integration.
-
-### Generate `AGENTS.md`
-
-```powershell
-codex-workspace-bootstrap init-agents .
-```
-
-The generator cross-checks common project manifests, package scripts, pytest configuration, and documented README commands before marking validation commands as confirmed. Plausible but unverified commands are separated for maintainer review. Existing `AGENTS.md` files are never overwritten unless `--force` is explicit.
+The intent is to complement those tools, not replace them.
 
 ## Safety model
 
-- The core audit path performs local inspection only.
-- The tool does **not** read or print the contents of suspected secret files.
-- The tool does **not** send repository contents to a remote service.
-- A passing audit is evidence about the checks performed, **not** a security guarantee.
-- File modifications are opt-in; existing `AGENTS.md` files are protected by default.
+- Core checks run locally.
+- Suspected secret files are not opened or printed by the filename-risk check.
+- Repository contents are not sent to a remote AI service by the core audit.
+- Existing `AGENTS.md` files are protected unless overwrite is explicit.
+- A passing preflight is evidence about the checks performed, **not a security guarantee**.
 
-See [SECURITY.md](SECURITY.md) for reporting guidance.
+See [SECURITY.md](SECURITY.md).
 
 ## Maintainer workflow
 
-This project uses an issue → branch → pull request → CI → merge → release workflow.
+The project itself uses issue → branch → pull request → CI → merge → release.
 
-Current automated checks include:
+Automated validation includes:
 
-- Windows and Ubuntu test matrices on Python 3.10 and 3.13;
-- built-wheel smoke testing;
-- strict self-audit before releases;
-- CodeQL static analysis;
-- weekly dependency update checks for Python and GitHub Actions;
-- validated one-click GitHub releases with attached wheel and source distribution.
+- Windows and Ubuntu;
+- Python 3.10 and 3.13;
+- built-wheel smoke tests;
+- Action self-tests;
+- strict self-audit;
+- CodeQL;
+- Dependabot;
+- SARIF validation;
+- PyPI publishing through GitHub OIDC Trusted Publishing.
 
-Release history began with [v0.1.0](https://github.com/kohli217/codex-workspace-bootstrap/releases/tag/v0.1.0).
+## Install
 
-## Codex-oriented workflow
+PyPI:
 
-A practical repository workflow is:
+```powershell
+py -m pip install codex-workspace-bootstrap
+```
 
-1. run `audit`;
-2. review warnings and blocking findings;
-3. generate or review `AGENTS.md`;
-4. give Codex a scoped issue or task;
-5. run the repository tests and the audit again;
-6. inspect the diff before merge;
-7. release only after CI passes.
+Pinned GitHub release artifact:
 
-See [AGENTS.md](AGENTS.md) for this repository's own agent instructions and [skills/codex-workspace-bootstrap/SKILL.md](skills/codex-workspace-bootstrap/SKILL.md) for the reusable skill.
-
-## Project scope
-
-### In scope
-
-- Windows-first repository readiness checks;
-- Codex-oriented project instructions;
-- maintainer automation that is deterministic and reviewable;
-- CI-friendly reporting and safe defaults.
-
-### Not in scope
-
-- claiming that a repository is secure because an audit passed;
-- silently changing user configuration;
-- uploading repository contents by default;
-- replacing project-specific documentation or human review.
+```powershell
+py -m pip install "https://github.com/kohli217/codex-workspace-bootstrap/releases/download/v0.4.0/codex_workspace_bootstrap-0.4.0-py3-none-any.whl"
+```
 
 ## Development
 
@@ -199,25 +234,7 @@ python -m pip install -e . pytest
 pytest -q
 ```
 
-Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), and [SUPPORT.md](SUPPORT.md).
-
-## Maintainer and adoption
-
-Primary maintainer identity and responsibilities are documented in [MAINTAINERS.md](MAINTAINERS.md).
-
-If you use the project, please share a real usage report through the GitHub issue template. The project deliberately avoids fabricated testimonials or adoption claims. See [docs/ADOPTION.md](docs/ADOPTION.md).
-
-## Roadmap
-
-See [docs/ROADMAP.md](docs/ROADMAP.md).
-
-## Releasing
-
-Maintainers can create a tested GitHub release from the Actions UI. See [docs/RELEASING.md](docs/RELEASING.md).
-
-## Citation
-
-Machine-readable citation metadata is available in [CITATION.cff](CITATION.cff).
+Contributions and real-world usage reports are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md), [SUPPORT.md](SUPPORT.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), and [docs/ADOPTION.md](docs/ADOPTION.md).
 
 ## License
 
