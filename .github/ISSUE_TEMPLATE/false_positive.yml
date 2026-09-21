@@ -1,0 +1,80 @@
+name: False positive report
+description: Report a cwb finding that does not match your repository's intended setup
+title: "[False positive]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve detection quality.
+
+        Do not include credentials, secret values, proprietary source code, or private repository contents.
+        A minimal synthetic reproduction is preferred when possible.
+
+  - type: input
+    id: version
+    attributes:
+      label: cwb version
+      description: Output of `cwb --version`
+      placeholder: codex-workspace-bootstrap 0.5.0
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: Windows 11, Ubuntu 24.04, macOS 15, etc.
+    validations:
+      required: true
+
+  - type: input
+    id: finding
+    attributes:
+      label: Finding kind
+      description: The finding identifier shown by cwb, if available.
+      placeholder: package-manager-mismatch
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: Why should this repository setup be considered valid?
+    validations:
+      required: true
+
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+      description: Paste only the relevant cwb output. Remove private paths, names, or sensitive values.
+    validations:
+      required: true
+
+  - type: textarea
+    id: minimal_layout
+    attributes:
+      label: Minimal repository layout or reproduction
+      description: |
+        Prefer a small synthetic layout or public repository reference.
+        Do not paste private source code.
+      placeholder: |
+        package.json
+        pnpm-lock.yaml
+        AGENTS.md
+
+  - type: input
+    id: public_reference
+    attributes:
+      label: Public reference (optional)
+      description: Public repository, commit, or reproduction URL.
+      placeholder: https://github.com/owner/repo
+
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed credentials, secrets, and private repository contents from this report.
+          required: true
