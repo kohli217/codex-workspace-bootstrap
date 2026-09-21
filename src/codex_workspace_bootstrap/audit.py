@@ -53,6 +53,13 @@ RISK_FILENAMES = {
 }
 
 RISK_SUFFIXES = (".pem", ".p12", ".pfx", ".key")
+SAFE_ENV_TEMPLATE_NAMES = {
+    ".env.example",
+    ".env.sample",
+    ".env.template",
+    ".env.dist",
+    ".env.defaults",
+}
 
 NODE_PACKAGE_MANAGER_COMMANDS: dict[str, tuple[str, ...]] = {
     "npm": ("npm", "--version"),
@@ -169,7 +176,11 @@ def _classify_risky_paths(
 
 def _is_risky_filename(name: str) -> bool:
     lowered = name.lower()
-    return lowered in RISK_FILENAMES or lowered.endswith(RISK_SUFFIXES)
+    if lowered in RISK_FILENAMES or lowered.endswith(RISK_SUFFIXES):
+        return True
+    if lowered.startswith(".env.") and lowered not in SAFE_ENV_TEMPLATE_NAMES:
+        return True
+    return False
 
 
 def _preview(paths: list[str], limit: int = 8) -> str:
