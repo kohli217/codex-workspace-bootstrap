@@ -12,11 +12,11 @@ inputs:
     required: false
     default: "true"
   fail_on_integrity:
-    description: "Fail when AI instruction drift or invalid package scripts are detected (true or false)"
+    description: "Fail when AI instruction-integrity findings are detected (true or false)"
     required: false
     default: "false"
   sarif:
-    description: "Optional path for a SARIF 2.1.0 report"
+    description: "Optional path for a SARIF 2.1.0 report containing audit and instruction-integrity findings"
     required: false
     default: ""
 
@@ -53,19 +53,20 @@ runs:
         done
 
         report="$RUNNER_TEMP/cwb-preflight.md"
-        cwb preflight "$CWB_TARGET_PATH" --markdown "$report"
+        preflight_args=(preflight "$CWB_TARGET_PATH" --markdown "$report")
+        if [[ -n "$CWB_SARIF_PATH" ]]; then
+          preflight_args+=(--sarif "$CWB_SARIF_PATH")
+        fi
+        cwb "${preflight_args[@]}"
         cat "$report" >> "$GITHUB_STEP_SUMMARY"
 
         if [[ "$CWB_FAIL_ON_INTEGRITY" == "true" ]]; then
-          cwb preflight "$CWB_TARGET_PATH" --fail-on-drift
+          cwb preflight "$CWB_TARGET_PATH" --fail-on-integrity
         fi
 
         args=(audit)
         if [[ "$CWB_STRICT" == "true" ]]; then
           args+=(--strict)
-        fi
-        if [[ -n "$CWB_SARIF_PATH" ]]; then
-          args+=(--sarif "$CWB_SARIF_PATH")
         fi
         args+=(-- "$CWB_TARGET_PATH")
         cwb "${args[@]}"
