@@ -54,7 +54,7 @@ jobs:
               )
 
       - name: Install hash-locked build and test tools
-        run: python -m pip install --require-hashes -r .github/requirements-tools.txt
+        run: python -m pip install --require-hashes -r .github/requirements-release.txt
 
       - name: Run tests
         env:
