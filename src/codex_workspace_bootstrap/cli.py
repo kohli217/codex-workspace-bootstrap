@@ -113,7 +113,8 @@ def _run_preflight(
     print(
         f"Instruction integrity: {instruction_totals['findings']} findings, "
         f"{instruction_totals['drift']} drift, "
-        f"{instruction_totals['invalid_commands']} invalid commands"
+        f"{instruction_totals['invalid_commands']} invalid commands, "
+        f"{instruction_totals['metadata']} metadata"
     )
 
     findings = report["instruction_findings"]
