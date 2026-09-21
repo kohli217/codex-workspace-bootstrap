@@ -10,19 +10,27 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "kohli217" }]
-keywords = ["codex", "openai", "windows", "developer-tools", "cli", "oss"]
+keywords = ["codex", "openai", "windows", "developer-tools", "cli", "oss", "agents-md"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Environment :: Console",
   "License :: OSI Approved :: MIT License",
   "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Topic :: Software Development :: Quality Assurance",
+  "Topic :: Software Development :: Testing",
 ]
+
+[project.urls]
+Homepage = "https://github.com/kohli217/codex-workspace-bootstrap"
+Repository = "https://github.com/kohli217/codex-workspace-bootstrap"
+Issues = "https://github.com/kohli217/codex-workspace-bootstrap/issues"
+Changelog = "https://github.com/kohli217/codex-workspace-bootstrap/blob/main/CHANGELOG.md"
 
 [project.scripts]
 codex-workspace-bootstrap = "codex_workspace_bootstrap.cli:main"
