@@ -51,7 +51,6 @@ INSTRUCTION_DIRECTORIES: tuple[tuple[str, str], ...] = (
     ("Cline", ".clinerules"),
     ("Cline", ".cline/rules"),
     ("Continue", ".continue/rules"),
-    ("Cursor", ".cursor/rules"),
 )
 
 _EXCLUDED_PARTS = {
@@ -185,12 +184,70 @@ def _instruction_file_allowed(tool: str, path: Path) -> bool:
     if tool == "GitHub Copilot":
         return name.endswith(".instructions.md")
     if tool == "Cursor":
-        return path.suffix.lower() in {".mdc", ".md"}
+        return path.suffix.lower() == ".mdc"
     if tool == "Continue":
         return path.suffix.lower() in {".md", ".mdc"}
     if tool == "Cline":
         return path.suffix.lower() in {"", ".md", ".mdc"}
     return True
+
+
+def _combine_scope(base_scope: str, child_scope: str) -> str:
+    if child_scope == ".":
+        return base_scope
+    if base_scope == ".":
+        return child_scope
+    return posixpath.join(base_scope, child_scope)
+
+
+def _cursor_rule_signals(root: Path) -> list[InstructionSignal]:
+    found: list[InstructionSignal] = []
+
+    cursor_dirs = [
+        path
+        for path in root.rglob(".cursor")
+        if path.is_dir()
+        and not any(part in _EXCLUDED_PARTS for part in path.relative_to(root).parts)
+    ]
+
+    for cursor_dir in sorted(cursor_dirs):
+        rules_dir = cursor_dir / "rules"
+        if not rules_dir.is_dir():
+            continue
+
+        base_dir = cursor_dir.parent
+        base_rel = base_dir.relative_to(root).as_posix()
+        base_scope = "." if base_rel == "." else base_rel
+
+        for path in sorted(rules_dir.rglob("*")):
+            if not path.is_file() or not _instruction_file_allowed("Cursor", path):
+                continue
+
+            text = _safe_read(path)
+            glob_scope, has_glob_scope = _scope_metadata(text)
+            always_apply = _frontmatter_value(text, ("alwaysApply",))
+            always = bool(always_apply and always_apply.strip().lower() == "true")
+
+            if has_glob_scope:
+                scope = _combine_scope(base_scope, glob_scope)
+                kind = "path-specific"
+            elif always:
+                scope = base_scope
+                kind = "repository"
+            else:
+                scope = base_scope
+                kind = "conditional"
+
+            found.append(
+                InstructionSignal(
+                    "Cursor",
+                    path.relative_to(root).as_posix(),
+                    scope,
+                    kind,
+                )
+            )
+
+    return found
 
 
 def detect_instruction_signals(root: Path) -> list[InstructionSignal]:
@@ -199,6 +256,12 @@ def detect_instruction_signals(root: Path) -> list[InstructionSignal]:
     seen: set[tuple[str, str]] = set()
 
     for signal in _agent_signals(root):
+        key = (signal.tool, signal.path)
+        if key not in seen:
+            found.append(signal)
+            seen.add(key)
+
+    for signal in _cursor_rule_signals(root):
         key = (signal.tool, signal.path)
         if key not in seen:
             found.append(signal)
@@ -418,7 +481,7 @@ def _same_scope_groups(
         # the full selector semantics, comparing them as peers would create
         # false drift findings. Validate them individually against repository
         # evidence, but exclude them from cross-file drift groups.
-        if signal.kind == "path-specific":
+        if signal.kind not in {"repository", "override"}:
             continue
 
         groups.setdefault(signal.scope, {})[path] = items
