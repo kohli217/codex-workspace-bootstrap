@@ -76,14 +76,14 @@ It does not claim these files are correct merely because they exist. It tells yo
 
 ### Cross-agent instruction integrity
 
-When multiple AI instruction files exist, `cwb` reads executable-looking commands and checks them against repository evidence. It can flag:
+When multiple AI instruction files exist, `cwb` reads executable-looking commands and checks them against repository evidence. It understands nested `AGENTS.md` / `AGENTS.override.md` scope and common path-specific frontmatter such as Copilot `applyTo` and rule `globs`. It can flag:
 
 - package-manager mismatches against `packageManager` and lockfiles;
 - cross-agent package-manager drift;
 - missing `package.json` scripts referenced by instructions;
 - conflicting test/lint/build validation commands when instruction files have no shared command for the same validation family.
 
-The lint is intentionally conservative: different files may contain additional commands without being treated as conflicts when they share a compatible validation baseline.
+The lint is intentionally conservative: different files may contain additional commands without being treated as conflicts when they share a compatible validation baseline. Commands from different scopes are not compared as if they were global rules. A repository is not marked READY when it only has nested/path-specific instructions and no repository-wide instruction baseline.
 
 ### Risk signals
 
