@@ -17,7 +17,7 @@ from .sarif import checks_to_sarif, preflight_report_to_sarif
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="codex-workspace-bootstrap",
-        description="Audit and bootstrap repositories for reliable Codex workflows.",
+        description="Preflight AI coding repositories for readiness, instruction integrity, and CI enforcement.",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
