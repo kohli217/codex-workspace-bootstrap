@@ -337,3 +337,45 @@ def test_path_specific_rules_with_same_static_prefix_are_not_cross_compared(tmp_
     findings = lint_instructions(tmp_path)
 
     assert not any(item.kind == "validation-command-drift" for item in findings)
+
+
+def test_nested_cursor_rules_preserve_directory_scope(tmp_path: Path) -> None:
+    rules = tmp_path / "backend" / "server" / ".cursor" / "rules"
+    rules.mkdir(parents=True)
+    (rules / "always.mdc").write_text(
+        "---\nalwaysApply: true\nglobs:\n---\nUse §just test§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+    (rules / "python.mdc").write_text(
+        "---\nalwaysApply: false\nglobs: **/*.py\n---\nUse §python -m pytest§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+    (rules / "manual.mdc").write_text(
+        "---\nalwaysApply: false\nglobs:\ndescription: Manual helper\n---\nUse §just lint§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+
+    signals = detect_instruction_signals(tmp_path)
+    by_name = {Path(item.path).name: item for item in signals if item.tool == "Cursor"}
+
+    assert by_name["always.mdc"].scope == "backend/server"
+    assert by_name["always.mdc"].kind == "repository"
+    assert by_name["python.mdc"].scope == "backend/server"
+    assert by_name["python.mdc"].kind == "path-specific"
+    assert by_name["manual.mdc"].scope == "backend/server"
+    assert by_name["manual.mdc"].kind == "conditional"
+
+
+def test_cursor_rules_ignore_non_mdc_files(tmp_path: Path) -> None:
+    rules = tmp_path / ".cursor" / "rules"
+    rules.mkdir(parents=True)
+    (rules / "README.md").write_text("documentation only\n", encoding="utf-8")
+    (rules / "rule.mdc").write_text(
+        "---\nalwaysApply: true\n---\nUse repository rules.\n",
+        encoding="utf-8",
+    )
+
+    paths = {item.path for item in detect_instruction_signals(tmp_path)}
+
+    assert ".cursor/rules/rule.mdc" in paths
+    assert ".cursor/rules/README.md" not in paths
