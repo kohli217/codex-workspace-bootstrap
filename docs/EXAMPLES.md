@@ -1,62 +1,80 @@
 # Examples
 
-## 30-second repository audit
-
-Install the pinned v0.2.0 wheel:
+## One-command AI repository preflight
 
 ```powershell
-py -m pip install "https://github.com/kohli217/codex-workspace-bootstrap/releases/download/v0.2.0/codex_workspace_bootstrap-0.2.0-py3-none-any.whl"
-```
-
-Then run:
-
-```powershell
-codex-workspace-bootstrap audit .
+py -m pip install codex-workspace-bootstrap
+cwb preflight .
 ```
 
 Typical output:
 
 ```text
+AI Repository Preflight
 Repository: C:\work\my-project
-[PASS] git-repository: Git repository detected
-[PASS] readme: README detected: README.md
-[WARN] agents: AGENTS.md not found; run init-agents
-[PASS] git: git version ...
-[WARN] codex: codex command not found
-[PASS] secret-risk-files: No common secret-bearing filenames detected
-Summary: ... passed, ... warnings, 0 blocking
+State: NEEDS ATTENTION
+Project: Python
+AI instructions: none detected
+Audit: 10 passed, 4 warnings, 0 blocking
+Next actions:
+  [P1] Add repository instructions for AI coding agents -> cwb init-agents .
 ```
 
-Warnings are informational unless a check is marked blocking.
-
-## Generate Codex project instructions
+## Generate a reviewable Markdown report
 
 ```powershell
-codex-workspace-bootstrap init-agents .
+cwb preflight . --markdown preflight.md
 ```
 
-The generated `AGENTS.md` adapts to observable project signals such as `pyproject.toml`, a `tests/` directory, or `package.json`. Existing `AGENTS.md` files are not overwritten unless `--force` is explicitly supplied.
+Use the report in a pull request, issue, or maintainer review.
 
-## CI gate
+## Detect existing AI instruction coverage
 
-Use strict mode when you want tracked high-risk filenames to fail a build:
+The preflight detects known repository instruction/config signals such as:
+
+```text
+AGENTS.md
+.github/copilot-instructions.md
+.github/instructions/*
+.clinerules
+.cline/rules/*
+CLAUDE.md
+GEMINI.md
+.continue/rules/*
+.cursorrules
+.cursor/rules/*
+```
+
+Detection means "present", not "correct"; maintainers should still review the files.
+
+## Generate project-aware AGENTS.md
 
 ```powershell
-codex-workspace-bootstrap audit . --strict
+cwb init-agents .
 ```
 
-A tracked filename such as `.env` or a private-key-like file can become a blocking finding. The tool does not read or print the file contents.
+The generator uses observable repository evidence and separates unconfirmed validation commands for review.
 
-## Machine-readable report
+## Detailed audit and CI gate
 
 ```powershell
-codex-workspace-bootstrap audit . --json audit-report.json
+cwb audit .
+cwb audit . --strict
 ```
 
-The report includes each check and a summary, making it suitable for wrappers and maintainer automation.
+Tracked secret-risk filenames can become blocking. File contents are not printed by this check.
 
-## Check installed version
+## JSON and SARIF
 
 ```powershell
-codex-workspace-bootstrap --version
+cwb preflight . --json preflight.json
+cwb audit . --sarif audit.sarif
 ```
+
+## Doctor
+
+```powershell
+cwb doctor .
+```
+
+Doctor prints remediation guidance without installing software or changing system configuration.
