@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import posixpath
 import re
+import shlex
 
 
 @dataclass(frozen=True)
@@ -608,26 +609,68 @@ def _manager_for_command(command: str) -> str | None:
     return match.group(1).lower() if match else None
 
 
+_PACKAGE_OPTIONS_WITH_VALUE = {
+    "--filter",
+    "-F",
+    "--workspace",
+    "-w",
+    "--prefix",
+    "--dir",
+    "-C",
+    "--cwd",
+}
+
+
+def _package_command_tokens(command: str) -> list[str]:
+    try:
+        return shlex.split(command, posix=True)
+    except ValueError:
+        return command.split()
+
+
 def _script_for_command(command: str) -> tuple[str, str] | None:
-    match = _SCRIPT_COMMAND.match(command.strip())
-    if not match:
-        return None
-    manager = (match.group(1) or "yarn").lower()
-    script = match.group(2) or match.group(3)
-    if not script or script in {"install", "ci", "exec", "dlx"}:
+    tokens = _package_command_tokens(command.strip())
+    if not tokens:
         return None
 
-    # Be conservative with workspace/filter/prefix style commands. The first
-    # token after the package manager may be an option rather than a script,
-    # for example:
-    #   pnpm --filter web test
-    #   npm --workspace app run test
-    #   pnpm -C apps/web test
-    #
-    # Treating that option as a script creates false missing-script findings.
-    # Until full option parsing is implemented, skip script validation for
-    # commands whose apparent script begins with a dash.
-    if script.startswith("-"):
+    manager = tokens[0].lower()
+    if manager not in {"npm", "pnpm", "yarn", "bun"}:
+        return None
+
+    index = 1
+    while index < len(tokens):
+        token = tokens[index]
+        if token in _PACKAGE_OPTIONS_WITH_VALUE:
+            index += 2
+            continue
+        if any(token.startswith(f"{option}=") for option in _PACKAGE_OPTIONS_WITH_VALUE if option.startswith("--")):
+            index += 1
+            continue
+        if token.startswith("-"):
+            index += 1
+            continue
+        break
+
+    if index >= len(tokens):
+        return None
+
+    if manager == "yarn" and tokens[index] == "workspace":
+        index += 2
+        if index >= len(tokens):
+            return None
+
+    if tokens[index] in {"run", "run-script"}:
+        index += 1
+        while index < len(tokens) and tokens[index].startswith("-"):
+            if tokens[index] in _PACKAGE_OPTIONS_WITH_VALUE:
+                index += 2
+            else:
+                index += 1
+        if index >= len(tokens):
+            return None
+
+    script = tokens[index]
+    if script in {"install", "ci", "exec", "dlx", "workspace"}:
         return None
 
     return manager, script
