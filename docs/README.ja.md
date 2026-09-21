@@ -74,14 +74,14 @@ pyproject.toml、pytest設定、package.jsonのscript名、READMEに書かれた
 
 ## GitHub Actions
 
-GitHub Marketplaceの再利用可能Actionとして利用できます。v0.5.0ではpreflight MarkdownレポートがGitHub Actionsの**Job Summary**に表示されます。
+GitHub Marketplaceの再利用可能Actionとして利用できます。preflight MarkdownレポートはGitHub Actionsの**Job Summary**に表示されます。
 
 ```yaml
-- uses: actions/checkout@v7
-- uses: actions/setup-python@v7
+- uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+- uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
   with:
     python-version: "3.13"
-- uses: kohli217/codex-workspace-bootstrap@v0.5.0
+- uses: kohli217/codex-workspace-bootstrap@v0.5.2
   with:
     path: .
     strict: "true"
