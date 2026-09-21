@@ -76,7 +76,7 @@ It does not claim these files are correct merely because they exist. It tells yo
 
 ### Cross-agent instruction integrity
 
-When multiple AI instruction files exist, `cwb` reads executable-looking commands and checks them against repository evidence. It understands nested `AGENTS.md` / `AGENTS.override.md` scope and common path-specific frontmatter such as Copilot `applyTo` and rule `globs`. It can flag:
+When multiple AI instruction files exist, `cwb` reads executable-looking commands and checks them against repository evidence. It understands nested `AGENTS.md` / `AGENTS.override.md`, nested Cursor `.cursor/rules`, and common path-specific frontmatter such as Copilot `applyTo` and rule `globs`. It can flag:
 
 - package-manager mismatches against `packageManager` and lockfiles;
 - cross-agent package-manager drift;
