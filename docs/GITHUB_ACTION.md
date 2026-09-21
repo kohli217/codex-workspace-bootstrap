@@ -23,7 +23,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - uses: kohli217/codex-workspace-bootstrap@v0.1.0
+      - uses: kohli217/codex-workspace-bootstrap@v0.2.0
         with:
           path: .
           strict: "true"
@@ -47,4 +47,4 @@ The action does not upload repository contents or secret-file contents.
 
 ## Pinning
 
-For reproducible CI, use a release tag such as `@v0.1.0` rather than `@main`. Review release notes before upgrading.
+For reproducible CI, use a release tag such as `@v0.2.0` rather than `@main`. Review release notes before upgrading.
