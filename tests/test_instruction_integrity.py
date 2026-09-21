@@ -139,3 +139,112 @@ def test_detect_instruction_signals_deduplicates_clinerules_file(tmp_path: Path)
     signals = detect_instruction_signals(tmp_path)
 
     assert [(item.tool, item.path) for item in signals].count(("Cline", ".clinerules")) == 1
+
+
+def test_nested_agents_scope_and_override_precedence(tmp_path: Path) -> None:
+    (tmp_path / "AGENTS.md").write_text("root\n", encoding="utf-8")
+    nested = tmp_path / "services" / "payments"
+    nested.mkdir(parents=True)
+    (nested / "AGENTS.md").write_text("nested\n", encoding="utf-8")
+    (nested / "AGENTS.override.md").write_text("override\n", encoding="utf-8")
+
+    signals = detect_instruction_signals(tmp_path)
+    pairs = {(item.path, item.scope, item.kind) for item in signals}
+
+    assert ("AGENTS.md", ".", "repository") in pairs
+    assert ("services/payments/AGENTS.override.md", "services/payments", "override") in pairs
+    assert not any(item.path == "services/payments/AGENTS.md" for item in signals)
+
+
+def test_path_specific_frontmatter_sets_scope(tmp_path: Path) -> None:
+    instructions = tmp_path / ".github" / "instructions"
+    instructions.mkdir(parents=True)
+    (instructions / "python.instructions.md").write_text(
+        "---\napplyTo: \"services/api/**/*.py\"\n---\nRun §python -m pytest§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+
+    signals = detect_instruction_signals(tmp_path)
+    signal = next(item for item in signals if item.path.endswith("python.instructions.md"))
+
+    assert signal.scope == "services/api"
+    assert signal.kind == "path-specific"
+
+
+def test_continue_globs_sets_scope(tmp_path: Path) -> None:
+    rules = tmp_path / ".continue" / "rules"
+    rules.mkdir(parents=True)
+    (rules / "intellij.md").write_text(
+        "---\nglobs: extensions/intellij/**/*Test.kt\nalwaysApply: false\n---\n"
+        "Run §./gradlew test§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+
+    signal = next(
+        item
+        for item in detect_instruction_signals(tmp_path)
+        if item.path.endswith("intellij.md")
+    )
+
+    assert signal.scope == "extensions/intellij"
+
+
+def test_different_scopes_do_not_create_validation_drift(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"scripts": {"test": "vitest", "test:unit": "vitest run"}}),
+        encoding="utf-8",
+    )
+    root = "Run §npm test§.\n".replace("§", "`")
+    (tmp_path / "AGENTS.md").write_text(root, encoding="utf-8")
+
+    instructions = tmp_path / ".github" / "instructions"
+    instructions.mkdir(parents=True)
+    (instructions / "api.instructions.md").write_text(
+        "---\napplyTo: \"services/api/**\"\n---\nRun §npm run test:unit§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "validation-command-drift" for item in findings)
+
+
+def test_nested_scope_uses_nearest_package_manager_evidence(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"packageManager": "npm@11", "scripts": {"test": "vitest"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "package-lock.json").write_text("{}", encoding="utf-8")
+
+    app = tmp_path / "apps" / "web"
+    app.mkdir(parents=True)
+    (app / "package.json").write_text(
+        json.dumps({"packageManager": "pnpm@10", "scripts": {"test": "vitest"}}),
+        encoding="utf-8",
+    )
+    (app / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    (app / "AGENTS.md").write_text("Run §pnpm test§.\n".replace("§", "`"), encoding="utf-8")
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "package-manager-mismatch" for item in findings)
+
+
+def test_broader_validation_commands_are_recognized() -> None:
+    text = """
+§§§bash
+uv run pytest -q
+just test
+./gradlew test
+./mvnw test
+dotnet test
+§§§
+""".replace("§", "`")
+
+    commands = extract_commands(text)
+
+    assert "uv run pytest -q" in commands
+    assert "just test" in commands
+    assert "./gradlew test" in commands
+    assert "./mvnw test" in commands
+    assert "dotnet test" in commands
