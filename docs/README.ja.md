@@ -25,7 +25,7 @@ preflightは、次に何をすべきかをP0/P1/P2の優先度付きで表示し
 
 - Git repository / README / LICENSE / .gitignore
 - pyproject.toml / package.json などのproject manifest
-- Git / Python / Node.js / npm / PowerShell / WSL / Codex
+- Git / Python / Node.js / Repoで選択されたpackage manager / PowerShell / WSL / Codex
 - AGENTS.md
 - GitHub Copilot repository instructions
 - Cline / Claude Code / Gemini CLI / Continue / Cursor系の指示ファイル
