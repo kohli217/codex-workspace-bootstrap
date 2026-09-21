@@ -19,11 +19,27 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
-      - name: Run local action in strict mode
+      - name: Run local action in strict mode with SARIF output
         uses: ./
         with:
           path: .
           strict: "true"
+          sarif: action-report.sarif
+      - name: Validate SARIF file
+        shell: python
+        run: |
+          import json
+          from pathlib import Path
+
+          report = Path("action-report.sarif")
+          if not report.exists():
+              raise SystemExit("SARIF report was not created")
+          data = json.loads(report.read_text(encoding="utf-8"))
+          if data.get("version") != "2.1.0":
+              raise SystemExit("Unexpected SARIF version")
+          driver = data["runs"][0]["tool"]["driver"]
+          if driver.get("name") != "codex-workspace-bootstrap":
+              raise SystemExit("Unexpected SARIF tool name")
