@@ -61,7 +61,7 @@ cwb preflight . --json preflight.json
 SARIF:
 
 ```powershell
-cwb audit . --sarif audit.sarif
+cwb preflight . --sarif preflight.sarif
 ```
 
 ## AGENTS.md生成
@@ -85,6 +85,7 @@ GitHub Marketplaceの再利用可能Actionとして利用できます。v0.5.0�
   with:
     path: .
     strict: "true"
+    fail_on_integrity: "true"
 ```
 
 ## 他ツールとの役割分担
@@ -101,6 +102,7 @@ GitHub Marketplaceの再利用可能Actionとして利用できます。v0.5.0�
 - コア監査はローカル
 - secret-risk候補の中身を表示しない
 - Repo内容をコア監査から外部AIサービスへ送らない
+- AI指示ファイルはローカルで解析するが、抽出したコマンドは実行しない
 - 既存AGENTS.mdを勝手に上書きしない
 - PASSは安全性の保証ではない
 
