@@ -135,6 +135,22 @@ def next_actions(
             for check in checks
             if check.name in {"npm", "pnpm", "yarn", "bun"}
         ]
+        evidence = _check_by_name(checks, "package-manager-evidence")
+        if evidence is not None and evidence.status != "pass":
+            priority = "P1" if len(manager_checks) > 1 else "P2"
+            title = (
+                "Resolve conflicting repository package-manager evidence"
+                if len(manager_checks) > 1
+                else "Confirm the repository package manager"
+            )
+            actions.append(
+                NextAction(
+                    priority,
+                    title,
+                    reason=evidence.message,
+                )
+            )
+
         if len(manager_checks) == 1:
             manager = manager_checks[0]
             if manager.status != "pass":
@@ -144,16 +160,6 @@ def next_actions(
                         f"Restore the Node.js/{manager.name} toolchain required by this repository",
                         command=f"{manager.name} --version",
                         reason=manager.message,
-                    )
-                )
-        elif not manager_checks:
-            evidence = _check_by_name(checks, "package-manager-evidence")
-            if evidence is not None and evidence.status != "pass":
-                actions.append(
-                    NextAction(
-                        "P2",
-                        "Confirm the repository package manager",
-                        reason=evidence.message,
                     )
                 )
 
