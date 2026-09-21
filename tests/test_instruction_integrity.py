@@ -722,3 +722,92 @@ def test_apply_fix_plan_does_not_write_through_symlink_target(tmp_path: Path, mo
 
     assert applied == []
     assert not target.exists()
+
+
+def test_pnpm_filter_command_validates_real_script_name(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps(
+            {
+                "packageManager": "pnpm@10",
+                "scripts": {"test": "vitest"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    (tmp_path / "AGENTS.md").write_text(
+        "Run §pnpm --filter web run lint§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    missing = [item for item in findings if item.kind == "missing-package-script"]
+    assert len(missing) == 1
+    assert "lint" in missing[0].message
+
+
+def test_pnpm_directory_flag_validates_real_script_name(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps(
+            {
+                "packageManager": "pnpm@10",
+                "scripts": {"test": "vitest"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    (tmp_path / "AGENTS.md").write_text(
+        "Run §pnpm -C apps/web test§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
+
+def test_npm_workspace_flag_validates_real_script_name(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps(
+            {
+                "packageManager": "npm@11",
+                "scripts": {"test": "vitest"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "package-lock.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "AGENTS.md").write_text(
+        "Run §npm --workspace app run lint§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    missing = [item for item in findings if item.kind == "missing-package-script"]
+    assert len(missing) == 1
+    assert "lint" in missing[0].message
+
+
+def test_yarn_workspace_command_validates_real_script_name(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps(
+            {
+                "packageManager": "yarn@4",
+                "scripts": {"test": "vitest"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "yarn.lock").write_text("", encoding="utf-8")
+    (tmp_path / "AGENTS.md").write_text(
+        "Run §yarn workspace web test§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+    assert not any(item.kind == "package-manager-mismatch" for item in findings)
