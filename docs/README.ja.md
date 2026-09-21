@@ -62,6 +62,14 @@ v0.3.0の再利用可能ActionはGitHub Marketplaceで公開済みです。第�
 
 詳しくは [GITHUB_ACTION.md](GITHUB_ACTION.md) を参照してください。
 
+## doctorコマンド
+
+```powershell
+codex-workspace-bootstrap doctor .
+```
+
+監査で見つかった警告に対して、Windowsを意識した非破壊の確認・改善ガイダンスを表示します。ソフトウェアのインストールやシステム設定変更は自動実行しません。
+
 ## CIで使う
 
 ```powershell
