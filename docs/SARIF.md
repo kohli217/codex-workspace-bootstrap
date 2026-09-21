@@ -40,7 +40,7 @@ jobs:
       - name: Install codex-workspace-bootstrap
         run: >-
           python -m pip install
-          "https://github.com/kohli217/codex-workspace-bootstrap/releases/download/v0.2.0/codex_workspace_bootstrap-0.2.0-py3-none-any.whl"
+          "https://github.com/kohli217/codex-workspace-bootstrap/releases/download/v0.3.0/codex_workspace_bootstrap-0.3.0-py3-none-any.whl"
 
       - name: Generate SARIF
         run: codex-workspace-bootstrap audit . --sarif codex-workspace-bootstrap.sarif
