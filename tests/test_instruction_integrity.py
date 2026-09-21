@@ -248,3 +248,52 @@ dotnet test
     assert "./gradlew test" in commands
     assert "./mvnw test" in commands
     assert "dotnet test" in commands
+
+
+def test_copilot_instruction_directory_ignores_unrelated_files(tmp_path: Path) -> None:
+    directory = tmp_path / ".github" / "instructions"
+    directory.mkdir(parents=True)
+    (directory / "README.md").write_text("not an instruction\n", encoding="utf-8")
+    (directory / "python.instructions.md").write_text(
+        "---\napplyTo: \"**/*.py\"\n---\nRun §python -m pytest§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+
+    paths = {item.path for item in detect_instruction_signals(tmp_path)}
+
+    assert ".github/instructions/python.instructions.md" in paths
+    assert ".github/instructions/README.md" not in paths
+
+
+def test_missing_copilot_applyto_is_reported(tmp_path: Path) -> None:
+    directory = tmp_path / ".github" / "instructions"
+    directory.mkdir(parents=True)
+    (directory / "python.instructions.md").write_text(
+        "Run §python -m pytest§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert any(item.kind == "missing-scope-metadata" for item in findings)
+
+
+def test_conflicting_package_manager_evidence_is_reported_once_per_scope(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps(
+            {
+                "packageManager": "pnpm@10",
+                "scripts": {"test": "vitest"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "package-lock.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "AGENTS.md").write_text("Run §pnpm test§.\n".replace("§", "`"), encoding="utf-8")
+    (tmp_path / "CLAUDE.md").write_text("Run §pnpm test§.\n".replace("§", "`"), encoding="utf-8")
+
+    findings = lint_instructions(tmp_path)
+    conflicts = [item for item in findings if item.kind == "package-manager-evidence-conflict"]
+
+    assert len(conflicts) == 1
+    assert set(conflicts[0].evidence) == {"npm", "pnpm"}
