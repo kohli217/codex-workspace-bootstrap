@@ -133,3 +133,23 @@ def test_root_prefix_path_specific_rule_is_not_repository_wide() -> None:
     )
 
     assert readiness_state(checks, [path_rule]) == "NEEDS ATTENTION"
+
+
+def test_conditional_cursor_rule_is_not_repository_wide_baseline() -> None:
+    from codex_workspace_bootstrap.preflight import InstructionSignal
+
+    checks = [
+        Check("git-repository", "pass", "ok"),
+        Check("readme", "pass", "ok"),
+        Check("gitignore", "pass", "ok"),
+        Check("project-manifest", "pass", "ok"),
+    ]
+
+    conditional = InstructionSignal(
+        "Cursor",
+        ".cursor/rules/manual.mdc",
+        ".",
+        "conditional",
+    )
+
+    assert readiness_state(checks, [conditional]) == "NEEDS ATTENTION"
