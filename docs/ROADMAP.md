@@ -3,7 +3,6 @@
 ## Tracked next steps
 
 - [#19 — Add Windows doctor command with non-destructive remediation guidance](https://github.com/kohli217/codex-workspace-bootstrap/issues/19)
-- [#20 — Validate generated AGENTS.md against repository scripts and docs](https://github.com/kohli217/codex-workspace-bootstrap/issues/20)
 
 This roadmap records intended work; it is not a promise of delivery dates.
 
