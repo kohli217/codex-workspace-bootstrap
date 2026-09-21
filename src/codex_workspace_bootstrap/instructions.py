@@ -216,6 +216,19 @@ def _agent_signals(root: Path) -> list[InstructionSignal]:
     return found
 
 
+def _claude_signals(root: Path) -> list[InstructionSignal]:
+    found: list[InstructionSignal] = []
+    for directory, _dirnames, filenames in _walk_repository(root):
+        if "CLAUDE.md" not in filenames:
+            continue
+        path = directory / "CLAUDE.md"
+        rel = path.relative_to(root).as_posix()
+        scope_path = directory.relative_to(root).as_posix()
+        scope = "." if scope_path == "." else scope_path
+        found.append(InstructionSignal("Claude Code", rel, scope, "repository"))
+    return found
+
+
 def _instruction_file_allowed(tool: str, path: Path) -> bool:
     name = path.name.lower()
     if name in {"readme", "readme.md", "readme.txt", "license", "license.md"}:
@@ -296,6 +309,12 @@ def detect_instruction_signals(root: Path) -> list[InstructionSignal]:
     seen: set[tuple[str, str]] = set()
 
     for signal in _agent_signals(root):
+        key = (signal.tool, signal.path)
+        if key not in seen:
+            found.append(signal)
+            seen.add(key)
+
+    for signal in _claude_signals(root):
         key = (signal.tool, signal.path)
         if key not in seen:
             found.append(signal)
