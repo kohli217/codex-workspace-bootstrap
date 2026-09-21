@@ -33,7 +33,7 @@ The project targets a real repository-readiness problem around Windows and Windo
 
 ## PyPI installation
 
-Once the trusted publisher is configured, released versions can be installed with:
+After the first successful Trusted Publishing run, released versions can be installed with:
 
 ```powershell
 py -m pip install codex-workspace-bootstrap
