@@ -65,6 +65,8 @@ The recommended quick start installs a specific published wheel so users can see
 
 ## GitHub Action
 
+The v0.3.0 reusable Action is published on GitHub Marketplace for third-party discovery and installation.
+
 Use the tool directly in an OSS repository workflow:
 
 ```yaml
