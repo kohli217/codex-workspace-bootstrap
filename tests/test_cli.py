@@ -1,4 +1,8 @@
 from pathlib import Path
+import shutil
+import subprocess
+
+import pytest
 
 from codex_workspace_bootstrap.cli import main
 
@@ -22,3 +26,18 @@ def test_audit_writes_json(tmp_path: Path) -> None:
     code = main(["audit", str(tmp_path), "--json", str(report)])
     assert code == 0
     assert report.exists()
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="git is required")
+def test_strict_mode_fails_for_tracked_secret_risk_file(tmp_path: Path) -> None:
+    subprocess.run(("git", "-C", str(tmp_path), "init"), check=True, capture_output=True, text=True)
+    (tmp_path / ".env").write_text("EXAMPLE=not-a-secret\n", encoding="utf-8")
+    subprocess.run(
+        ("git", "-C", str(tmp_path), "add", "-f", ".env"),
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    code = main(["audit", str(tmp_path), "--strict"])
+    assert code == 1
