@@ -91,19 +91,19 @@ runs:
 
         if [[ -f "$json_report" ]]; then
           CWB_JSON_REPORT="$json_report" python - <<'PY'
-import json
-import os
-from pathlib import Path
+        import json
+        import os
+        from pathlib import Path
 
-report = json.loads(Path(os.environ["CWB_JSON_REPORT"]).read_text(encoding="utf-8"))
-summary = report.get("summary", {})
-instruction_summary = report.get("instruction_summary", {})
-with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-    print(f"state={report.get('state', '')}", file=output)
-    print(f"instruction_findings={instruction_summary.get('findings', 0)}", file=output)
-    print(f"blocking={summary.get('blocking', 0)}", file=output)
-    print(f"warnings={summary.get('warnings', 0)}", file=output)
-PY
+        report = json.loads(Path(os.environ["CWB_JSON_REPORT"]).read_text(encoding="utf-8"))
+        summary = report.get("summary", {})
+        instruction_summary = report.get("instruction_summary", {})
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+            print(f"state={report.get('state', '')}", file=output)
+            print(f"instruction_findings={instruction_summary.get('findings', 0)}", file=output)
+            print(f"blocking={summary.get('blocking', 0)}", file=output)
+            print(f"warnings={summary.get('warnings', 0)}", file=output)
+        PY
         fi
 
         exit "$status"
