@@ -9,7 +9,7 @@ All notable changes to this project will be documented here.
 - Repository-evidence validation using packageManager, lockfiles, and package.json scripts.
 - Detection for package-manager mismatch/drift, invalid referenced scripts, and conflicting validation commands.
 - `cwb fix .` safe preview with explicit `--apply` for low-risk supported fixes only.
-- `--fail-on-drift` CLI policy and `fail_on_drift` GitHub Action input.
+- `--fail-on-integrity` CLI policy and `fail_on_integrity` GitHub Action input.
 - Instruction integrity metrics in CLI, JSON, Markdown, and GitHub Actions Job Summary.
 - Reproducible read-only evaluations of public repositories.
 - Scope-aware discovery for nested `AGENTS.md` / `AGENTS.override.md`.
