@@ -84,7 +84,7 @@ Doctor prints remediation guidance without installing software or changing syste
 ## Cross-agent instruction lint
 
 ```powershell
-cwb preflight . --fail-on-drift
+cwb preflight . --fail-on-integrity
 ```
 
 The command exits non-zero when package-manager drift, validation-command drift, or invalid referenced package scripts are detected.
