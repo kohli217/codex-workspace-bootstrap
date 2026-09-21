@@ -17,7 +17,7 @@ Windows上の既存リポジトリを、Codexで扱いやすい状態に診断�
 
 ## PyPIからのインストール
 
-Trusted Publishing設定後は、公開済みバージョンを次のコマンドで導入できます。
+Trusted Publishingで初回公開が成功した後は、公開済みバージョンを次のコマンドで導入できます。
 
 ```powershell
 py -m pip install codex-workspace-bootstrap
