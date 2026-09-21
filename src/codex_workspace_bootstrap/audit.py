@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from pathlib import Path
+import os
 import shutil
 import subprocess
 from typing import Iterable
@@ -81,12 +82,30 @@ def _tool_check(label: str, command: tuple[str, ...]) -> Check:
 
 
 def _iter_project_files(root: Path) -> Iterable[Path]:
-    excluded = {".git", ".venv", "venv", "node_modules", "__pycache__"}
-    for path in root.rglob("*"):
-        if any(part in excluded for part in path.parts):
-            continue
-        if path.is_file():
-            yield path
+    excluded = {
+        ".git",
+        ".venv",
+        "venv",
+        "node_modules",
+        "__pycache__",
+        ".pytest_cache",
+        ".mypy_cache",
+        ".ruff_cache",
+        ".tox",
+        ".nox",
+        "dist",
+        "build",
+    }
+
+    for current, dirnames, filenames in os.walk(root, followlinks=False):
+        current_path = Path(current)
+        dirnames[:] = [
+            name
+            for name in dirnames
+            if name not in excluded and not (current_path / name).is_symlink()
+        ]
+        for filename in filenames:
+            yield current_path / filename
 
 
 def _git_matches(root: Path, args: tuple[str, ...]) -> bool:
