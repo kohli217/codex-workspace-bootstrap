@@ -192,3 +192,27 @@ def test_next_actions_asks_to_confirm_package_manager_when_unproven() -> None:
 
     assert any(item.title == "Confirm the repository package manager" for item in actions)
     assert not any(item.command and item.command.endswith("--version") for item in actions)
+
+
+def test_next_actions_prioritizes_conflicting_package_manager_evidence() -> None:
+    checks = [
+        Check(
+            "package-manager-evidence",
+            "warn",
+            "Conflicting Node.js package-manager evidence detected: npm, pnpm",
+        ),
+        Check("npm", "pass", "available"),
+        Check("pnpm", "pass", "available"),
+    ]
+
+    actions = next_actions(
+        checks,
+        [],
+        ["Node.js"],
+    )
+
+    assert any(
+        item.priority == "P1"
+        and item.title == "Resolve conflicting repository package-manager evidence"
+        for item in actions
+    )
