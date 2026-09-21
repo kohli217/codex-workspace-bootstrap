@@ -129,5 +129,5 @@ GitHub Actionでは `fail_on_integrity: "true"` を指定します。
 - rootのrepository-wide指示と、特定ディレクトリ向けの指示を区別します。
 - Codexのnested `AGENTS.md` / `AGENTS.override.md` を検出します。
 - path-specific instructionの `applyTo` / `globs` から静的なscope prefixを推定します。
-- 同一scopeの指示同士を中心にdrift比較します。
+- repository-wide / nested指示は同一scopeを中心にdrift比較します。path-specific ruleはRepo根拠との個別検証は行いますが、selector全体の意味を安全に保持できないため相互drift比較から除外します。
 - path-specific / nested指示しかなくrepository-wide baselineがない場合はREADYにしません。
