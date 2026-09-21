@@ -171,6 +171,23 @@ def build_preflight(root: Path) -> dict[str, object]:
     checks = audit_repository(root)
     instructions = detect_instruction_signals(root)
     instruction_findings = lint_instructions(root, instructions)
+
+    root_manager_conflict = any(
+        check.name == "package-manager-evidence"
+        and check.status != "pass"
+        and check.message.startswith("Conflicting Node.js package-manager evidence")
+        for check in checks
+    )
+    if root_manager_conflict:
+        instruction_findings = [
+            finding
+            for finding in instruction_findings
+            if not (
+                finding.kind == "package-manager-evidence-conflict"
+                and finding.scope == "."
+            )
+        ]
+
     instruction_totals = finding_summary(instruction_findings)
     projects = detect_project_signals(root)
     totals = summary(checks)
