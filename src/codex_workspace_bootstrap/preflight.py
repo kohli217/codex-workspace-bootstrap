@@ -6,15 +6,13 @@ from pathlib import Path
 from .agents import detect_project_signals
 from .audit import Check, audit_repository, summary
 from .doctor import doctor_findings
-
-
-@dataclass(frozen=True)
-class InstructionSignal:
-    tool: str
-    path: str
-
-    def to_dict(self) -> dict[str, str]:
-        return asdict(self)
+from .instructions import (
+    InstructionFinding,
+    InstructionSignal,
+    detect_instruction_signals,
+    finding_summary,
+    lint_instructions,
+)
 
 
 @dataclass(frozen=True)
@@ -28,23 +26,6 @@ class NextAction:
         return asdict(self)
 
 
-EXACT_INSTRUCTION_FILES: tuple[tuple[str, str], ...] = (
-    ("Codex / OpenAI agents", "AGENTS.md"),
-    ("GitHub Copilot", ".github/copilot-instructions.md"),
-    ("Cline", ".clinerules"),
-    ("Claude Code", "CLAUDE.md"),
-    ("Gemini CLI", "GEMINI.md"),
-    ("Cursor", ".cursorrules"),
-)
-
-INSTRUCTION_DIRECTORIES: tuple[tuple[str, str], ...] = (
-    ("GitHub Copilot", ".github/instructions"),
-    ("Cline", ".clinerules"),
-    ("Cline", ".cline/rules"),
-    ("Continue", ".continue/rules"),
-    ("Cursor", ".cursor/rules"),
-)
-
 ESSENTIAL_CHECKS = {
     "git-repository",
     "readme",
@@ -53,26 +34,11 @@ ESSENTIAL_CHECKS = {
 }
 
 
-def detect_instruction_signals(root: Path) -> list[InstructionSignal]:
-    root = root.resolve()
-    found: list[InstructionSignal] = []
-
-    for tool, relative in EXACT_INSTRUCTION_FILES:
-        if (root / relative).is_file():
-            found.append(InstructionSignal(tool, relative))
-
-    for tool, relative in INSTRUCTION_DIRECTORIES:
-        directory = root / relative
-        if not directory.is_dir():
-            continue
-        for path in sorted(directory.rglob("*")):
-            if path.is_file():
-                found.append(InstructionSignal(tool, path.relative_to(root).as_posix()))
-
-    return found
-
-
-def readiness_state(checks: list[Check], instructions: list[InstructionSignal]) -> str:
+def readiness_state(
+    checks: list[Check],
+    instructions: list[InstructionSignal],
+    instruction_findings: list[InstructionFinding] | None = None,
+) -> str:
     if any(check.blocking for check in checks):
         return "BLOCKED"
 
@@ -80,7 +46,7 @@ def readiness_state(checks: list[Check], instructions: list[InstructionSignal]) 
         check.name in ESSENTIAL_CHECKS and check.status != "pass"
         for check in checks
     )
-    if essentials_missing or not instructions:
+    if essentials_missing or not instructions or instruction_findings:
         return "NEEDS ATTENTION"
 
     return "READY"
@@ -94,8 +60,20 @@ def next_actions(
     checks: list[Check],
     instructions: list[InstructionSignal],
     project_signals: list[str],
+    instruction_findings: list[InstructionFinding] | None = None,
 ) -> list[NextAction]:
     actions: list[NextAction] = []
+    instruction_findings = instruction_findings or []
+
+    for finding in instruction_findings:
+        priority = "P1" if finding.severity == "warning" else "P2"
+        actions.append(
+            NextAction(
+                priority,
+                f"Resolve AI instruction integrity finding: {finding.kind}",
+                reason=finding.message,
+            )
+        )
 
     for finding in doctor_findings(checks):
         if finding.blocking:
@@ -158,16 +136,20 @@ def build_preflight(root: Path) -> dict[str, object]:
     root = root.resolve()
     checks = audit_repository(root)
     instructions = detect_instruction_signals(root)
+    instruction_findings = lint_instructions(root, instructions)
+    instruction_totals = finding_summary(instruction_findings)
     projects = detect_project_signals(root)
     totals = summary(checks)
-    state = readiness_state(checks, instructions)
-    actions = next_actions(checks, instructions, projects)
+    state = readiness_state(checks, instructions, instruction_findings)
+    actions = next_actions(checks, instructions, projects, instruction_findings)
 
     return {
         "repository": str(root),
         "state": state,
         "project_signals": projects,
         "instruction_signals": [item.to_dict() for item in instructions],
+        "instruction_findings": [item.to_dict() for item in instruction_findings],
+        "instruction_summary": instruction_totals,
         "summary": totals,
         "next_actions": [item.to_dict() for item in actions],
         "checks": [check.to_dict() for check in checks],
@@ -179,6 +161,8 @@ def render_markdown(report: dict[str, object]) -> str:
     projects = report["project_signals"]
     instructions = report["instruction_signals"]
     totals = report["summary"]
+    instruction_totals = report["instruction_summary"]
+    findings = report["instruction_findings"]
     actions = report["next_actions"]
 
     project_text = ", ".join(str(item) for item in projects) if projects else "Unknown / no common manifest detected"
@@ -190,6 +174,7 @@ def render_markdown(report: dict[str, object]) -> str:
         "",
         f"**Project signals:** {project_text}",
         f"**Audit:** {totals['passed']} passed · {totals['warnings']} warnings · {totals['blocking']} blocking",
+        f"**Instruction integrity:** {instruction_totals['findings']} findings · {instruction_totals['drift']} drift · {instruction_totals['invalid_commands']} invalid commands",
         "",
         "## AI instruction coverage",
         "",
@@ -200,6 +185,15 @@ def render_markdown(report: dict[str, object]) -> str:
             lines.append(f"- **{item['tool']}** — `{item['path']}`")
     else:
         lines.append("- No recognized AI-agent instruction files detected.")
+
+    lines.extend(["", "## Instruction integrity", ""])
+
+    if findings:
+        for item in findings:
+            files = ", ".join(f"`{path}`" for path in item["files"])
+            lines.append(f"- **{item['kind']}** — {item['message']} ({files})")
+    else:
+        lines.append("- No cross-agent instruction drift or invalid package scripts detected.")
 
     lines.extend(["", "## Next actions", ""])
 
