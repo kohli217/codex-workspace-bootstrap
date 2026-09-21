@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/github/license/kohli217/codex-workspace-bootstrap)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](pyproject.toml)
 
-**Preflight your repository before an AI coding agent touches it.**
+**Preflight your repository before an AI coding agent touches it — and catch instruction drift before different agents follow different rules.**
 
 Windows-first. Local by default. CI-friendly. Designed for repositories used with Codex, Copilot, Cline, Claude Code, Gemini CLI, Continue, Cursor, and similar coding agents.
 
@@ -30,6 +30,7 @@ State: NEEDS ATTENTION
 Project: Python
 AI instructions: none detected
 Audit: 10 passed, 4 warnings, 0 blocking
+Instruction integrity: 0 findings, 0 drift, 0 invalid commands
 Next actions:
   [P1] Add repository instructions for AI coding agents -> cwb init-agents .
   [P2] Make the Codex CLI available when local Codex workflows are intended -> codex --version
@@ -72,6 +73,17 @@ The preflight detects repository instruction/config signals for:
 - **Cursor**
 
 It does not claim these files are correct merely because they exist. It tells you what was detected so a maintainer can review the actual instructions.
+
+### Cross-agent instruction integrity
+
+When multiple AI instruction files exist, `cwb` reads executable-looking commands and checks them against repository evidence. It can flag:
+
+- package-manager mismatches against `packageManager` and lockfiles;
+- cross-agent package-manager drift;
+- missing `package.json` scripts referenced by instructions;
+- conflicting test/lint/build validation commands when instruction files have no shared command for the same validation family.
+
+The lint is intentionally conservative: different files may contain additional commands without being treated as conflicts when they share a compatible validation baseline.
 
 ### Risk signals
 
@@ -126,6 +138,12 @@ Use strict mode when blocking findings should return a non-zero exit code:
 cwb preflight . --strict
 ```
 
+Fail CI on instruction drift or invalid package scripts:
+
+```powershell
+cwb preflight . --fail-on-drift
+```
+
 ### Detailed audit
 
 ```powershell
@@ -134,6 +152,20 @@ cwb audit . --json audit.json
 cwb audit . --sarif audit.sarif
 cwb audit . --strict
 ```
+
+### Safe fix preview
+
+```powershell
+cwb fix .
+```
+
+This is preview-only by default. To apply only low-risk supported fixes:
+
+```powershell
+cwb fix . --apply
+```
+
+Existing conflicting instruction files are never auto-rewritten. They remain human-review findings.
 
 ### Non-destructive doctor
 
@@ -160,15 +192,18 @@ The reusable Action is published on GitHub Marketplace.
 - uses: actions/setup-python@v7
   with:
     python-version: "3.13"
-- uses: kohli217/codex-workspace-bootstrap@v0.4.0
+- uses: kohli217/codex-workspace-bootstrap@v0.5.0
   with:
     path: .
     strict: "true"
+    fail_on_drift: "true"
 ```
 
 The Action adds the preflight Markdown report to the **GitHub Actions job summary**, so maintainers get a readable readiness snapshot without digging through raw logs. Optional SARIF output can be uploaded to GitHub Code Scanning.
 
 See [docs/GITHUB_ACTION.md](docs/GITHUB_ACTION.md).
+
+Read-only evaluations against real public repositories are documented in [docs/PUBLIC_REPO_EVALUATIONS.md](docs/PUBLIC_REPO_EVALUATIONS.md). They are reproducible technical evaluations, not claims of third-party adoption.
 
 ## Where it fits
 
@@ -220,7 +255,7 @@ py -m pip install codex-workspace-bootstrap
 Pinned GitHub release artifact:
 
 ```powershell
-py -m pip install "https://github.com/kohli217/codex-workspace-bootstrap/releases/download/v0.4.0/codex_workspace_bootstrap-0.4.0-py3-none-any.whl"
+py -m pip install "https://github.com/kohli217/codex-workspace-bootstrap/releases/download/v0.5.0/codex_workspace_bootstrap-0.5.0-py3-none-any.whl"
 ```
 
 ## Development
