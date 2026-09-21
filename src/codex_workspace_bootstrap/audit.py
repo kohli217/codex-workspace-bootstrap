@@ -38,6 +38,9 @@ MANIFESTS = (
     "Cargo.toml",
     "pom.xml",
     "build.gradle",
+    "build.gradle.kts",
+    "settings.gradle",
+    "settings.gradle.kts",
 )
 
 RISK_FILENAMES = {
@@ -249,6 +252,15 @@ def audit_repository(root: Path) -> list[Check]:
         for name in MANIFESTS
         if (root / name).is_file() and not (root / name).is_symlink()
     ]
+    manifests.extend(
+        sorted(
+            path.name
+            for path in root.iterdir()
+            if path.is_file()
+            and not path.is_symlink()
+            and path.suffix.lower() in {".sln", ".csproj", ".fsproj", ".vbproj"}
+        )
+    )
     checks.append(
         Check(
             "project-manifest",
