@@ -84,3 +84,11 @@ def test_strict_mode_fails_for_tracked_secret_risk_file(tmp_path: Path) -> None:
 
     code = main(["audit", str(tmp_path), "--strict"])
     assert code == 1
+
+
+def test_version_flag_reports_package_version(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        main(["--version"])
+
+    assert exc_info.value.code == 0
+    assert "codex-workspace-bootstrap 0.1.0" in capsys.readouterr().out
