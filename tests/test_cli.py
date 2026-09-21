@@ -32,7 +32,7 @@ def test_init_agents_generates_python_validation(tmp_path: Path) -> None:
 
 def test_init_agents_generates_node_validation_from_script_names(tmp_path: Path) -> None:
     (tmp_path / "package.json").write_text(
-        '{"scripts":{"test":"node test.js","lint":"eslint ."}}',
+        '{"packageManager":"npm@11","scripts":{"test":"node test.js","lint":"eslint ."}}',
         encoding="utf-8",
     )
 
@@ -51,7 +51,10 @@ def test_init_agents_generates_mixed_project_signals(tmp_path: Path) -> None:
         "[project]\nname='demo'\n[tool.pytest.ini_options]\n",
         encoding="utf-8",
     )
-    (tmp_path / "package.json").write_text('{"scripts":{"test":"vitest"}}', encoding="utf-8")
+    (tmp_path / "package.json").write_text(
+        '{"packageManager":"npm@11","scripts":{"test":"vitest"}}',
+        encoding="utf-8",
+    )
     (tmp_path / "tests").mkdir()
 
     code = main(["init-agents", str(tmp_path)])
@@ -190,3 +193,53 @@ def test_preflight_writes_comprehensive_sarif(tmp_path: Path) -> None:
     payload = json.loads(report.read_text(encoding="utf-8"))
     rule_ids = {item["ruleId"] for item in payload["runs"][0]["results"]}
     assert "instruction-package-manager-mismatch" in rule_ids
+
+
+def test_init_agents_uses_pnpm_when_repository_evidence_selects_pnpm(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        '{"packageManager":"pnpm@10","scripts":{"test":"vitest","lint":"eslint ."}}',
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+
+    code = main(["init-agents", str(tmp_path)])
+
+    assert code == 0
+    content = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
+    assert "pnpm run test" in content
+    assert "pnpm run lint" in content
+    assert "npm test" not in content
+    assert "repository evidence selects pnpm" in content
+
+
+def test_init_agents_marks_node_commands_for_review_without_manager_evidence(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        '{"scripts":{"test":"vitest","lint":"eslint ."}}',
+        encoding="utf-8",
+    )
+
+    code = main(["init-agents", str(tmp_path)])
+
+    assert code == 0
+    content = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
+    assert "Review-required suggestions" in content
+    assert "npm test" in content
+    assert "npm run lint" in content
+    assert "package manager is not confirmed" in content
+
+
+def test_init_agents_avoids_manager_specific_commands_when_evidence_conflicts(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        '{"packageManager":"pnpm@10","scripts":{"test":"vitest","lint":"eslint ."}}',
+        encoding="utf-8",
+    )
+    (tmp_path / "package-lock.json").write_text("{}", encoding="utf-8")
+
+    code = main(["init-agents", str(tmp_path)])
+
+    assert code == 0
+    content = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
+    assert "npm test" not in content
+    assert "pnpm run test" not in content
+    assert "npm run lint" not in content
+    assert "pnpm run lint" not in content
