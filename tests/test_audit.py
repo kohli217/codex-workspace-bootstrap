@@ -76,3 +76,49 @@ def test_summary_counts_statuses(tmp_path: Path) -> None:
     totals = summary(checks)
     assert totals["passed"] + totals["warnings"] == len(checks)
     assert totals["blocking"] == 0
+
+
+def test_audit_checks_detected_pnpm_instead_of_assuming_npm(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    (tmp_path / "package.json").write_text(
+        '{"packageManager":"pnpm@10","scripts":{"test":"vitest"}}',
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+
+    def fake_tool_check(label: str, command: tuple[str, ...]):
+        from codex_workspace_bootstrap.audit import Check
+        return Check(label, "pass", "available")
+
+    monkeypatch.setattr("codex_workspace_bootstrap.audit._tool_check", fake_tool_check)
+
+    checks = audit_repository(tmp_path)
+    names = {check.name for check in checks}
+
+    assert "pnpm" in names
+    assert "npm" not in names
+    assert "package-manager-evidence" not in names
+
+
+def test_audit_reports_unconfirmed_node_package_manager(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    (tmp_path / "package.json").write_text(
+        '{"scripts":{"test":"vitest"}}',
+        encoding="utf-8",
+    )
+
+    def fake_tool_check(label: str, command: tuple[str, ...]):
+        from codex_workspace_bootstrap.audit import Check
+        return Check(label, "pass", "available")
+
+    monkeypatch.setattr("codex_workspace_bootstrap.audit._tool_check", fake_tool_check)
+
+    checks = audit_repository(tmp_path)
+    by_name = {check.name: check for check in checks}
+
+    assert by_name["package-manager-evidence"].status == "warn"
+    assert "does not confirm" in by_name["package-manager-evidence"].message
