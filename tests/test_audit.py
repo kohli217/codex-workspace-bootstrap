@@ -206,3 +206,37 @@ def test_audit_does_not_accept_symlinked_repository_markers(
     assert by_name["gitignore"].status == "warn"
     assert by_name["agents"].status == "warn"
     assert by_name["project-manifest"].status == "warn"
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="git is required")
+def test_tracked_risky_file_inside_pruned_directory_is_blocking(tmp_path: Path) -> None:
+    _git(tmp_path, "init")
+    nested = tmp_path / "node_modules" / "pkg"
+    nested.mkdir(parents=True)
+    (nested / ".env").write_text("EXAMPLE=tracked\n", encoding="utf-8")
+    _git(tmp_path, "add", "-f", "node_modules/pkg/.env")
+
+    checks = audit_repository(tmp_path)
+    by_name = {check.name: check for check in checks}
+
+    risk = by_name["secret-risk-files"]
+    assert risk.status == "warn"
+    assert risk.blocking is True
+    assert "node_modules/pkg/.env" in risk.message
+    assert "tracked:" in risk.message
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="git is required")
+def test_tracked_risky_file_inside_dist_is_blocking(tmp_path: Path) -> None:
+    _git(tmp_path, "init")
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "release.key").write_text("not-a-real-key\n", encoding="utf-8")
+    _git(tmp_path, "add", "-f", "dist/release.key")
+
+    checks = audit_repository(tmp_path)
+    by_name = {check.name: check for check in checks}
+
+    risk = by_name["secret-risk-files"]
+    assert risk.blocking is True
+    assert "dist/release.key" in risk.message
