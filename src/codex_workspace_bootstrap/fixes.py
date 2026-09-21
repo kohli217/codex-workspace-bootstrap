@@ -64,7 +64,7 @@ def apply_fix_plan(root: Path, plan: list[FixPlanItem]) -> list[str]:
             continue
         if item.kind == "create-agents":
             target = root / "AGENTS.md"
-            if target.exists():
+            if target.exists() or target.is_symlink():
                 continue
             target.write_text(generate_agents(root), encoding="utf-8")
             applied.append(str(target))
