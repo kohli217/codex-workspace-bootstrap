@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented here.
 
+## [0.5.2] - 2026-09-21
+
+### Fixed
+- Align the CLI-reported version with package metadata.
+- Use OS-specific hash-locked Python tool dependencies in CI.
+
+### Security
+- Attach the Sigstore attestation bundle to GitHub Release assets for external verification and OpenSSF detection.
+- Hash-pin Python workflow tooling across CI, CodeQL, release, and PyPI publication.
+
 ## [0.5.1] - 2026-09-21
 
 ### Added
