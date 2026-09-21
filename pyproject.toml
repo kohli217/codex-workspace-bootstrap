@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "codex-workspace-bootstrap"
-version = "0.3.0"
-description = "Audit and bootstrap Windows repositories for effective Codex workflows."
+version = "0.4.0"
+description = "Preflight AI coding repositories before Codex, Copilot, Cline, Claude, Gemini, Continue, or Cursor touches them."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "kohli217" }]
-keywords = ["codex", "openai", "windows", "developer-tools", "cli", "oss", "agents-md"]
+keywords = ["ai-coding", "codex", "openai", "windows", "github-actions", "developer-tools", "cli", "agents-md"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Environment :: Console",
@@ -34,6 +34,7 @@ Changelog = "https://github.com/kohli217/codex-workspace-bootstrap/blob/main/CHA
 
 [project.scripts]
 codex-workspace-bootstrap = "codex_workspace_bootstrap.cli:main"
+cwb = "codex_workspace_bootstrap.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
