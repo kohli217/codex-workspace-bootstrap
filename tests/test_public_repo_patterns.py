@@ -1,7 +1,7 @@
 from pathlib import Path
 import json
 
-from codex_workspace_bootstrap.instructions import lint_instructions
+from codex_workspace_bootstrap.instructions import detect_instruction_signals, lint_instructions
 
 
 def test_public_pattern_openai_codex_pnpm_repo_without_js_command_drift(tmp_path: Path) -> None:
@@ -70,3 +70,27 @@ def test_public_pattern_continue_gradle_rule_does_not_conflict_with_root_npm(tmp
     )
 
     assert lint_instructions(tmp_path) == []
+
+
+def test_public_pattern_vscode_brace_wrapped_apply_to_keeps_static_scope(tmp_path: Path) -> None:
+    """Pattern observed in microsoft/vscode: brace-wrapped Copilot applyTo alternatives."""
+    directory = tmp_path / ".github" / "instructions"
+    directory.mkdir(parents=True)
+    (directory / "writing-tests.instructions.md").write_text(
+        "---\n"
+        "description: Test guidance\n"
+        'applyTo: "{src/vs/**/test/**,src/vs/**/*.test.ts,src/vs/**/*.integrationTest.ts}"\n'
+        "---\n"
+        "# Writing Tests\n",
+        encoding="utf-8",
+    )
+
+    signals = detect_instruction_signals(tmp_path)
+    signal = next(
+        item
+        for item in signals
+        if item.path == ".github/instructions/writing-tests.instructions.md"
+    )
+
+    assert signal.kind == "path-specific"
+    assert signal.scope == "src/vs"
