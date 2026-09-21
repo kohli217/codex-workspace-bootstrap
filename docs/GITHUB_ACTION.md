@@ -23,10 +23,11 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
-      - uses: kohli217/codex-workspace-bootstrap@v0.4.0
+      - uses: kohli217/codex-workspace-bootstrap@v0.5.0
         with:
           path: .
           strict: "true"
+          fail_on_drift: "true"
 ```
 
 ## Inputs
@@ -35,6 +36,7 @@ jobs:
 | --- | --- | --- |
 | `path` | `.` | Repository directory to check. |
 | `strict` | `true` | Fail when a blocking audit finding is detected. |
+| `fail_on_drift` | `false` | Fail when cross-agent instruction drift or invalid package scripts are detected. |
 | `sarif` | empty | Optional SARIF 2.1.0 output path. |
 
 ## What appears in the job summary
@@ -45,12 +47,14 @@ The Action writes a Markdown snapshot containing:
 - detected project signals;
 - detected AI instruction/config files;
 - audit totals;
+- instruction-integrity finding/drift/invalid-command totals;
+- detailed integrity findings;
 - prioritized next actions.
 
 ## SARIF
 
 ```yaml
-- uses: kohli217/codex-workspace-bootstrap@v0.4.0
+- uses: kohli217/codex-workspace-bootstrap@v0.5.0
   with:
     path: .
     strict: "true"
