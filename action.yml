@@ -1,5 +1,5 @@
 name: "Codex Workspace Bootstrap"
-description: "Audit a repository for Codex-ready project instructions, toolchain signals, risky tracked filenames, and optional SARIF output."
+description: "Audit repositories for Codex-ready instructions, toolchain checks, secret-risk filenames, and SARIF output."
 author: "kohli217"
 
 inputs:
