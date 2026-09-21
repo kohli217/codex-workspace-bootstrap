@@ -2,10 +2,10 @@
 
 ## 30-second repository audit
 
-Install the pinned v0.1.0 wheel:
+Install the pinned v0.2.0 wheel:
 
 ```powershell
-py -m pip install "https://github.com/kohli217/codex-workspace-bootstrap/releases/download/v0.1.0/codex_workspace_bootstrap-0.1.0-py3-none-any.whl"
+py -m pip install "https://github.com/kohli217/codex-workspace-bootstrap/releases/download/v0.2.0/codex_workspace_bootstrap-0.2.0-py3-none-any.whl"
 ```
 
 Then run:
