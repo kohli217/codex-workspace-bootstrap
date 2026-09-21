@@ -44,7 +44,7 @@ def _node_script_names(root: Path) -> set[str]:
     return {name for name, value in scripts.items() if isinstance(name, str) and isinstance(value, str)}
 
 
-def _node_package_managers(root: Path) -> set[str]:
+def detect_node_package_managers(root: Path) -> set[str]:
     managers: set[str] = set()
     package_json = root / NODE_MARKER
 
@@ -174,7 +174,7 @@ def validation_plan(root: Path) -> list[ValidationCommand]:
 
     if "Node.js" in signals:
         scripts = _node_script_names(root)
-        managers = _node_package_managers(root)
+        managers = detect_node_package_managers(root)
         manager = next(iter(managers)) if len(managers) == 1 else None
 
         if manager:
