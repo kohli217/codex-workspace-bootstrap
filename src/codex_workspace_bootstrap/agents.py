@@ -29,7 +29,7 @@ def detect_project_signals(root: Path) -> list[str]:
 
 def _node_script_names(root: Path) -> set[str]:
     package_json = root / NODE_MARKER
-    if not package_json.exists():
+    if not package_json.is_file() or package_json.is_symlink():
         return set()
 
     try:
@@ -48,7 +48,7 @@ def _node_package_managers(root: Path) -> set[str]:
     managers: set[str] = set()
     package_json = root / NODE_MARKER
 
-    if package_json.is_file():
+    if package_json.is_file() and not package_json.is_symlink():
         try:
             data = json.loads(package_json.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError, UnicodeDecodeError):
@@ -69,7 +69,8 @@ def _node_package_managers(root: Path) -> set[str]:
         "bun.lockb": "bun",
     }
     for filename, manager in lockfiles.items():
-        if (root / filename).is_file():
+        candidate = root / filename
+        if candidate.is_file() and not candidate.is_symlink():
             managers.add(manager)
 
     return managers
@@ -84,7 +85,7 @@ def _package_script_command(manager: str, script: str) -> str:
 def _readme_text(root: Path) -> str:
     for name in README_NAMES:
         path = root / name
-        if path.is_file():
+        if path.is_file() and not path.is_symlink():
             try:
                 return path.read_text(encoding="utf-8")
             except (OSError, UnicodeDecodeError):
@@ -115,7 +116,7 @@ def _documented_commands(root: Path) -> set[str]:
 
 def _pyproject_has_pytest(root: Path) -> bool:
     path = root / "pyproject.toml"
-    if not path.is_file():
+    if not path.is_file() or path.is_symlink():
         return False
 
     try:
