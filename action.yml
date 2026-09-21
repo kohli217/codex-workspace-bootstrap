@@ -2,6 +2,20 @@ name: "Codex Workspace Bootstrap"
 description: "Preflight AI coding repositories with readiness checks, instruction discovery, risk signals, and SARIF."
 author: "kohli217"
 
+outputs:
+  state:
+    description: "Preflight readiness state: READY, NEEDS ATTENTION, or BLOCKED"
+    value: ${{ steps.preflight.outputs.state }}
+  instruction_findings:
+    description: "Number of instruction-integrity findings"
+    value: ${{ steps.preflight.outputs.instruction_findings }}
+  blocking:
+    description: "Number of blocking audit findings"
+    value: ${{ steps.preflight.outputs.blocking }}
+  warnings:
+    description: "Number of audit warnings"
+    value: ${{ steps.preflight.outputs.warnings }}
+
 inputs:
   path:
     description: "Repository path to audit"
@@ -34,6 +48,7 @@ runs:
       run: python -m pip install "$CWB_ACTION_PATH"
 
     - name: AI repository preflight
+      id: preflight
       shell: bash
       env:
         CWB_TARGET_PATH: ${{ inputs.path }}
@@ -53,7 +68,8 @@ runs:
         done
 
         report="$RUNNER_TEMP/cwb-preflight.md"
-        preflight_args=(preflight "$CWB_TARGET_PATH" --markdown "$report")
+        json_report="$RUNNER_TEMP/cwb-preflight.json"
+        preflight_args=(preflight "$CWB_TARGET_PATH" --markdown "$report" --json "$json_report")
         if [[ -n "$CWB_SARIF_PATH" ]]; then
           preflight_args+=(--sarif "$CWB_SARIF_PATH")
         fi
@@ -71,6 +87,23 @@ runs:
 
         if [[ -f "$report" ]]; then
           cat "$report" >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+        if [[ -f "$json_report" ]]; then
+          CWB_JSON_REPORT="$json_report" python - <<'PY'
+import json
+import os
+from pathlib import Path
+
+report = json.loads(Path(os.environ["CWB_JSON_REPORT"]).read_text(encoding="utf-8"))
+summary = report.get("summary", {})
+instruction_summary = report.get("instruction_summary", {})
+with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+    print(f"state={report.get('state', '')}", file=output)
+    print(f"instruction_findings={instruction_summary.get('findings', 0)}", file=output)
+    print(f"blocking={summary.get('blocking', 0)}", file=output)
+    print(f"warnings={summary.get('warnings', 0)}", file=output)
+PY
         fi
 
         exit "$status"
