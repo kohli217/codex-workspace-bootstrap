@@ -149,3 +149,28 @@ def test_secret_risk_scan_prunes_generated_directories(tmp_path: Path) -> None:
     by_name = {check.name: check for check in checks}
 
     assert by_name["secret-risk-files"].status == "pass"
+
+
+def test_audit_reports_conflicting_node_package_manager_evidence(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    (tmp_path / "package.json").write_text(
+        '{"packageManager":"pnpm@10","scripts":{"test":"vitest"}}',
+        encoding="utf-8",
+    )
+    (tmp_path / "package-lock.json").write_text("{}", encoding="utf-8")
+
+    def fake_tool_check(label: str, command: tuple[str, ...]):
+        from codex_workspace_bootstrap.audit import Check
+        return Check(label, "pass", "available")
+
+    monkeypatch.setattr("codex_workspace_bootstrap.audit._tool_check", fake_tool_check)
+
+    checks = audit_repository(tmp_path)
+    by_name = {check.name: check for check in checks}
+
+    assert by_name["package-manager-evidence"].status == "warn"
+    assert "Conflicting" in by_name["package-manager-evidence"].message
+    assert "npm" in by_name["package-manager-evidence"].message
+    assert "pnpm" in by_name["package-manager-evidence"].message
