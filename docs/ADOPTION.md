@@ -20,3 +20,25 @@ Do not include credentials, private repository contents, secret values, or propr
 When a user explicitly provides permission and a public reference, this document may link to that repository or report.
 
 There are no fabricated logos, testimonials, download counts, or usage claims in this project.
+
+
+## Fast feedback path
+
+1. Install and run:
+
+   ```powershell
+   py -m pip install codex-workspace-bootstrap
+   cwb preflight .
+   ```
+
+2. If the output is useful, noisy, or surprising, open a [Usage report](https://github.com/kohli217/codex-workspace-bootstrap/issues/new?template=usage_report.yml).
+
+The report can describe a private repository without naming or exposing it. A public reference is optional.
+
+The highest-value reports are:
+
+- false positives;
+- instruction layouts the detector missed;
+- monorepo or nested-rule behavior;
+- checks that prevented a real setup mistake;
+- confusing output or setup friction.
