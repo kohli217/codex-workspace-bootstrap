@@ -47,3 +47,30 @@ def test_documented_third_party_actions_are_sha_pinned() -> None:
                 f"{relative} documents mutable ref {action}@{ref}; "
                 "pin third-party actions to a full commit SHA"
             )
+
+
+def test_pypi_auto_publish_uses_triggering_release_artifact() -> None:
+    release = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+    publish = (ROOT / ".github" / "workflows" / "pypi-publish.yml").read_text(encoding="utf-8")
+
+    assert "name: python-package-distributions" in release
+    assert "dist/*.whl" in release
+    assert "dist/*.tar.gz" in release
+    assert "python -m twine check dist/*" in release
+
+    assert "github.event.workflow_run.id" in publish
+    assert "github-token: ${{ github.token }}" in publish
+    assert "Download exact distributions from triggering Release run" in publish
+    assert "gh release view" not in publish
+
+
+def test_release_documentation_matches_attestation_permissions() -> None:
+    docs = (ROOT / "docs" / "RELEASING.md").read_text(encoding="utf-8")
+
+    for permission in (
+        "contents: write",
+        "id-token: write",
+        "attestations: write",
+        "artifact-metadata: write",
+    ):
+        assert f"`{permission}`" in docs
