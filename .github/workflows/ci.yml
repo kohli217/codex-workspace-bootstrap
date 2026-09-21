@@ -27,7 +27,9 @@ jobs:
       - name: Run tests
         run: pytest -q
       - name: Run self-preflight
-        run: python -m codex_workspace_bootstrap preflight . --markdown preflight.md
+        run: python -m codex_workspace_bootstrap preflight . --markdown preflight.md --fail-on-drift
+      - name: Preview safe fixes
+        run: python -m codex_workspace_bootstrap fix .
       - name: Run self-audit
         run: python -m codex_workspace_bootstrap audit .
 
@@ -48,5 +50,6 @@ jobs:
         run: |
           codex-workspace-bootstrap --version
           cwb --version
-          cwb preflight . --markdown preflight.md
+          cwb preflight . --markdown preflight.md --fail-on-drift
+          cwb fix .
           cwb audit .
