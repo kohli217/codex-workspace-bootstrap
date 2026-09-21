@@ -1,0 +1,57 @@
+name: Usage report
+description: Tell us how you are using codex-workspace-bootstrap
+title: "[Usage]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for using the project. Please do not include credentials, secret values, or private repository contents.
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: Windows 11, Ubuntu 24.04, etc.
+    validations:
+      required: true
+
+  - type: input
+    id: stack
+    attributes:
+      label: Project stack
+      placeholder: Python, Node.js, mixed Python + Node.js, etc.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: usage
+    attributes:
+      label: How are you using the project?
+      options:
+        - CLI
+        - GitHub Action
+        - CLI and GitHub Action
+        - Evaluating / testing
+    validations:
+      required: true
+
+  - type: textarea
+    id: useful
+    attributes:
+      label: What was useful?
+      description: Which checks or workflows helped?
+    validations:
+      required: true
+
+  - type: textarea
+    id: friction
+    attributes:
+      label: What caused friction?
+      description: Describe false positives, missing checks, setup problems, or unclear documentation.
+
+  - type: input
+    id: public_reference
+    attributes:
+      label: Public reference (optional)
+      description: A public repository, workflow, or post that demonstrates usage.
+      placeholder: https://github.com/owner/repo
