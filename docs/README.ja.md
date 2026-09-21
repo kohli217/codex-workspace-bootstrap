@@ -86,6 +86,7 @@ GitHub Marketplaceの再利用可能Actionとして利用できます。prefligh
     path: .
     strict: "true"
     fail_on_integrity: "true"
+    require_ready: "true"
 ```
 
 ## 他ツールとの役割分担
@@ -117,7 +118,11 @@ GitHub Marketplaceの再利用可能Actionとして利用できます。prefligh
 cwb preflight . --fail-on-integrity
 ```
 
-GitHub Actionでは `fail_on_integrity: "true"` を指定します。
+GitHub Actionでは `fail_on_integrity: "true"` を指定します。さらに、`NEEDS ATTENTION` を含めて `READY` 以外をCI失敗にしたい場合は `require_ready: "true"` を指定します。
+
+```powershell
+cwb preflight . --require-ready
+```
 
 ## 安全なfix preview
 
