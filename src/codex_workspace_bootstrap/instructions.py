@@ -102,13 +102,39 @@ def _frontmatter_value(text: str, keys: tuple[str, ...]) -> str | None:
     parts = text.split("---", 2)
     if len(parts) < 3:
         return None
-    for line in parts[1].splitlines():
+
+    lines = parts[1].splitlines()
+    for index, line in enumerate(lines):
         stripped = line.strip()
         for key in keys:
             prefix = f"{key}:"
-            if stripped.lower().startswith(prefix.lower()):
-                value = stripped[len(prefix):].strip()
-                return value or None
+            if not stripped.lower().startswith(prefix.lower()):
+                continue
+
+            value = stripped[len(prefix):].strip()
+            if value:
+                return value
+
+            # Support simple YAML block lists without adding a YAML dependency:
+            #
+            # globs:
+            #   - "src/**/*.ts"
+            #   - "tests/**/*.ts"
+            items: list[str] = []
+            for following in lines[index + 1 :]:
+                next_stripped = following.strip()
+                if not next_stripped:
+                    continue
+                if next_stripped.startswith("- "):
+                    item = next_stripped[2:].strip()
+                    if item:
+                        items.append(item)
+                    continue
+                # A new top-level frontmatter key ends the block list.
+                if not following.startswith((" ", "\t")):
+                    break
+                # Ignore indented content we cannot safely interpret.
+            return ", ".join(items) if items else None
     return None
 
 
