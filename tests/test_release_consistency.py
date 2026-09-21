@@ -74,3 +74,12 @@ def test_release_documentation_matches_attestation_permissions() -> None:
         "artifact-metadata: write",
     ):
         assert f"`{permission}`" in docs
+
+
+def test_powershell_installer_default_matches_package_version() -> None:
+    version = _project_version()
+    installer = (ROOT / "scripts" / "install.ps1").read_text(encoding="utf-8")
+
+    assert f'[string]$Version = "{version}"' in installer
+    assert "releases/download/v$Version/codex_workspace_bootstrap-$Version-py3-none-any.whl" in installer
+    assert 'Write-Host "  cwb preflight ."' in installer
