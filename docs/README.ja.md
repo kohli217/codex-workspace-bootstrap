@@ -103,7 +103,9 @@ GitHub Marketplaceの再利用可能Actionとして利用できます。prefligh
 - secret-risk候補の中身を表示しない
 - Repo内容をコア監査から外部AIサービスへ送らない
 - AI指示ファイルはローカルで解析するが、抽出したコマンドは実行しない
-- 既存AGENTS.mdを勝手に上書きしない
+- symlink経由のAI指示/config入力は読み込まない
+- `init-agents` / 自動fixはsymlinkされた `AGENTS.md` へ書き込まない
+- 通常の既存AGENTS.mdを勝手に上書きしない
 - PASSは安全性の保証ではない
 
 詳細は [../SECURITY.md](../SECURITY.md) を参照してください。
