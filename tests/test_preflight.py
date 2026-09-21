@@ -93,3 +93,23 @@ def test_markdown_report_is_human_readable(tmp_path: Path) -> None:
     assert "# AI Repository Preflight" in markdown
     assert "**State:** READY" in markdown
     assert "Codex / OpenAI agents" in markdown
+
+
+def test_readiness_needs_attention_with_only_scoped_instruction() -> None:
+    from codex_workspace_bootstrap.preflight import InstructionSignal
+
+    checks = [
+        Check("git-repository", "pass", "ok"),
+        Check("readme", "pass", "ok"),
+        Check("gitignore", "pass", "ok"),
+        Check("project-manifest", "pass", "ok"),
+    ]
+
+    scoped = InstructionSignal(
+        "GitHub Copilot",
+        ".github/instructions/python.instructions.md",
+        "services/api",
+        "path-specific",
+    )
+
+    assert readiness_state(checks, [scoped]) == "NEEDS ATTENTION"
