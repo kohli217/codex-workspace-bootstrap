@@ -24,7 +24,7 @@ preflightは、次に何をすべきかをP0/P1/P2の優先度付きで表示し
 ## 何を確認するか
 
 - Git repository / README / LICENSE / .gitignore
-- pyproject.toml / package.json などのproject manifest
+- Python / Node.js / Go / Rust / JVM / .NET の代表的なproject manifest
 - Git / Python / Node.js / Repoで選択されたpackage manager / PowerShell / WSL / Codex
 - AGENTS.md
 - GitHub Copilot repository instructions
@@ -70,7 +70,7 @@ cwb preflight . --sarif preflight.sarif
 cwb init-agents .
 ```
 
-pyproject.toml、pytest設定、package.jsonのpackageManager/lockfile、script名、READMEに書かれた検証コマンドを照合します。根拠が弱いコマンドは確定扱いせず、review-requiredとして分離します。
+Python / Node.js / Go / Rust / JVM / .NET のproject rootを識別し、検証コマンドはRepo内の直接的な根拠があるものだけを確定扱いします。Python/Nodeではpyproject.toml、pytest設定、package.jsonのpackageManager/lockfile、script名、READMEに書かれた検証コマンドを照合し、根拠が弱いコマンドはreview-requiredとして分離します。
 
 ## GitHub Actions
 
