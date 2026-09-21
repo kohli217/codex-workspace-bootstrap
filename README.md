@@ -83,7 +83,7 @@ When multiple AI instruction files exist, `cwb` reads executable-looking command
 - missing `package.json` scripts referenced by instructions;
 - conflicting test/lint/build validation commands when instruction files have no shared command for the same validation family.
 
-The lint is intentionally conservative: different files may contain additional commands without being treated as conflicts when they share a compatible validation baseline. Commands from different scopes are not compared as if they were global rules. A repository is not marked READY when it only has nested/path-specific instructions and no repository-wide instruction baseline.
+The lint is intentionally conservative: different files may contain additional commands without being treated as conflicts when they share a compatible validation baseline. Commands from different scopes are not compared as if they were global rules. Path-specific rules are validated individually against repository evidence but are not cross-compared for drift unless their full selector semantics can be represented safely. A repository is not marked READY when it only has nested/path-specific instructions and no repository-wide instruction baseline.
 
 ### Risk signals
 
