@@ -195,14 +195,25 @@ def _script_for_command(command: str) -> tuple[str, str] | None:
     return manager, script
 
 
-def _is_validation_command(command: str) -> bool:
-    lowered = command.lower()
-    return (
-        "pytest" in lowered
-        or "unittest" in lowered
-        or re.search(r"\b(test|lint|check|build|typecheck|validate|verify)(?=$|\s|:)", lowered) is not None
-        or lowered.startswith(("go test", "cargo test"))
-    )
+def _validation_key(command: str) -> str | None:
+    lowered = " ".join(command.lower().split())
+    if "pytest" in lowered:
+        return "test:pytest"
+    if "unittest" in lowered:
+        return "test:unittest"
+    if lowered.startswith("go test"):
+        return "test:go"
+    if lowered.startswith("cargo test"):
+        return "test:cargo"
+
+    parsed = _script_for_command(lowered)
+    if not parsed:
+        return None
+    manager, script = parsed
+    family = script.split(":", 1)[0]
+    if family in {"test", "lint", "check", "build", "typecheck", "validate", "verify"}:
+        return f"{family}:{manager}:{script}"
+    return None
 
 
 def lint_instructions(
@@ -278,25 +289,41 @@ def lint_instructions(
         )
 
     validation_by_file = {
-        path: {command.lower() for command in commands if _is_validation_command(command)}
+        path: {key for command in commands if (key := _validation_key(command))}
         for path, commands in per_file_commands.items()
     }
-    validation_by_file = {path: commands for path, commands in validation_by_file.items() if commands}
+    validation_by_file = {path: keys for path, keys in validation_by_file.items() if keys}
     if len(validation_by_file) >= 2:
-        command_sets = {tuple(sorted(commands)) for commands in validation_by_file.values()}
-        if len(command_sets) > 1:
+        families = {"test", "lint", "check", "build", "typecheck", "validate", "verify"}
+        conflicting: list[str] = []
+        evidence: list[str] = []
+        for family in families:
+            per_family = {
+                path: {key for key in keys if key.startswith(f"{family}:")}
+                for path, keys in validation_by_file.items()
+            }
+            per_family = {path: keys for path, keys in per_family.items() if keys}
+            if len(per_family) < 2:
+                continue
+            shared = set.intersection(*per_family.values())
+            if shared:
+                continue
+            conflicting.append(family)
+            evidence.extend(
+                f"{path}: {', '.join(sorted(keys))}"
+                for path, keys in per_family.items()
+            )
+
+        if conflicting:
             findings.append(
                 InstructionFinding(
                     "validation-command-drift",
                     "warning",
-                    "AI instruction files specify different validation command sets.",
+                    "AI instruction files disagree on "
+                    + ", ".join(sorted(conflicting))
+                    + " validation commands.",
                     tuple(sorted(validation_by_file)),
-                    tuple(
-                        sorted(
-                            f"{path}: {', '.join(sorted(commands))}"
-                            for path, commands in validation_by_file.items()
-                        )
-                    ),
+                    tuple(sorted(set(evidence))),
                 )
             )
 
