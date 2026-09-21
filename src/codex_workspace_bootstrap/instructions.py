@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 import json
 from pathlib import Path
+import posixpath
 import re
 
 
@@ -10,6 +11,8 @@ import re
 class InstructionSignal:
     tool: str
     path: str
+    scope: str = "."
+    kind: str = "repository"
 
     def to_dict(self) -> dict[str, str]:
         return asdict(self)
@@ -22,6 +25,7 @@ class InstructionFinding:
     message: str
     files: tuple[str, ...] = ()
     evidence: tuple[str, ...] = ()
+    scope: str = "."
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -30,11 +34,11 @@ class InstructionFinding:
             "message": self.message,
             "files": list(self.files),
             "evidence": list(self.evidence),
+            "scope": self.scope,
         }
 
 
 EXACT_INSTRUCTION_FILES: tuple[tuple[str, str], ...] = (
-    ("Codex / OpenAI agents", "AGENTS.md"),
     ("GitHub Copilot", ".github/copilot-instructions.md"),
     ("Cline", ".clinerules"),
     ("Claude Code", "CLAUDE.md"),
@@ -50,14 +54,29 @@ INSTRUCTION_DIRECTORIES: tuple[tuple[str, str], ...] = (
     ("Cursor", ".cursor/rules"),
 )
 
+_EXCLUDED_PARTS = {
+    ".git",
+    ".venv",
+    "venv",
+    "node_modules",
+    "__pycache__",
+    "dist",
+    "build",
+}
+
 _COMMAND_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\b(?:uv|poetry|pdm)\s+run\s+pytest(?:\s+[^\n`]+)?", re.I),
     re.compile(r"\bpython\s+-m\s+pytest(?:\s+[^\n`]+)?", re.I),
     re.compile(r"(?<![\w.-])pytest(?:\s+[^\n`]+)?", re.I),
     re.compile(r"\bpython\s+-m\s+unittest(?:\s+[^\n`]+)?", re.I),
     re.compile(r"\b(?:npm|pnpm|bun)\s+(?:run\s+)?[\w:.-]+(?:\s+[^\n`]+)?", re.I),
-    re.compile(r"\byarn\s+[\w:.-]+(?:\s+[^\n`]+)?", re.I),
+    re.compile(r"\byarn\s+(?:run\s+)?[\w:.-]+(?:\s+[^\n`]+)?", re.I),
     re.compile(r"\bgo\s+test(?:\s+[^\n`]+)?", re.I),
     re.compile(r"\bcargo\s+test(?:\s+[^\n`]+)?", re.I),
+    re.compile(r"(?<![\w.-])(?:make|just)\s+[\w:.-]+(?:\s+[^\n`]+)?", re.I),
+    re.compile(r"(?<![\w.-])(?:\.\/)?gradlew?\s+[\w:.-]+(?:\s+[^\n`]+)?", re.I),
+    re.compile(r"(?<![\w.-])(?:\.\/)?mvnw?\s+[\w:.-]+(?:\s+[^\n`]+)?", re.I),
+    re.compile(r"\bdotnet\s+test(?:\s+[^\n`]+)?", re.I),
 )
 
 _CODE_FENCE = re.compile(r"```(?:[A-Za-z0-9_+.-]+)?\s*\n(.*?)```", re.S)
@@ -69,13 +88,110 @@ _SCRIPT_COMMAND = re.compile(
 )
 
 
+def _safe_read(path: Path) -> str:
+    try:
+        if path.stat().st_size > 512_000:
+            return ""
+        return path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return ""
+
+
+def _frontmatter_value(text: str, keys: tuple[str, ...]) -> str | None:
+    if not text.startswith("---"):
+        return None
+    parts = text.split("---", 2)
+    if len(parts) < 3:
+        return None
+    for line in parts[1].splitlines():
+        stripped = line.strip()
+        for key in keys:
+            prefix = f"{key}:"
+            if stripped.lower().startswith(prefix.lower()):
+                value = stripped[len(prefix):].strip()
+                return value or None
+    return None
+
+
+def _split_patterns(value: str) -> list[str]:
+    value = value.strip().strip('"').strip("'")
+    if value.startswith("[") and value.endswith("]"):
+        value = value[1:-1]
+    return [
+        item.strip().strip('"').strip("'")
+        for item in value.split(",")
+        if item.strip().strip('"').strip("'")
+    ]
+
+
+def _static_prefix(pattern: str) -> str:
+    value = pattern.strip().lstrip("!").removeprefix("./")
+    parts: list[str] = []
+    for part in value.split("/"):
+        if not part:
+            continue
+        if any(token in part for token in ("*", "?", "[", "{")):
+            break
+        parts.append(part)
+    if not parts:
+        return "."
+    if "." in parts[-1] and len(parts) > 1:
+        parts = parts[:-1]
+    return "/".join(parts) if parts else "."
+
+
+def _scope_from_text(text: str) -> str:
+    raw = _frontmatter_value(text, ("applyTo", "globs"))
+    if not raw:
+        return "."
+    prefixes = [_static_prefix(pattern) for pattern in _split_patterns(raw)]
+    prefixes = [prefix for prefix in prefixes if prefix]
+    if not prefixes or "." in prefixes:
+        return "."
+    try:
+        common = posixpath.commonpath(prefixes)
+    except ValueError:
+        return "."
+    return common or "."
+
+
+def _agent_signals(root: Path) -> list[InstructionSignal]:
+    by_directory: dict[Path, dict[str, Path]] = {}
+    for path in root.rglob("*"):
+        if any(part in _EXCLUDED_PARTS for part in path.relative_to(root).parts):
+            continue
+        if not path.is_file() or path.name not in {"AGENTS.md", "AGENTS.override.md"}:
+            continue
+        by_directory.setdefault(path.parent, {})[path.name] = path
+
+    found: list[InstructionSignal] = []
+    for directory, candidates in sorted(by_directory.items(), key=lambda item: item[0].as_posix()):
+        chosen = candidates.get("AGENTS.override.md") or candidates.get("AGENTS.md")
+        if chosen is None:
+            continue
+        rel = chosen.relative_to(root).as_posix()
+        scope_path = directory.relative_to(root).as_posix()
+        scope = "." if scope_path == "." else scope_path
+        kind = "override" if chosen.name == "AGENTS.override.md" else "repository"
+        tool = "Codex override" if kind == "override" else "Codex / OpenAI agents"
+        found.append(InstructionSignal(tool, rel, scope, kind))
+    return found
+
+
 def detect_instruction_signals(root: Path) -> list[InstructionSignal]:
     root = root.resolve()
     found: list[InstructionSignal] = []
     seen: set[tuple[str, str]] = set()
 
+    for signal in _agent_signals(root):
+        key = (signal.tool, signal.path)
+        if key not in seen:
+            found.append(signal)
+            seen.add(key)
+
     for tool, relative in EXACT_INSTRUCTION_FILES:
-        if (root / relative).is_file():
+        path = root / relative
+        if path.is_file():
             key = (tool, relative)
             if key not in seen:
                 found.append(InstructionSignal(tool, relative))
@@ -90,21 +206,19 @@ def detect_instruction_signals(root: Path) -> list[InstructionSignal]:
                 continue
             rel = path.relative_to(root).as_posix()
             key = (tool, rel)
-            if key not in seen:
-                found.append(InstructionSignal(tool, rel))
-                seen.add(key)
+            if key in seen:
+                continue
+            text = _safe_read(path)
+            scope = _scope_from_text(text)
+            kind = "path-specific" if scope != "." else "repository"
+            found.append(InstructionSignal(tool, rel, scope, kind))
+            seen.add(key)
 
     return found
 
 
 def _read_instruction(root: Path, signal: InstructionSignal) -> str:
-    path = root / signal.path
-    try:
-        if path.stat().st_size > 512_000:
-            return ""
-        return path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
-        return ""
+    return _safe_read(root / signal.path)
 
 
 def _command_regions(text: str) -> list[str]:
@@ -113,7 +227,7 @@ def _command_regions(text: str) -> list[str]:
     for raw_line in text.splitlines():
         line = raw_line.strip().lstrip("-*+> ").strip()
         if re.match(
-            r"^(?:python\s+-m\s+|pytest\b|npm\b|pnpm\b|yarn\b|bun\b|go\s+test\b|cargo\s+test\b)",
+            r"^(?:python\s+-m\s+|pytest\b|uv\s+run\s+|poetry\s+run\s+|pdm\s+run\s+|npm\b|pnpm\b|yarn\b|bun\b|go\s+test\b|cargo\s+test\b|make\b|just\b|(?:\.\/)?gradlew?\b|(?:\.\/)?mvnw?\b|dotnet\s+test\b)",
             line,
             re.I,
         ):
@@ -134,8 +248,7 @@ def extract_commands(text: str) -> list[str]:
     return found
 
 
-def _package_json(root: Path) -> dict[str, object]:
-    path = root / "package.json"
+def _package_json(path: Path) -> dict[str, object]:
     if not path.is_file():
         return {}
     try:
@@ -145,14 +258,51 @@ def _package_json(root: Path) -> dict[str, object]:
     return data if isinstance(data, dict) else {}
 
 
-def _repo_package_managers(root: Path) -> set[str]:
+def _scope_directory(root: Path, scope: str) -> Path:
+    if scope == ".":
+        return root
+    candidate = root / scope
+    if candidate.suffix and not candidate.is_dir():
+        candidate = candidate.parent
+    return candidate
+
+
+def _directory_chain_to_root(root: Path, scope: str) -> list[Path]:
+    current = _scope_directory(root, scope)
+    if not current.exists():
+        current = current.parent if current.parent != current else root
+    chain: list[Path] = []
+    while True:
+        try:
+            current.relative_to(root)
+        except ValueError:
+            break
+        chain.append(current)
+        if current == root:
+            break
+        current = current.parent
+    return chain
+
+
+def _package_evidence_at(directory: Path) -> tuple[set[str], set[str]]:
     managers: set[str] = set()
-    package = _package_json(root)
+    scripts: set[str] = set()
+    package_path = directory / "package.json"
+    package = _package_json(package_path)
+
     declared = package.get("packageManager")
     if isinstance(declared, str) and declared:
         manager = declared.split("@", 1)[0].strip().lower()
         if manager in {"npm", "pnpm", "yarn", "bun"}:
             managers.add(manager)
+
+    raw_scripts = package.get("scripts")
+    if isinstance(raw_scripts, dict):
+        scripts = {
+            str(name)
+            for name, value in raw_scripts.items()
+            if isinstance(name, str) and isinstance(value, str)
+        }
 
     lockfiles = {
         "package-lock.json": "npm",
@@ -163,20 +313,26 @@ def _repo_package_managers(root: Path) -> set[str]:
         "bun.lockb": "bun",
     }
     for filename, manager in lockfiles.items():
-        if (root / filename).is_file():
+        if (directory / filename).is_file():
             managers.add(manager)
-    return managers
+
+    return managers, scripts
 
 
-def _script_names(root: Path) -> set[str]:
-    scripts = _package_json(root).get("scripts")
-    if not isinstance(scripts, dict):
-        return set()
-    return {
-        str(name)
-        for name, value in scripts.items()
-        if isinstance(name, str) and isinstance(value, str)
-    }
+def _repo_package_managers(root: Path, scope: str) -> set[str]:
+    for directory in _directory_chain_to_root(root, scope):
+        managers, _scripts = _package_evidence_at(directory)
+        if managers:
+            return managers
+    return set()
+
+
+def _script_names(root: Path, scope: str) -> set[str]:
+    for directory in _directory_chain_to_root(root, scope):
+        _managers, scripts = _package_evidence_at(directory)
+        if scripts or (directory / "package.json").is_file():
+            return scripts
+    return set()
 
 
 def _manager_for_command(command: str) -> str | None:
@@ -205,6 +361,19 @@ def _validation_key(command: str) -> str | None:
         return "test:go"
     if lowered.startswith("cargo test"):
         return "test:cargo"
+    if lowered.startswith("dotnet test"):
+        return "test:dotnet"
+    if re.match(r"^(?:\.\/)?gradlew?\s+test\b", lowered):
+        return "test:gradle"
+    if re.match(r"^(?:\.\/)?mvnw?\s+test\b", lowered):
+        return "test:maven"
+
+    task_match = re.match(
+        r"^(make|just)\s+(test|lint|check|build|typecheck|validate|verify)(?::[\w.-]+)?\b",
+        lowered,
+    )
+    if task_match:
+        return f"{task_match.group(2)}:{task_match.group(1)}"
 
     parsed = _script_for_command(lowered)
     if not parsed:
@@ -214,6 +383,21 @@ def _validation_key(command: str) -> str | None:
     if family in {"test", "lint", "check", "build", "typecheck", "validate", "verify"}:
         return f"{family}:{manager}:{script}"
     return None
+
+
+def _same_scope_groups(
+    signals: list[InstructionSignal],
+    values: dict[str, set[str]],
+) -> dict[str, dict[str, set[str]]]:
+    groups: dict[str, dict[str, set[str]]] = {}
+    by_path = {signal.path: signal for signal in signals}
+    for path, items in values.items():
+        if not items:
+            continue
+        signal = by_path.get(path)
+        scope = signal.scope if signal else "."
+        groups.setdefault(scope, {})[path] = items
+    return groups
 
 
 def lint_instructions(
@@ -229,14 +413,17 @@ def lint_instructions(
         per_file_commands[signal.path] = extract_commands(text) if text else []
 
     findings: list[InstructionFinding] = []
-    repo_managers = _repo_package_managers(root)
-    scripts = _script_names(root)
-
+    signal_by_path = {signal.path: signal for signal in signals}
     instruction_managers: dict[str, set[str]] = {}
+
     for path, commands in per_file_commands.items():
+        signal = signal_by_path[path]
         managers = {manager for command in commands if (manager := _manager_for_command(command))}
         if managers:
             instruction_managers[path] = managers
+
+        repo_managers = _repo_package_managers(root, signal.scope)
+        scripts = _script_names(root, signal.scope)
 
         if len(repo_managers) == 1:
             expected = next(iter(repo_managers))
@@ -249,6 +436,7 @@ def lint_instructions(
                         f"{path} uses {', '.join(wrong)} but repository evidence selects {expected}.",
                         (path,),
                         tuple(sorted(repo_managers)),
+                        signal.scope,
                     )
                 )
 
@@ -266,41 +454,42 @@ def lint_instructions(
                         InstructionFinding(
                             "missing-package-script",
                             "warning",
-                            f"{path} references '{command}', but package.json has no '{script}' script.",
+                            f"{path} references '{command}', but the nearest package.json for scope '{signal.scope}' has no '{script}' script.",
                             (path,),
                             (command,),
+                            signal.scope,
                         )
                     )
 
-    manager_sets = {
-        manager
-        for managers in instruction_managers.values()
-        for manager in managers
-    }
-    if len(manager_sets) > 1:
-        findings.append(
-            InstructionFinding(
-                "package-manager-drift",
-                "warning",
-                "AI instruction files disagree on the JavaScript package manager.",
-                tuple(sorted(instruction_managers)),
-                tuple(sorted(manager_sets)),
+    for scope, per_file in _same_scope_groups(signals, instruction_managers).items():
+        manager_sets = {manager for managers in per_file.values() for manager in managers}
+        if len(manager_sets) > 1:
+            findings.append(
+                InstructionFinding(
+                    "package-manager-drift",
+                    "warning",
+                    f"AI instruction files in scope '{scope}' disagree on the JavaScript package manager.",
+                    tuple(sorted(per_file)),
+                    tuple(sorted(manager_sets)),
+                    scope,
+                )
             )
-        )
 
     validation_by_file = {
         path: {key for command in commands if (key := _validation_key(command))}
         for path, commands in per_file_commands.items()
     }
-    validation_by_file = {path: keys for path, keys in validation_by_file.items() if keys}
-    if len(validation_by_file) >= 2:
+
+    for scope, per_file in _same_scope_groups(signals, validation_by_file).items():
+        if len(per_file) < 2:
+            continue
         families = {"test", "lint", "check", "build", "typecheck", "validate", "verify"}
         conflicting: list[str] = []
         evidence: list[str] = []
         for family in families:
             per_family = {
                 path: {key for key in keys if key.startswith(f"{family}:")}
-                for path, keys in validation_by_file.items()
+                for path, keys in per_file.items()
             }
             per_family = {path: keys for path, keys in per_family.items() if keys}
             if len(per_family) < 2:
@@ -319,11 +508,12 @@ def lint_instructions(
                 InstructionFinding(
                     "validation-command-drift",
                     "warning",
-                    "AI instruction files disagree on "
+                    f"AI instruction files in scope '{scope}' disagree on "
                     + ", ".join(sorted(conflicting))
                     + " validation commands.",
-                    tuple(sorted(validation_by_file)),
+                    tuple(sorted(per_file)),
                     tuple(sorted(set(evidence))),
+                    scope,
                 )
             )
 
