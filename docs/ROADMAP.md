@@ -15,17 +15,22 @@ This roadmap records intended work; it is not a promise of delivery dates.
 
 - one-command `preflight` with READY / NEEDS ATTENTION / BLOCKED states
 - cross-agent instruction discovery for Codex/OpenAI agents, Copilot, Cline, Claude Code, Gemini CLI, Continue, and Cursor
-- nested `AGENTS.md` / `AGENTS.override.md` and nested Cursor rule discovery
+- nested `AGENTS.md` / `AGENTS.override.md`, `CLAUDE.md`, Gemini CLI context files, and nested Cursor rule discovery
 - scope-aware instruction integrity checks for package-manager drift, missing scripts, and validation-command conflicts
 - safe fix preview with explicit `--apply`
 - JSON, Markdown, and SARIF reporting
-- reusable GitHub Action with Windows and Ubuntu self-tests
+- reusable GitHub Action with Windows and Ubuntu self-tests, structured outputs, and an optional `require_ready` gate
 - PyPI Trusted Publishing through GitHub OIDC
 - CodeQL, Dependency Review, Dependabot, secret scanning, push protection, and protected `main`
 - immutable SHA pinning for third-party GitHub Actions used by repository workflows
 - hash-locked Python tooling for CI/release workflows
 - signed GitHub release attestations with Sigstore bundle assets
 - release/documentation consistency tests to prevent version drift
+- package-manager-aware validation for npm, pnpm, Yarn, and Bun, including workspace/filter command forms
+- Go, Rust, JVM, and .NET project-root detection without inventing unsupported validation commands
+- broader dotenv risk detection for environment-specific files such as `.env.production`
+- exact Release-to-PyPI artifact handoff so automatic publishing uses the same built distributions
+- public regression coverage for real scoped-instruction patterns such as microsoft/vscode Copilot `applyTo` selectors
 
 ## Later
 
