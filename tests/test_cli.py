@@ -92,3 +92,15 @@ def test_version_flag_reports_package_version(capsys: pytest.CaptureFixture[str]
 
     assert exc_info.value.code == 0
     assert "codex-workspace-bootstrap 0.2.0" in capsys.readouterr().out
+
+
+def test_audit_writes_sarif(tmp_path: Path) -> None:
+    import json
+
+    report = tmp_path / "report.sarif"
+    code = main(["audit", str(tmp_path), "--sarif", str(report)])
+
+    assert code == 0
+    payload = json.loads(report.read_text(encoding="utf-8"))
+    assert payload["version"] == "2.1.0"
+    assert payload["runs"][0]["tool"]["driver"]["name"] == "codex-workspace-bootstrap"
