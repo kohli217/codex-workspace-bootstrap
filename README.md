@@ -96,7 +96,7 @@ The goal is not a vanity score. The result is one of:
 - license
 - `.gitignore`
 - common project manifests
-- local Git / Python / Node.js / npm / PowerShell / WSL / Codex signals
+- local Git / Python / Node.js / repository-selected package manager / PowerShell / WSL / Codex signals
 
 ### AI instruction coverage
 
