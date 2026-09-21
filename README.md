@@ -220,7 +220,7 @@ cwb doctor .
 cwb init-agents .
 ```
 
-Generation is evidence-based: the tool cross-checks project manifests, package scripts, pytest configuration, and README commands. Plausible but unconfirmed commands are separated for maintainer review. Existing `AGENTS.md` files are never overwritten unless `--force` is explicit.
+Generation is evidence-based: the tool cross-checks project manifests, package-manager evidence, package scripts, pytest configuration, and README commands. Plausible but unconfirmed commands are separated for maintainer review. Existing `AGENTS.md` files are never overwritten unless `--force` is explicit.
 
 ## GitHub Action
 
