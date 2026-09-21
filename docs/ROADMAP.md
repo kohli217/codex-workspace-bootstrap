@@ -1,8 +1,5 @@
 # Roadmap
 
-## Tracked next steps
-
-
 This roadmap records intended work; it is not a promise of delivery dates.
 
 ## Near term
