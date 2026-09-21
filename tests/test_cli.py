@@ -265,3 +265,37 @@ def test_init_agents_refuses_symlink_target_even_with_force(
     assert code == 1
     assert "refusing to write through symlink" in capsys.readouterr().err
     assert not target.exists()
+
+
+def test_init_agents_ignores_symlinked_project_markers(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        "[project]\nname='demo'\n[tool.pytest.ini_options]\n",
+        encoding="utf-8",
+    )
+    package = tmp_path / "package.json"
+    package.write_text(
+        '{"packageManager":"pnpm@10","scripts":{"test":"vitest"}}',
+        encoding="utf-8",
+    )
+
+    symlinked = {pyproject, package}
+    original_is_symlink = Path.is_symlink
+
+    def fake_is_symlink(path: Path) -> bool:
+        if path in symlinked:
+            return True
+        return original_is_symlink(path)
+
+    monkeypatch.setattr(Path, "is_symlink", fake_is_symlink)
+
+    code = main(["init-agents", str(tmp_path)])
+
+    assert code == 0
+    content = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
+    assert "No common Python or Node.js manifest detected" in content
+    assert "python -m pytest" not in content
+    assert "pnpm run test" not in content
