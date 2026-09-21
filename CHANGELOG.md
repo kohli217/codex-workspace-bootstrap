@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented here.
 
+## [0.6.0] - 2026-09-21
+
+### Added
+- Scope-aware discovery for nested `CLAUDE.md` and hierarchical Gemini CLI context files.
+- Support for Gemini CLI project `context.fileName` overrides, including multiple configured filenames.
+- Structured GitHub Action outputs for readiness state, instruction findings, blocking findings, and warnings.
+- Multiline frontmatter list parsing for scoped instruction globs.
+- End-to-end Action regression coverage for integrity-gate failures.
+
+### Changed
+- Instruction discovery now prunes generated/dependency directories during filesystem traversal.
+- Chained shell validation commands are split before linting so each command can be checked independently.
+- Workspace/filter package-manager flags are handled conservatively to avoid false missing-script findings.
+- `init-agents` now derives Node.js validation commands from package-manager evidence instead of defaulting to npm.
+- The reusable GitHub Action performs one preflight pass for reporting and gating.
+- Release metadata and copy-pasteable Action documentation are protected by consistency regression tests.
+
+### Security
+- Repository instruction/configuration inputs are not read through symbolic links.
+- `init-agents` and automatic fixes refuse symlinked `AGENTS.md` write targets.
+
 ## [0.5.2] - 2026-09-21
 
 ### Fixed
