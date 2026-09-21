@@ -2,7 +2,6 @@
 
 ## Tracked next steps
 
-- [#19 — Add Windows doctor command with non-destructive remediation guidance](https://github.com/kohli217/codex-workspace-bootstrap/issues/19)
 
 This roadmap records intended work; it is not a promise of delivery dates.
 
@@ -11,7 +10,6 @@ This roadmap records intended work; it is not a promise of delivery dates.
 - add richer Python, Node.js, and mixed-project detection
 - distinguish tracked and untracked secret-risk files using Git when available
 - generate project-specific AGENTS.md templates
-- add a `doctor` command with remediation guidance for Windows
 - improve CI-oriented exit policies
 - add install verification on clean Windows runners
 
