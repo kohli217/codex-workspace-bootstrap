@@ -23,7 +23,7 @@ Codex works better when a repository clearly states its toolchain, validation co
 - warn about common secret-bearing filenames without reading their contents;
 - distinguish tracked risky files from ignored or untracked files when Git is available;
 - generate a project-aware `AGENTS.md` for Python, Node.js, mixed, or unknown projects;
-- write a machine-readable JSON report;
+- write machine-readable JSON and SARIF 2.1.0 reports;
 - fail CI on blocking findings with `--strict`;
 - validate releases through automated tests, self-audit, and build checks.
 
@@ -99,6 +99,14 @@ Use strict mode in CI:
 ```powershell
 codex-workspace-bootstrap audit . --strict
 ```
+
+### SARIF / Code Scanning
+
+```powershell
+codex-workspace-bootstrap audit . --sarif codex-workspace-bootstrap.sarif
+```
+
+Blocking findings are emitted as SARIF errors and other warnings as SARIF warnings. See [docs/SARIF.md](docs/SARIF.md) for GitHub Code Scanning integration.
 
 ### Generate `AGENTS.md`
 
