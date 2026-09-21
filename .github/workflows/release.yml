@@ -69,6 +69,19 @@ jobs:
       - name: Build distributions
         run: python -m build
 
+      - name: Validate distributions
+        run: python -m twine check dist/*
+
+      - name: Preserve exact distributions for PyPI
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: python-package-distributions
+          path: |
+            dist/*.whl
+            dist/*.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Attest release distributions
         id: attest
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
