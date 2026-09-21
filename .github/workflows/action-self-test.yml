@@ -27,7 +27,7 @@ jobs:
         with:
           path: .
           strict: "true"
-          fail_on_drift: "true"
+          fail_on_integrity: "true"
           sarif: action-report.sarif
       - name: Validate SARIF file
         shell: python
