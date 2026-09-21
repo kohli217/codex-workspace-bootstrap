@@ -466,6 +466,20 @@ def _script_for_command(command: str) -> tuple[str, str] | None:
     script = match.group(2) or match.group(3)
     if not script or script in {"install", "ci", "exec", "dlx"}:
         return None
+
+    # Be conservative with workspace/filter/prefix style commands. The first
+    # token after the package manager may be an option rather than a script,
+    # for example:
+    #   pnpm --filter web test
+    #   npm --workspace app run test
+    #   pnpm -C apps/web test
+    #
+    # Treating that option as a script creates false missing-script findings.
+    # Until full option parsing is implemented, skip script validation for
+    # commands whose apparent script begins with a dash.
+    if script.startswith("-"):
+        return None
+
     return manager, script
 
 
