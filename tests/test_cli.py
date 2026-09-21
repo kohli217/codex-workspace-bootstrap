@@ -158,3 +158,16 @@ def test_preflight_writes_markdown(tmp_path: Path) -> None:
 def test_preflight_strict_fails_only_on_blocking(tmp_path: Path) -> None:
     code = main(["preflight", str(tmp_path), "--strict"])
     assert code == 0
+
+
+def test_preflight_fail_on_integrity_returns_nonzero_for_integrity_finding(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        '{"packageManager":"pnpm@10","scripts":{"test":"vitest"}}',
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    (tmp_path / "AGENTS.md").write_text("Run §npm test§.\n".replace("§", "`"), encoding="utf-8")
+
+    code = main(["preflight", str(tmp_path), "--fail-on-integrity"])
+
+    assert code == 1
