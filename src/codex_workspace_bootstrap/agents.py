@@ -1,11 +1,22 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 import json
 from pathlib import Path
+import re
+import tomllib
 
 
 PYTHON_MARKERS = ("pyproject.toml", "requirements.txt", "setup.py", "setup.cfg")
 NODE_MARKER = "package.json"
+README_NAMES = ("README.md", "README.rst", "README.txt", "README")
+
+
+@dataclass(frozen=True)
+class ValidationCommand:
+    command: str
+    evidence: str
+    review_required: bool = False
 
 
 def detect_project_signals(root: Path) -> list[str]:
@@ -34,40 +45,155 @@ def _node_script_names(root: Path) -> set[str]:
     return {name for name, value in scripts.items() if isinstance(name, str) and isinstance(value, str)}
 
 
-def validation_commands(root: Path) -> list[str]:
+def _readme_text(root: Path) -> str:
+    for name in README_NAMES:
+        path = root / name
+        if path.is_file():
+            try:
+                return path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                return ""
+    return ""
+
+
+def _documented_commands(root: Path) -> set[str]:
+    text = _readme_text(root)
+    if not text:
+        return set()
+
+    candidates = {
+        "python -m pytest",
+        "pytest",
+        "python -m unittest",
+        "npm test",
+        "npm run lint",
+        "npm run build",
+    }
+    found: set[str] = set()
+    for command in candidates:
+        if re.search(rf"(?m)(^|[\\s$>]){re.escape(command)}(?=$|\\s)", text):
+            found.add(command)
+    return found
+
+
+def _pyproject_has_pytest(root: Path) -> bool:
+    path = root / "pyproject.toml"
+    if not path.is_file():
+        return False
+
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
+        return False
+
+    tool = data.get("tool")
+    if isinstance(tool, dict) and isinstance(tool.get("pytest"), dict):
+        return True
+
+    project = data.get("project")
+    if not isinstance(project, dict):
+        return False
+
+    dependency_groups: list[object] = [project.get("dependencies")]
+    optional = project.get("optional-dependencies")
+    if isinstance(optional, dict):
+        dependency_groups.extend(optional.values())
+
+    for group in dependency_groups:
+        if not isinstance(group, list):
+            continue
+        for value in group:
+            if isinstance(value, str) and re.match(r"(?i)^pytest(?:\\b|[<>=!~\\[])?", value.strip()):
+                return True
+    return False
+
+
+def validation_plan(root: Path) -> list[ValidationCommand]:
     signals = detect_project_signals(root)
-    commands: list[str] = []
+    documented = _documented_commands(root)
+    plan: list[ValidationCommand] = []
 
     if "Python" in signals:
-        if (root / "tests").is_dir():
-            commands.append("python -m pytest")
+        pytest_evidence = (
+            _pyproject_has_pytest(root)
+            or (root / "pytest.ini").exists()
+            or (root / "conftest.py").exists()
+        )
+        if "python -m pytest" in documented or "pytest" in documented:
+            plan.append(ValidationCommand("python -m pytest", "documented in README"))
+        elif pytest_evidence:
+            plan.append(ValidationCommand("python -m pytest", "pytest configuration or dependency detected"))
         else:
-            commands.append("python -m compileall .")
+            plan.append(ValidationCommand("python -m compileall .", "Python project detected; no test runner confirmed"))
+            if (root / "tests").is_dir():
+                plan.append(
+                    ValidationCommand(
+                        "python -m pytest",
+                        "tests/ exists, but pytest was not confirmed in project metadata or README",
+                        review_required=True,
+                    )
+                )
 
     if "Node.js" in signals:
         scripts = _node_script_names(root)
         if "test" in scripts:
-            commands.append("npm test")
+            plan.append(ValidationCommand("npm test", "package.json defines scripts.test"))
         if "lint" in scripts:
-            commands.append("npm run lint")
+            plan.append(ValidationCommand("npm run lint", "package.json defines scripts.lint"))
+        if "build" in scripts and "npm run build" in documented:
+            plan.append(ValidationCommand("npm run build", "package.json defines scripts.build and README documents it"))
         if not {"test", "lint"} & scripts:
-            commands.append("npm install --ignore-scripts --package-lock-only --dry-run")
+            plan.append(
+                ValidationCommand(
+                    "npm install --ignore-scripts --package-lock-only --dry-run",
+                    "Node.js project detected; no test or lint script confirmed",
+                )
+            )
 
-    commands.extend(
+    plan.extend(
         [
-            "codex-workspace-bootstrap audit . --strict",
-            "git diff --check",
-            "git status --short",
+            ValidationCommand(
+                "codex-workspace-bootstrap audit . --strict",
+                "repository readiness self-check",
+            ),
+            ValidationCommand("git diff --check", "generic Git whitespace validation"),
+            ValidationCommand("git status --short", "generic Git change review"),
         ]
     )
-    return commands
+    return plan
+
+
+def validation_commands(root: Path) -> list[str]:
+    return [item.command for item in validation_plan(root) if not item.review_required]
 
 
 def generate_agents(root: Path) -> str:
     signals = detect_project_signals(root)
     signal_text = ", ".join(signals) if signals else "No common Python or Node.js manifest detected"
-    commands = validation_commands(root)
-    command_lines = "\n".join(f"- `{command}`" for command in commands)
+    plan = validation_plan(root)
+
+    confirmed = [item for item in plan if not item.review_required]
+    review = [item for item in plan if item.review_required]
+
+    confirmed_lines = "\n".join(
+        f"- {item.command} — {item.evidence}"
+        for item in confirmed
+    )
+    review_section = ""
+    if review:
+        review_lines = "\n".join(
+            f"- {item.command} — {item.evidence}"
+            for item in review
+        )
+        review_section = f"""
+## Review-required suggestions
+
+These commands are plausible from repository layout but are not sufficiently confirmed to treat as authoritative:
+
+{review_lines}
+
+Confirm them against project documentation or configuration before use.
+"""
 
     return f"""# AGENTS.md
 
@@ -92,14 +218,12 @@ These signals are derived only from files present in the repository. Review this
 - Explain user-visible behavior changes in the pull request or commit summary.
 - Inspect the final diff before proposing completion.
 
-## Suggested validation
+## Confirmed validation
 
-Run the commands that apply to the change:
+These commands have direct repository evidence or are generic non-destructive checks:
 
-{command_lines}
-
-If a generated command does not match the repository's documented workflow, follow the repository documentation and update this file rather than forcing the command to run.
-
+{confirmed_lines}
+{review_section}
 ## Safety
 
 - Do not print the contents of files suspected to contain secrets.
