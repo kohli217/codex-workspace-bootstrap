@@ -658,3 +658,67 @@ def test_shell_chain_splitter_does_not_split_quoted_separators() -> None:
 
     assert any(command.startswith("npm run test") for command in commands)
     assert "npm run lint" in commands
+
+
+def test_instruction_discovery_ignores_symlinked_instruction_files(tmp_path: Path, monkeypatch) -> None:
+    target = tmp_path / "AGENTS.md"
+    target.write_text("Run §npm test§.\n".replace("§", "`"), encoding="utf-8")
+
+    original_is_symlink = Path.is_symlink
+
+    def fake_is_symlink(path: Path) -> bool:
+        if path == target:
+            return True
+        return original_is_symlink(path)
+
+    monkeypatch.setattr(Path, "is_symlink", fake_is_symlink)
+
+    signals = detect_instruction_signals(tmp_path)
+
+    assert not any(item.path == "AGENTS.md" for item in signals)
+
+
+def test_package_manager_evidence_ignores_symlinked_package_json(tmp_path: Path, monkeypatch) -> None:
+    package = tmp_path / "package.json"
+    package.write_text(
+        json.dumps({"packageManager": "npm@11", "scripts": {"test": "vitest"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    (tmp_path / "AGENTS.md").write_text(
+        "Run §pnpm test§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+
+    original_is_symlink = Path.is_symlink
+
+    def fake_is_symlink(path: Path) -> bool:
+        if path == package:
+            return True
+        return original_is_symlink(path)
+
+    monkeypatch.setattr(Path, "is_symlink", fake_is_symlink)
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "package-manager-evidence-conflict" for item in findings)
+    assert not any(item.kind == "package-manager-mismatch" for item in findings)
+
+
+def test_apply_fix_plan_does_not_write_through_symlink_target(tmp_path: Path, monkeypatch) -> None:
+    plan = build_fix_plan(tmp_path)
+    target = tmp_path / "AGENTS.md"
+
+    original_is_symlink = Path.is_symlink
+
+    def fake_is_symlink(path: Path) -> bool:
+        if path == target:
+            return True
+        return original_is_symlink(path)
+
+    monkeypatch.setattr(Path, "is_symlink", fake_is_symlink)
+
+    applied = apply_fix_plan(tmp_path, plan)
+
+    assert applied == []
+    assert not target.exists()
