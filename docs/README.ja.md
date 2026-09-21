@@ -1,123 +1,104 @@
 # codex-workspace-bootstrap 日本語ガイド
 
-Windows上の既存リポジトリを、Codexで扱いやすい状態に診断・初期化するためのCLIです。
+**AIコーディングエージェントにリポジトリを触らせる前のpreflightツール**です。
 
-> コミュニティ運営のプロジェクトです。OpenAI公式製品ではなく、OpenAIとの提携・所属を示すものではありません。
+Windows-first、ローカル実行中心、CI対応。Codexだけでなく、Copilot / Cline / Claude Code / Gemini CLI / Continue / Cursor系の指示ファイルも横断して検出します。
 
-## できること
+> コミュニティ運営のOSSです。OpenAI公式製品ではありません。
 
-- Git / Python / Node.js / npm / PowerShell / WSL / Codex の利用可否を確認
-- README / LICENSE / .gitignore / AGENTS.md / 主要マニフェストを確認
-- .env・秘密鍵・credential系の「危険になりやすいファイル名」を検出
-- Gitが使える場合は、危険候補が追跡済みか・ignore済みかを区別
-- Python / Node.js / 混在プロジェクト向けに `AGENTS.md` を生成
-- JSON形式で監査結果を保存
-- `--strict` でCIのブロッキング判定に利用
-- Windows / Ubuntu のGitHub Actionsで自動テスト
-
-## 30秒で試す
-
-PyPIからインストールします。
+## まずこれだけ
 
 ```powershell
 py -m pip install codex-workspace-bootstrap
+cwb preflight .
 ```
 
-PyPI公開にはGitHub OIDC Trusted Publishingを使用しています。明示的にv0.3.0の成果物を固定したい場合はGitHub Releaseのwheelも利用できます。
+結果は次の3状態です。
+
+- **READY**: 基本的なRepo準備とAI指示が確認でき、blocking項目なし
+- **NEEDS ATTENTION**: 使用可能だが、重要な準備不足あり
+- **BLOCKED**: 追跡済みsecret-riskファイル名など、先に確認すべきblocking項目あり
+
+preflightは、次に何をすべきかをP0/P1/P2の優先度付きで表示します。
+
+## 何を確認するか
+
+- Git repository / README / LICENSE / .gitignore
+- pyproject.toml / package.json などのproject manifest
+- Git / Python / Node.js / npm / PowerShell / WSL / Codex
+- AGENTS.md
+- GitHub Copilot repository instructions
+- Cline / Claude Code / Gemini CLI / Continue / Cursor系の指示ファイル
+- .env / private-key系などsecret-riskになりやすいファイル名
+- Git追跡済み / ignore済み / untrackedの区別
+
+Secret候補のファイル内容は表示しません。
+
+## 主なコマンド
 
 ```powershell
-py -m pip install "https://github.com/kohli217/codex-workspace-bootstrap/releases/download/v0.3.0/codex_workspace_bootstrap-0.3.0-py3-none-any.whl"
+cwb preflight .
+cwb doctor .
+cwb audit .
+cwb init-agents .
 ```
 
-監査:
+Markdownレポート:
 
 ```powershell
-codex-workspace-bootstrap audit .
+cwb preflight . --markdown preflight.md
 ```
 
-Codex向けAGENTS.md生成:
+JSON:
 
 ```powershell
-codex-workspace-bootstrap init-agents .
+cwb preflight . --json preflight.json
 ```
 
-生成する検証コマンドは、pyproject.toml、pytest設定、package.jsonのscript名、READMEに明記されたコマンドを照合します。根拠が弱い候補は確定コマンドと分けてレビュー対象として表示します。
-
-バージョン確認:
+SARIF:
 
 ```powershell
-codex-workspace-bootstrap --version
+cwb audit . --sarif audit.sarif
 ```
 
-より詳しい例は [EXAMPLES.md](EXAMPLES.md) を参照してください。
+## AGENTS.md生成
 
-## GitHub Actionsから使う
+```powershell
+cwb init-agents .
+```
 
-v0.3.0の再利用可能ActionはGitHub Marketplaceで公開済みです。第三者がGitHub内から見つけて導入できる配布経路として利用できます。
+pyproject.toml、pytest設定、package.jsonのscript名、READMEに書かれた検証コマンドを照合します。根拠が弱いコマンドは確定扱いせず、review-requiredとして分離します。
+
+## GitHub Actions
+
+GitHub Marketplaceの再利用可能Actionとして利用できます。v0.4.0ではpreflight MarkdownレポートがGitHub Actionsの**Job Summary**に表示されます。
 
 ```yaml
 - uses: actions/checkout@v7
 - uses: actions/setup-python@v7
   with:
     python-version: "3.13"
-- uses: kohli217/codex-workspace-bootstrap@v0.3.0
+- uses: kohli217/codex-workspace-bootstrap@v0.4.0
   with:
     path: .
     strict: "true"
 ```
 
-詳しくは [GITHUB_ACTION.md](GITHUB_ACTION.md) を参照してください。
+## 他ツールとの役割分担
 
-## doctorコマンド
+このツールはAIエージェント本体でも、Gitleaks / Trivyの代替でもありません。
 
-```powershell
-codex-workspace-bootstrap doctor .
-```
+- コードを書く → Codex / Copilot / Cline / Claude Codeなど
+- 深いSecret/脆弱性scan → Gitleaks / Trivyなど
+- Toolchainを固定する → Dev Containers / miseなど
+- **AI作業前にRepoの準備状態を横断確認する → codex-workspace-bootstrap**
 
-監査で見つかった警告に対して、Windowsを意識した非破壊の確認・改善ガイダンスを表示します。ソフトウェアのインストールやシステム設定変更は自動実行しません。
+## セキュリティ方針
 
-## CIで使う
+- コア監査はローカル
+- secret-risk候補の中身を表示しない
+- Repo内容をコア監査から外部AIサービスへ送らない
+- 既存AGENTS.mdを勝手に上書きしない
+- PASSは安全性の保証ではない
 
-```powershell
-codex-workspace-bootstrap audit . --strict
-```
-
-追跡済みの `.env` や秘密鍵系ファイル名など、明確に危険度が高い検出をブロッキング扱いできます。
-
-## SARIF / GitHub Code Scanning
-
-```powershell
-codex-workspace-bootstrap audit . --sarif codex-workspace-bootstrap.sarif
-```
-
-ブロッキング項目はSARIFの `error`、通常の警告は `warning` として出力します。GitHub Code Scanningとの連携例は [SARIF.md](SARIF.md) を参照してください。
-
-## JSONレポート
-
-```powershell
-codex-workspace-bootstrap audit . --json audit-report.json
-```
-
-## セキュリティ上の考え方
-
-このツールは、秘密情報候補ファイルの**中身を読んだり表示したりしません**。コア監査処理はリポジトリ内容を外部サービスへ送信しません。
-
-ただし、監査がPASSでも安全性を保証するものではありません。公開・マージ前にはテスト結果と差分を人間が確認してください。
-
-## Codexと一緒に使う流れ
-
-1. `audit` で現状確認
-2. 警告・ブロッキング項目を確認
-3. 必要なら `init-agents` で指示ファイル生成
-4. CodexにIssue単位の作業を依頼
-5. テストとauditを再実行
-6. `git diff` を確認
-7. CI成功後にマージ・リリース
-
-## 開発・コントリビュート
-
-[CONTRIBUTING.md](../CONTRIBUTING.md) と [CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md) を参照してください。
-
-## ライセンス
-
-MIT License
+詳細は [../SECURITY.md](../SECURITY.md) を参照してください。
