@@ -12,10 +12,14 @@ All notable changes to this project will be documented here.
 - `--fail-on-drift` CLI policy and `fail_on_drift` GitHub Action input.
 - Instruction integrity metrics in CLI, JSON, Markdown, and GitHub Actions Job Summary.
 - Reproducible read-only evaluations of public repositories.
+- Scope-aware discovery for nested `AGENTS.md` / `AGENTS.override.md`.
+- Static scope inference from common `applyTo` and `globs` frontmatter.
+- Validation-command recognition for uv/poetry/pdm pytest flows, make/just, Gradle, Maven, and dotnet.
 
 ### Changed
 - Readiness becomes NEEDS ATTENTION when instruction-integrity findings exist.
-- Validation drift comparison now uses command families and shared baselines to reduce false positives.
+- Validation drift comparison now uses command families, shared baselines, and instruction scopes to reduce false positives.
+- READY now requires a repository-wide instruction baseline, not only nested/path-specific rules.
 
 ## [0.4.0] - 2026-09-21
 
