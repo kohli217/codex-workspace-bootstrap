@@ -36,7 +36,7 @@ The preflight detects known repository instruction/config signals such as:
 AGENTS.md
 .github/copilot-instructions.md
 .github/instructions/*
-.clinerules
+.clinerules/*
 .cline/rules/*
 CLAUDE.md
 GEMINI.md
