@@ -16,6 +16,19 @@ Windows-first. Local by default. CI-friendly. Designed for repositories used wit
 
 > Community-maintained project. Not an official OpenAI product and not affiliated with OpenAI.
 
+## Why add this to your repository?
+
+AI coding agents can move fast, but they can also follow stale or conflicting repository instructions. `codex-workspace-bootstrap` adds one repeatable check before that happens.
+
+| Common failure | What `cwb` does |
+| --- | --- |
+| One instruction says `npm`, another says `pnpm` | Flags the mismatch before an agent edits the repository. |
+| An instruction tells the agent to run a test/lint script that does not exist | Reports the invalid command instead of letting the mistake reach the agent. |
+| A risky file such as `.env.production` is Git-tracked | Surfaces it as a blocking risk signal without printing its contents. |
+| The repository is still missing important readiness pieces | `cwb preflight . --require-ready` can fail CI until the repository reaches `READY`. |
+
+It is local-first: the core preflight does not send repository contents to a remote AI service.
+
 ## The 20-second demo
 
 ```powershell
