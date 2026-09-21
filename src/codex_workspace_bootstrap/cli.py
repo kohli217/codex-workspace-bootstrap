@@ -9,6 +9,7 @@ from . import __version__
 from .agents import generate_agents
 from .audit import audit_repository, summary
 from .doctor import doctor_findings
+from .preflight import build_preflight, render_markdown
 from .sarif import checks_to_sarif
 
 
@@ -19,6 +20,16 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
+
+    preflight = sub.add_parser("preflight", help="Run the one-command AI repository readiness check")
+    preflight.add_argument("path", nargs="?", default=".")
+    preflight.add_argument("--json", dest="json_path", help="Write the complete preflight report to JSON")
+    preflight.add_argument("--markdown", dest="markdown_path", help="Write a concise Markdown preflight report")
+    preflight.add_argument(
+        "--strict",
+        action="store_true",
+        help="Return a non-zero exit code when blocking findings are present",
+    )
 
     audit = sub.add_parser("audit", help="Audit a repository and local toolchain")
     audit.add_argument("path", nargs="?", default=".")
@@ -46,6 +57,64 @@ def _write_json(path: str, payload: object, label: str) -> None:
     output.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     print(f"{label} written to: {output}")
 
+
+
+def _run_preflight(
+    path: str,
+    json_path: str | None,
+    markdown_path: str | None,
+    strict: bool,
+) -> int:
+    root = Path(path).expanduser().resolve()
+    if not root.exists() or not root.is_dir():
+        print(f"error: repository path does not exist or is not a directory: {root}", file=sys.stderr)
+        return 2
+
+    report = build_preflight(root)
+
+    print("AI Repository Preflight")
+    print(f"Repository: {root}")
+    print(f"State: {report['state']}")
+
+    project_signals = report["project_signals"]
+    project_text = ", ".join(project_signals) if project_signals else "Unknown"
+    print(f"Project: {project_text}")
+
+    instructions = report["instruction_signals"]
+    if instructions:
+        print("AI instructions:")
+        for item in instructions:
+            print(f"  - {item['tool']}: {item['path']}")
+    else:
+        print("AI instructions: none detected")
+
+    totals = report["summary"]
+    print(
+        f"Audit: {totals['passed']} passed, "
+        f"{totals['warnings']} warnings, {totals['blocking']} blocking"
+    )
+
+    actions = report["next_actions"]
+    if actions:
+        print("Next actions:")
+        for item in actions:
+            suffix = f" -> {item['command']}" if item.get("command") else ""
+            print(f"  [{item['priority']}] {item['title']}{suffix}")
+    else:
+        print("Next actions: none")
+
+    if json_path:
+        _write_json(json_path, report, "Preflight JSON report")
+
+    if markdown_path:
+        output = Path(markdown_path).expanduser().resolve()
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(render_markdown(report), encoding="utf-8")
+        print(f"Preflight Markdown report written to: {output}")
+
+    if strict and report["state"] == "BLOCKED":
+        return 1
+    return 0
 
 def _run_audit(
     path: str,
@@ -130,6 +199,8 @@ def _run_init_agents(path: str, force: bool) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    if args.command == "preflight":
+        return _run_preflight(args.path, args.json_path, args.markdown_path, args.strict)
     if args.command == "audit":
         return _run_audit(args.path, args.json_path, args.sarif_path, args.strict)
     if args.command == "doctor":
