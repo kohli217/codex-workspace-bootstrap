@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented here.
 
+## [Unreleased]
+
+### Added
+- CLI `--version` flag.
+- Built-wheel smoke testing in CI.
+- CodeQL static analysis.
+- Dependabot updates for Python and GitHub Actions.
+- Usage examples, citation metadata, Code of Conduct, and support guidance.
+
+### Changed
+- README onboarding now recommends a pinned release artifact instead of piping a remote PowerShell script directly into `iex`.
+- Package metadata now includes project URLs and broader discovery keywords.
+
 ## [0.1.0] - 2026-09-21
 
 ### Added
