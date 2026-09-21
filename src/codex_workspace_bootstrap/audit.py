@@ -81,6 +81,44 @@ def _iter_project_files(root: Path) -> Iterable[Path]:
             yield path
 
 
+def _git_matches(root: Path, args: tuple[str, ...]) -> bool:
+    if shutil.which("git") is None:
+        return False
+    try:
+        result = subprocess.run(
+            ("git", "-C", str(root), *args),
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+        return result.returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def _classify_risky_paths(root: Path, risky: list[str]) -> tuple[list[str], list[str], list[str]]:
+    tracked: list[str] = []
+    ignored: list[str] = []
+    untracked: list[str] = []
+
+    for relative in risky:
+        if _git_matches(root, ("ls-files", "--error-unmatch", "--", relative)):
+            tracked.append(relative)
+        elif _git_matches(root, ("check-ignore", "--quiet", "--", relative)):
+            ignored.append(relative)
+        else:
+            untracked.append(relative)
+
+    return tracked, ignored, untracked
+
+
+def _preview(paths: list[str], limit: int = 8) -> str:
+    visible = ", ".join(sorted(paths)[:limit])
+    suffix = "" if len(paths) <= limit else f" (+{len(paths) - limit} more)"
+    return f"{visible}{suffix}"
+
+
 def audit_repository(root: Path) -> list[Check]:
     root = root.resolve()
     checks: list[Check] = []
@@ -144,16 +182,25 @@ def audit_repository(root: Path) -> list[Check]:
     for path in _iter_project_files(root):
         name = path.name.lower()
         if name in RISK_FILENAMES or name.endswith(RISK_SUFFIXES):
-            risky.append(str(path.relative_to(root)))
+            risky.append(path.relative_to(root).as_posix())
 
     if risky:
-        preview = ", ".join(sorted(risky)[:8])
-        suffix = "" if len(risky) <= 8 else f" (+{len(risky) - 8} more)"
+        tracked, ignored, untracked = _classify_risky_paths(root, risky)
+        parts: list[str] = []
+        if tracked:
+            parts.append(f"tracked: {_preview(tracked)}")
+        if ignored:
+            parts.append(f"ignored: {_preview(ignored)}")
+        if untracked:
+            parts.append(f"untracked/unknown: {_preview(untracked)}")
+
         checks.append(
             Check(
                 "secret-risk-files",
                 "warn",
-                f"Potential secret-bearing files detected: {preview}{suffix}. Verify they are safe and ignored.",
+                "Potential secret-bearing filenames detected (" + "; ".join(parts) + "). "
+                "The audit does not read file contents.",
+                blocking=bool(tracked),
             )
         )
     else:
