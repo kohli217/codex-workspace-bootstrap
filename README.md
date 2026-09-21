@@ -114,7 +114,7 @@ Blocking findings are emitted as SARIF errors and other warnings as SARIF warnin
 codex-workspace-bootstrap init-agents .
 ```
 
-The generator inspects common project manifests and layout signals, then writes conservative validation guidance. Existing `AGENTS.md` files are never overwritten unless `--force` is explicit.
+The generator cross-checks common project manifests, package scripts, pytest configuration, and documented README commands before marking validation commands as confirmed. Plausible but unverified commands are separated for maintainer review. Existing `AGENTS.md` files are never overwritten unless `--force` is explicit.
 
 ## Safety model
 
