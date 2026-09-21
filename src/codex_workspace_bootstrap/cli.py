@@ -9,6 +9,7 @@ from . import __version__
 from .agents import generate_agents
 from .audit import audit_repository, summary
 from .doctor import doctor_findings
+from .fixes import apply_fix_plan, build_fix_plan
 from .preflight import build_preflight, render_markdown
 from .sarif import checks_to_sarif
 
@@ -29,6 +30,19 @@ def _parser() -> argparse.ArgumentParser:
         "--strict",
         action="store_true",
         help="Return a non-zero exit code when blocking findings are present",
+    )
+    preflight.add_argument(
+        "--fail-on-drift",
+        action="store_true",
+        help="Return a non-zero exit code when AI instruction integrity findings are present",
+    )
+
+    fix = sub.add_parser("fix", help="Preview safe repository-readiness fixes")
+    fix.add_argument("path", nargs="?", default=".")
+    fix.add_argument(
+        "--apply",
+        action="store_true",
+        help="Apply only low-risk supported fixes; conflicting instructions are never auto-rewritten",
     )
 
     audit = sub.add_parser("audit", help="Audit a repository and local toolchain")
@@ -64,6 +78,7 @@ def _run_preflight(
     json_path: str | None,
     markdown_path: str | None,
     strict: bool,
+    fail_on_drift: bool,
 ) -> int:
     root = Path(path).expanduser().resolve()
     if not root.exists() or not root.is_dir():
@@ -94,6 +109,19 @@ def _run_preflight(
         f"{totals['warnings']} warnings, {totals['blocking']} blocking"
     )
 
+    instruction_totals = report["instruction_summary"]
+    print(
+        f"Instruction integrity: {instruction_totals['findings']} findings, "
+        f"{instruction_totals['drift']} drift, "
+        f"{instruction_totals['invalid_commands']} invalid commands"
+    )
+
+    findings = report["instruction_findings"]
+    if findings:
+        print("Instruction findings:")
+        for item in findings:
+            print(f"  [{item['severity'].upper()}] {item['kind']}: {item['message']}")
+
     actions = report["next_actions"]
     if actions:
         print("Next actions:")
@@ -114,6 +142,43 @@ def _run_preflight(
 
     if strict and report["state"] == "BLOCKED":
         return 1
+    if fail_on_drift and report["instruction_summary"]["findings"]:
+        return 1
+    return 0
+
+
+def _run_fix(path: str, apply: bool) -> int:
+    root = Path(path).expanduser().resolve()
+    if not root.exists() or not root.is_dir():
+        print(f"error: repository path does not exist or is not a directory: {root}", file=sys.stderr)
+        return 2
+
+    plan = build_fix_plan(root)
+    print(f"Repository: {root}")
+    if not plan:
+        print("Fix plan: no supported fixes or instruction-integrity findings.")
+        return 0
+
+    print("Fix plan:")
+    for item in plan:
+        mode = "AUTO" if item.apply_supported else "REVIEW"
+        target = f" -> {item.target}" if item.target else ""
+        print(f"  [{mode}] {item.description}{target}")
+
+    if not apply:
+        print("Preview only. Re-run with --apply to apply low-risk supported fixes.")
+        return 0
+
+    applied = apply_fix_plan(root, plan)
+    if applied:
+        print("Applied:")
+        for path_item in applied:
+            print(f"  - {path_item}")
+    else:
+        print("No automatic changes were applied.")
+    manual = sum(not item.apply_supported for item in plan)
+    if manual:
+        print(f"{manual} finding(s) require human review and were left unchanged.")
     return 0
 
 def _run_audit(
@@ -200,7 +265,15 @@ def _run_init_agents(path: str, force: bool) -> int:
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     if args.command == "preflight":
-        return _run_preflight(args.path, args.json_path, args.markdown_path, args.strict)
+        return _run_preflight(
+            args.path,
+            args.json_path,
+            args.markdown_path,
+            args.strict,
+            args.fail_on_drift,
+        )
+    if args.command == "fix":
+        return _run_fix(args.path, args.apply)
     if args.command == "audit":
         return _run_audit(args.path, args.json_path, args.sarif_path, args.strict)
     if args.command == "doctor":
