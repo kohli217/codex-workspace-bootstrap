@@ -95,7 +95,7 @@ The goal is not a vanity score. The result is one of:
 - README
 - license
 - `.gitignore`
-- common project manifests
+- common project manifests, including Python, Node.js, Go, Rust, JVM, and .NET roots
 - local Git / Python / Node.js / repository-selected package manager / PowerShell / WSL / Codex signals
 
 ### AI instruction coverage
@@ -220,7 +220,7 @@ cwb doctor .
 cwb init-agents .
 ```
 
-Generation is evidence-based: the tool cross-checks project manifests, package-manager evidence, package scripts, pytest configuration, and README commands. Plausible but unconfirmed commands are separated for maintainer review. Existing `AGENTS.md` files are never overwritten unless `--force` is explicit.
+Generation is evidence-based: the tool identifies common Python, Node.js, Go, Rust, JVM, and .NET project roots, then only emits validation commands that have direct repository evidence. Python/Node-specific validation is cross-checked against package-manager evidence, package scripts, pytest configuration, and README commands. Plausible but unconfirmed commands are separated for maintainer review. Existing `AGENTS.md` files are never overwritten unless `--force` is explicit.
 
 ## GitHub Action
 
