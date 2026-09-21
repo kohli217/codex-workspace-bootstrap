@@ -2,11 +2,13 @@
 
 All notable changes to this project will be documented here.
 
-## [Unreleased]
+## [0.3.0] - 2026-09-21
 
 ### Added
 - SARIF 2.1.0 output for repository-readiness warnings and blocking findings.
 - GitHub Code Scanning integration documentation.
+- Reusable Action SARIF output with validated inputs.
+- CODEOWNERS and GitHub Marketplace publishing documentation.
 
 ## [0.2.0] - 2026-09-21
 
