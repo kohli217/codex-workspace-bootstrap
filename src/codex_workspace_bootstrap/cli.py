@@ -8,6 +8,7 @@ import sys
 from . import __version__
 from .agents import generate_agents
 from .audit import audit_repository, summary
+from .doctor import doctor_findings
 from .sarif import checks_to_sarif
 
 
@@ -28,6 +29,9 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Return a non-zero exit code if blocking checks are present",
     )
+
+    doctor = sub.add_parser("doctor", help="Diagnose warnings and print non-destructive remediation guidance")
+    doctor.add_argument("path", nargs="?", default=".")
 
     init_agents = sub.add_parser("init-agents", help="Create a project-aware starter AGENTS.md")
     init_agents.add_argument("path", nargs="?", default=".")
@@ -86,6 +90,28 @@ def _run_audit(
     return 0
 
 
+
+def _run_doctor(path: str) -> int:
+    root = Path(path).expanduser().resolve()
+    if not root.exists() or not root.is_dir():
+        print(f"error: repository path does not exist or is not a directory: {root}", file=sys.stderr)
+        return 2
+
+    findings = doctor_findings(audit_repository(root))
+
+    print(f"Repository: {root}")
+    if not findings:
+        print("Doctor: no warnings detected by the current checks.")
+        return 0
+
+    for finding in findings:
+        severity = "BLOCKING" if finding.blocking else "WARN"
+        print(f"[{severity}] {finding.name}: {finding.message}")
+        print(f"  Guidance: {finding.guidance}")
+
+    print("Doctor is diagnostic only; it did not install software or modify configuration.")
+    return 0
+
 def _run_init_agents(path: str, force: bool) -> int:
     root = Path(path).expanduser().resolve()
     if not root.exists() or not root.is_dir():
@@ -106,6 +132,8 @@ def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     if args.command == "audit":
         return _run_audit(args.path, args.json_path, args.sarif_path, args.strict)
+    if args.command == "doctor":
+        return _run_doctor(args.path)
     if args.command == "init-agents":
         return _run_init_agents(args.path, args.force)
     return 2
