@@ -8,6 +8,16 @@ import re
 
 PYTHON_MARKERS = ("pyproject.toml", "requirements.txt", "setup.py", "setup.cfg")
 NODE_MARKER = "package.json"
+GO_MARKERS = ("go.mod",)
+RUST_MARKERS = ("Cargo.toml",)
+JVM_MARKERS = (
+    "pom.xml",
+    "build.gradle",
+    "build.gradle.kts",
+    "settings.gradle",
+    "settings.gradle.kts",
+)
+DOTNET_SUFFIXES = (".sln", ".csproj", ".fsproj", ".vbproj")
 README_NAMES = ("README.md", "README.rst", "README.txt", "README")
 
 
@@ -28,6 +38,17 @@ def detect_project_signals(root: Path) -> list[str]:
         signals.append("Python")
     if _regular_file(root / NODE_MARKER):
         signals.append("Node.js")
+    if any(_regular_file(root / marker) for marker in GO_MARKERS):
+        signals.append("Go")
+    if any(_regular_file(root / marker) for marker in RUST_MARKERS):
+        signals.append("Rust")
+    if any(_regular_file(root / marker) for marker in JVM_MARKERS):
+        signals.append("JVM")
+    if any(
+        _regular_file(path) and path.suffix.lower() in DOTNET_SUFFIXES
+        for path in root.iterdir()
+    ):
+        signals.append(".NET")
     return signals
 
 
@@ -248,7 +269,7 @@ def validation_commands(root: Path) -> list[str]:
 
 def generate_agents(root: Path) -> str:
     signals = detect_project_signals(root)
-    signal_text = ", ".join(signals) if signals else "No common Python or Node.js manifest detected"
+    signal_text = ", ".join(signals) if signals else "No supported project manifest detected"
     plan = validation_plan(root)
 
     confirmed = [item for item in plan if not item.review_required]
