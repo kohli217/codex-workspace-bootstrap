@@ -47,6 +47,58 @@ jobs:
               if not value.isdigit():
                   raise SystemExit(f"{name} is not numeric: {value!r}")
 
+
+      - name: Create failing integrity fixture
+        shell: python
+        run: |
+          import json
+          from pathlib import Path
+
+          fixture = Path("action-integrity-fixture")
+          fixture.mkdir()
+          (fixture / "README.md").write_text("# fixture\n", encoding="utf-8")
+          (fixture / ".gitignore").write_text(".venv/\n", encoding="utf-8")
+          (fixture / "package.json").write_text(
+              json.dumps(
+                  {
+                      "packageManager": "pnpm@10",
+                      "scripts": {"test": "vitest"},
+                  }
+              ),
+              encoding="utf-8",
+          )
+          (fixture / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+          (fixture / "AGENTS.md").write_text("Run `npm test`.\n", encoding="utf-8")
+
+      - name: Run local action against known integrity failure
+        id: failing_integrity
+        continue-on-error: true
+        uses: ./
+        with:
+          path: action-integrity-fixture
+          strict: "false"
+          fail_on_integrity: "true"
+
+      - name: Validate integrity gate failure
+        if: always()
+        shell: python
+        env:
+          STEP_OUTCOME: ${{ steps.failing_integrity.outcome }}
+          CWB_STATE: ${{ steps.failing_integrity.outputs.state }}
+          CWB_FINDINGS: ${{ steps.failing_integrity.outputs.instruction_findings }}
+        run: |
+          import os
+
+          if os.environ["STEP_OUTCOME"] != "failure":
+              raise SystemExit(
+                  f"Expected integrity-gated Action to fail, got {os.environ['STEP_OUTCOME']!r}"
+              )
+          if os.environ["CWB_STATE"] != "NEEDS ATTENTION":
+              raise SystemExit(f"Unexpected failing fixture state: {os.environ['CWB_STATE']!r}")
+          findings = int(os.environ["CWB_FINDINGS"])
+          if findings < 1:
+              raise SystemExit("Expected at least one instruction-integrity finding")
+
       - name: Validate SARIF file
         shell: python
         run: |
