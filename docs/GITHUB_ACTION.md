@@ -28,6 +28,7 @@ jobs:
           path: .
           strict: "true"
           fail_on_integrity: "true"
+          require_ready: "true"
 ```
 
 ## Inputs
@@ -37,9 +38,12 @@ jobs:
 | `path` | `.` | Repository directory to check. |
 | `strict` | `true` | Fail when a blocking audit finding is detected. |
 | `fail_on_integrity` | `false` | Fail when any instruction-integrity finding is detected. |
+| `require_ready` | `false` | Fail unless the final preflight state is exactly `READY`. |
 | `sarif` | empty | Optional comprehensive SARIF 2.1.0 output path containing audit and instruction-integrity findings. |
 
 ## Outputs
+
+`strict` only gates blocking audit findings, while `fail_on_integrity` gates instruction-integrity findings. Use `require_ready: "true"` when CI should also fail for other readiness gaps such as a missing README, manifest, .gitignore, or repository-wide AI instruction baseline.
 
 The Action exposes structured outputs so later workflow steps can consume the same preflight result without parsing logs:
 
