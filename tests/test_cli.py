@@ -91,4 +91,4 @@ def test_version_flag_reports_package_version(capsys: pytest.CaptureFixture[str]
         main(["--version"])
 
     assert exc_info.value.code == 0
-    assert "codex-workspace-bootstrap 0.1.0" in capsys.readouterr().out
+    assert "codex-workspace-bootstrap 0.2.0" in capsys.readouterr().out
