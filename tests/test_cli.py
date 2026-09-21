@@ -325,3 +325,38 @@ def test_init_agents_reports_common_project_signal_without_inventing_commands(
     assert "No supported project manifest detected" not in content
     for unsupported_guess in ("go test", "cargo test", "gradle test", "dotnet test"):
         assert unsupported_guess not in content
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="git is required")
+def test_preflight_require_ready_fails_for_needs_attention(tmp_path: Path) -> None:
+    subprocess.run(
+        ("git", "-C", str(tmp_path), "init"),
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    (tmp_path / "README.md").write_text("# demo\n", encoding="utf-8")
+    (tmp_path / ".gitignore").write_text(".venv/\n", encoding="utf-8")
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='demo'\n", encoding="utf-8")
+
+    code = main(["preflight", str(tmp_path), "--require-ready"])
+
+    assert code == 1
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="git is required")
+def test_preflight_require_ready_succeeds_for_ready_repository(tmp_path: Path) -> None:
+    subprocess.run(
+        ("git", "-C", str(tmp_path), "init"),
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    (tmp_path / "README.md").write_text("# demo\n", encoding="utf-8")
+    (tmp_path / ".gitignore").write_text(".venv/\n", encoding="utf-8")
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='demo'\n", encoding="utf-8")
+    (tmp_path / "AGENTS.md").write_text("# agents\n", encoding="utf-8")
+
+    code = main(["preflight", str(tmp_path), "--require-ready"])
+
+    assert code == 0
