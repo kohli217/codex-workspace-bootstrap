@@ -4,6 +4,9 @@ All notable changes to this project will be documented here.
 
 ## [Unreleased]
 
+### Added
+- Windows-focused `doctor` command with non-destructive remediation guidance.
+
 ### Changed
 - AGENTS.md generation now validates suggested commands against project metadata, package scripts, pytest configuration, and README evidence.
 - Plausible but unconfirmed test commands are separated as review-required suggestions instead of being treated as authoritative.
