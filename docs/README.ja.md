@@ -132,3 +132,38 @@ GitHub Actionでは `fail_on_integrity: "true"` を指定します。
 - path-specific instructionの `applyTo` / `globs` から静的なscope prefixを推定します。
 - repository-wide / nested指示は同一scopeを中心にdrift比較します。path-specific ruleはRepo根拠との個別検証は行いますが、selector全体の意味を安全に保持できないため相互drift比較から除外します。
 - path-specific / nested指示しかなくrepository-wide baselineがない場合はREADYにしません。
+
+
+## 実際のBefore → Afterデモ
+
+説明だけではなく、実際に壊れたAI向け指示を検出する再現デモを用意しています。
+
+```powershell
+py examples/first-run-demo/run_demo.py
+```
+
+デモでは、一時的なGitリポジトリを自動生成して次を再現します。
+
+- Repo本体はpnpmなのに `AGENTS.md` がnpmを指定している
+- `AGENTS.md` が存在しない `lint` scriptを参照している
+- 修正前は `NEEDS ATTENTION`
+- 修正後は `READY`
+
+期待される出力の要点:
+
+```text
+=== BEFORE ===
+State: NEEDS ATTENTION
+package-manager-mismatch
+missing-package-script
+
+=== AFTER ===
+State: READY
+Findings: none
+
+Demo verification: PASS
+```
+
+詳細は [examples/first-run-demo](../examples/first-run-demo) を参照してください。
+
+これは第三者利用実績の主張ではなく、製品の検出能力を再現可能な形で確認するための技術デモです。
