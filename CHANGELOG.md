@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented here.
 
-## [Unreleased]
+## [0.2.0] - 2026-09-21
 
 ### Added
 - CLI `--version` flag.
@@ -10,6 +10,7 @@ All notable changes to this project will be documented here.
 - CodeQL static analysis.
 - Dependabot updates for Python and GitHub Actions.
 - Usage examples, citation metadata, Code of Conduct, and support guidance.
+- Reusable GitHub Action integration with Windows and Ubuntu self-tests.
 
 ### Changed
 - README onboarding now recommends a pinned release artifact instead of piping a remote PowerShell script directly into `iex`.
