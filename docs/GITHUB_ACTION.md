@@ -19,11 +19,11 @@ jobs:
   preflight:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: "3.13"
-      - uses: kohli217/codex-workspace-bootstrap@v0.5.0
+      - uses: kohli217/codex-workspace-bootstrap@v0.5.2
         with:
           path: .
           strict: "true"
@@ -54,20 +54,20 @@ The Action writes a Markdown snapshot containing:
 ## SARIF
 
 ```yaml
-- uses: kohli217/codex-workspace-bootstrap@v0.5.0
+- uses: kohli217/codex-workspace-bootstrap@v0.5.2
   with:
     path: .
     strict: "true"
     sarif: codex-workspace-bootstrap.sarif
 ```
 
-The generated SARIF contains both audit and instruction-integrity findings. Upload it with `github/codeql-action/upload-sarif@v4` when GitHub Code Scanning integration is desired.
+The generated SARIF contains both audit and instruction-integrity findings. Upload it with `github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd` when GitHub Code Scanning integration is desired.
 
 ## Safety
 
 The Action installs the code contained in the referenced release tag, runs local deterministic checks, and does not upload repository contents or suspected secret-file contents.
 
-For reproducibility, pin a release tag rather than `@main`.
+For reproducibility, pin this project to a release tag rather than `@main`. Third-party GitHub Actions in the examples are pinned to immutable commit SHAs.
 
 
 ## Scope-aware behavior
