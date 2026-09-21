@@ -25,20 +25,18 @@ def build_fix_plan(root: Path) -> list[FixPlanItem]:
     signals = detect_instruction_signals(root)
     findings = lint_instructions(root, signals)
 
-    if not signals:
+    has_repository_wide = any(
+        signal.scope == "." and signal.kind in {"repository", "override"}
+        for signal in signals
+    )
+    if not has_repository_wide:
         plan.append(
             FixPlanItem(
                 "create-agents",
-                "Create an evidence-based AGENTS.md because no supported AI instruction file was detected.",
-                True,
-                "AGENTS.md",
-            )
-        )
-    elif not (root / "AGENTS.md").exists():
-        plan.append(
-            FixPlanItem(
-                "create-agents",
-                "Create AGENTS.md as a neutral shared instruction baseline; existing tool-specific files remain untouched.",
+                (
+                    "Create an evidence-based AGENTS.md because no supported repository-wide "
+                    "AI instruction baseline was detected."
+                ),
                 True,
                 "AGENTS.md",
             )
