@@ -240,3 +240,25 @@ def test_tracked_risky_file_inside_dist_is_blocking(tmp_path: Path) -> None:
     risk = by_name["secret-risk-files"]
     assert risk.blocking is True
     assert "dist/release.key" in risk.message
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        "build.gradle.kts",
+        "settings.gradle",
+        "settings.gradle.kts",
+        "demo.sln",
+        "demo.csproj",
+        "demo.fsproj",
+        "demo.vbproj",
+    ],
+)
+def test_audit_recognizes_extended_project_manifests(tmp_path: Path, filename: str) -> None:
+    (tmp_path / filename).write_text("marker\n", encoding="utf-8")
+
+    checks = audit_repository(tmp_path)
+    by_name = {check.name: check for check in checks}
+
+    assert by_name["project-manifest"].status == "pass"
+    assert filename in by_name["project-manifest"].message
