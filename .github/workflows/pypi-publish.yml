@@ -1,6 +1,9 @@
 name: Publish to PyPI
 
 on:
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       tag:
@@ -13,22 +16,35 @@ permissions:
 
 jobs:
   build:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
 
     steps:
-      - name: Validate tag format
+      - name: Resolve and validate release tag
+        id: release_tag
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MANUAL_TAG: ${{ inputs.tag }}
         run: |
-          if [[ ! "${{ inputs.tag }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+            tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)"
+          else
+            tag="$MANUAL_TAG"
+          fi
+
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "Tag must use semantic version format such as v0.3.0"
             exit 1
           fi
 
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ inputs.tag }}
+          ref: ${{ steps.release_tag.outputs.tag }}
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
@@ -37,7 +53,7 @@ jobs:
       - name: Verify package version matches tag
         shell: python
         env:
-          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ steps.release_tag.outputs.tag }}
         run: |
           import os
           import pathlib
