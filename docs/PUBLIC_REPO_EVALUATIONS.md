@@ -83,6 +83,32 @@ Expected behavior of the v0.5 integrity model:
 - retain npm as root JavaScript package-manager evidence;
 - not flag Gradle commands as npm drift.
 
+## microsoft/vscode
+
+Snapshot: `b761e4ed5a30fd66137ea5fab7f3b36d341b5d24`
+
+Observed signals:
+
+- root `AGENTS.md`;
+- a large `.github/instructions/*.instructions.md` tree;
+- path-specific Copilot frontmatter using `applyTo`;
+- `.github/instructions/writing-tests.instructions.md` uses a brace-wrapped selector:
+  `{src/vs/**/test/**,src/vs/**/*.test.ts,src/vs/**/*.integrationTest.ts}`;
+- nested `AGENTS.md` files under source subtrees.
+
+Why this matters:
+
+- exercises a real path-specific Copilot layout from a large monorepo;
+- demonstrates that comma-separated alternatives inside an outer brace selector are one scoped selector, not unrelated root-level fragments;
+- protects static scope inference from collapsing `src/vs` to repository root.
+
+Expected behavior of the current integrity model:
+
+- detect the Copilot instruction file as path-specific;
+- infer static scope `src/vs` for the brace-wrapped selector;
+- keep embedded brace expansion such as `apps/web/{src,tests}/**` scoped to `apps/web`;
+- avoid promoting the path-specific rule to a repository-wide baseline.
+
 ## What these evaluations do not prove
 
 These evaluations do not prove:
@@ -110,5 +136,6 @@ The observed repository patterns are encoded as automated regression tests in `t
 - `test_public_pattern_openai_codex_pnpm_repo_without_js_command_drift`
 - `test_public_pattern_cline_multi_instruction_bun_baseline_is_compatible`
 - `test_public_pattern_continue_gradle_rule_does_not_conflict_with_root_npm`
+- `test_public_pattern_vscode_brace_wrapped_apply_to_keeps_static_scope`
 
 The fixtures intentionally model only the relevant public signals needed to exercise the lint rules. They are not copies of the upstream repositories and they do not imply compatibility certification.
