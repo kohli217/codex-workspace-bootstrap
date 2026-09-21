@@ -10,5 +10,5 @@ All notable changes to this project will be documented here.
 - Checks for Git, Python, Node.js, npm, PowerShell, WSL, and Codex.
 - Filename-based warnings for common secret-bearing files.
 - JSON report output.
-- Safe `AGENTS.md` bootstrap command.
+- Project-aware `AGENTS.md` bootstrap for Python, Node.js, mixed, and unknown repositories.
 - Initial test suite and GitHub Actions CI.
