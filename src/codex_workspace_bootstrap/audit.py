@@ -208,6 +208,15 @@ def audit_repository(root: Path) -> list[Check]:
     if (root / "package.json").is_file() and not (root / "package.json").is_symlink():
         managers = detect_node_package_managers(root)
         if managers:
+            if len(managers) > 1:
+                checks.append(
+                    Check(
+                        "package-manager-evidence",
+                        "warn",
+                        "Conflicting Node.js package-manager evidence detected: "
+                        + ", ".join(sorted(managers)),
+                    )
+                )
             for manager in sorted(managers):
                 command = NODE_PACKAGE_MANAGER_COMMANDS[manager]
                 checks.append(_tool_check(manager, command))
