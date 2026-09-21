@@ -53,16 +53,17 @@ jobs:
                   f"requested tag {requested_version!r}"
               )
 
-      - name: Install build and test tools
-        run: python -m pip install --upgrade build pytest
-
-      - name: Install project
-        run: python -m pip install -e .
+      - name: Install hash-locked build and test tools
+        run: python -m pip install --require-hashes -r .github/requirements-tools.txt
 
       - name: Run tests
+        env:
+          PYTHONPATH: src
         run: pytest -q
 
       - name: Run self-audit
+        env:
+          PYTHONPATH: src
         run: python -m codex_workspace_bootstrap audit . --strict
 
       - name: Build distributions
