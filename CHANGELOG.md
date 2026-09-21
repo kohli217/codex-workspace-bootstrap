@@ -2,14 +2,22 @@
 
 All notable changes to this project will be documented here.
 
-## [Unreleased]
+## [0.4.0] - 2026-09-21
 
 ### Added
+- One-command `preflight` experience with READY / NEEDS ATTENTION / BLOCKED states.
+- Short `cwb` CLI alias.
+- Cross-agent instruction/config detection for Codex/OpenAI agents, GitHub Copilot, Cline, Claude Code, Gemini CLI, Continue, and Cursor.
+- Prioritized P0/P1/P2 next actions.
+- Markdown preflight reports for pull requests, issues, and CI summaries.
+- GitHub Actions Job Summary integration.
+
 - PyPI Trusted Publishing workflow using GitHub OIDC, with tag/version verification and distribution validation.
 - v0.3.0 published to PyPI through the Trusted Publishing workflow.
 - Windows-focused `doctor` command with non-destructive remediation guidance.
 
 ### Changed
+- README and onboarding repositioned around AI coding repository preflight.
 - AGENTS.md generation now validates suggested commands against project metadata, package scripts, pytest configuration, and README evidence.
 - Plausible but unconfirmed test commands are separated as review-required suggestions instead of being treated as authoritative.
 
