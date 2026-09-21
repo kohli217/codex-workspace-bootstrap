@@ -34,3 +34,30 @@ The release is created only after the validation, test, audit, and build steps s
 ## Permissions
 
 The workflow requests only `contents: write`, which is required to create the tag and GitHub release. It uses GitHub's ephemeral repository token and does not require a stored personal access token.
+
+
+## PyPI Trusted Publishing
+
+PyPI publishing uses GitHub Actions OpenID Connect (OIDC) Trusted Publishing. No long-lived PyPI API token is stored in GitHub.
+
+Before the first publish:
+
+1. Sign in to PyPI.
+2. Create a pending Trusted Publisher for project name `codex-workspace-bootstrap`.
+3. Provider: GitHub Actions.
+4. Owner: `kohli217`.
+5. Repository: `codex-workspace-bootstrap`.
+6. Workflow filename: `pypi-publish.yml`.
+7. Environment: `pypi`.
+
+Then on GitHub:
+
+1. Open **Actions**.
+2. Select **Publish to PyPI**.
+3. Click **Run workflow**.
+4. Enter an existing release tag such as `v0.3.0`.
+5. Run the workflow.
+
+The workflow checks out the exact release tag, verifies the package version, builds wheel and source distributions, validates them with Twine, and publishes through OIDC.
+
+Do not publish an unreleased working-tree state under an existing version number.
