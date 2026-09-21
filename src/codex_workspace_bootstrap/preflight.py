@@ -130,16 +130,32 @@ def next_actions(
         )
 
     if "Node.js" in project_signals:
-        npm = _check_by_name(checks, "npm")
-        if npm is not None and npm.status != "pass":
-            actions.append(
-                NextAction(
-                    "P1",
-                    "Restore the Node.js/npm toolchain required by this repository",
-                    command="npm --version",
-                    reason=npm.message,
+        manager_checks = [
+            check
+            for check in checks
+            if check.name in {"npm", "pnpm", "yarn", "bun"}
+        ]
+        if len(manager_checks) == 1:
+            manager = manager_checks[0]
+            if manager.status != "pass":
+                actions.append(
+                    NextAction(
+                        "P1",
+                        f"Restore the Node.js/{manager.name} toolchain required by this repository",
+                        command=f"{manager.name} --version",
+                        reason=manager.message,
+                    )
                 )
-            )
+        elif not manager_checks:
+            evidence = _check_by_name(checks, "package-manager-evidence")
+            if evidence is not None and evidence.status != "pass":
+                actions.append(
+                    NextAction(
+                        "P2",
+                        "Confirm the repository package manager",
+                        reason=evidence.message,
+                    )
+                )
 
     return actions
 
