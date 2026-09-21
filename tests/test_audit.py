@@ -122,3 +122,30 @@ def test_audit_reports_unconfirmed_node_package_manager(
 
     assert by_name["package-manager-evidence"].status == "warn"
     assert "does not confirm" in by_name["package-manager-evidence"].message
+
+
+def test_secret_risk_scan_works_when_repository_parent_is_named_build(tmp_path: Path) -> None:
+    root = tmp_path / "build" / "repo"
+    root.mkdir(parents=True)
+    (root / ".env").write_text("EXAMPLE=not-a-secret\n", encoding="utf-8")
+
+    checks = audit_repository(root)
+    by_name = {check.name: check for check in checks}
+
+    assert by_name["secret-risk-files"].status == "warn"
+    assert ".env" in by_name["secret-risk-files"].message
+
+
+def test_secret_risk_scan_prunes_generated_directories(tmp_path: Path) -> None:
+    ignored = tmp_path / "node_modules" / "pkg"
+    ignored.mkdir(parents=True)
+    (ignored / ".env").write_text("EXAMPLE=dependency-file\n", encoding="utf-8")
+
+    cache = tmp_path / ".pytest_cache"
+    cache.mkdir()
+    (cache / "credentials.json").write_text("{}", encoding="utf-8")
+
+    checks = audit_repository(tmp_path)
+    by_name = {check.name: check for check in checks}
+
+    assert by_name["secret-risk-files"].status == "pass"
