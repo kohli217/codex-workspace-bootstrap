@@ -66,6 +66,14 @@ codex-workspace-bootstrap audit . --strict
 
 追跡済みの `.env` や秘密鍵系ファイル名など、明確に危険度が高い検出をブロッキング扱いできます。
 
+## SARIF / GitHub Code Scanning
+
+```powershell
+codex-workspace-bootstrap audit . --sarif codex-workspace-bootstrap.sarif
+```
+
+ブロッキング項目はSARIFの `error`、通常の警告は `warning` として出力します。GitHub Code Scanningとの連携例は [SARIF.md](SARIF.md) を参照してください。
+
 ## JSONレポート
 
 ```powershell
