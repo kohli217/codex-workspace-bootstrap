@@ -21,7 +21,7 @@ jobs:
       - uses: github/codeql-action/init@v3
         with:
           languages: python
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
       - name: Install and test
