@@ -499,3 +499,40 @@ def test_npm_workspace_flag_is_not_treated_as_script(tmp_path: Path) -> None:
     findings = lint_instructions(tmp_path)
 
     assert not any(item.kind == "missing-package-script" for item in findings)
+
+
+def test_nested_claude_md_uses_directory_scope(tmp_path: Path) -> None:
+    (tmp_path / "CLAUDE.md").write_text("root rules\n", encoding="utf-8")
+    nested = tmp_path / "services" / "api"
+    nested.mkdir(parents=True)
+    (nested / "CLAUDE.md").write_text("Run §python -m pytest§.\n".replace("§", "`"), encoding="utf-8")
+
+    signals = detect_instruction_signals(tmp_path)
+    by_path = {item.path: item for item in signals if item.tool == "Claude Code"}
+
+    assert by_path["CLAUDE.md"].scope == "."
+    assert by_path["services/api/CLAUDE.md"].scope == "services/api"
+
+
+def test_nested_claude_md_uses_nearest_package_manager_evidence(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"packageManager": "npm@11", "scripts": {"test": "vitest"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "package-lock.json").write_text("{}", encoding="utf-8")
+
+    app = tmp_path / "apps" / "web"
+    app.mkdir(parents=True)
+    (app / "package.json").write_text(
+        json.dumps({"packageManager": "pnpm@10", "scripts": {"test": "vitest"}}),
+        encoding="utf-8",
+    )
+    (app / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    (app / "CLAUDE.md").write_text(
+        "Run §pnpm test§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "package-manager-mismatch" for item in findings)
