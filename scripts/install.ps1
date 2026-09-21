@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "0.2.0",
+    [string]$Version = "0.3.0",
     [switch]$UserInstall
 )
 
@@ -20,7 +20,7 @@ if (Get-Command py -ErrorAction SilentlyContinue) {
 & $python --version
 
 if ($Version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+$') {
-    throw "Version must use semantic version format such as 0.2.0."
+    throw "Version must use semantic version format such as 0.3.0."
 }
 
 $wheel = "https://github.com/kohli217/codex-workspace-bootstrap/releases/download/v$Version/codex_workspace_bootstrap-$Version-py3-none-any.whl"
