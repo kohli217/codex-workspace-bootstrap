@@ -427,3 +427,32 @@ def test_multiline_globs_stop_at_next_frontmatter_key(tmp_path: Path) -> None:
 
     assert signal.scope == "services/api"
     assert signal.kind == "path-specific"
+
+
+def test_instruction_discovery_prunes_large_generated_directories(tmp_path: Path) -> None:
+    (tmp_path / "AGENTS.md").write_text("root\n", encoding="utf-8")
+
+    ignored_agents = tmp_path / "node_modules" / "pkg"
+    ignored_agents.mkdir(parents=True)
+    (ignored_agents / "AGENTS.md").write_text("ignore me\n", encoding="utf-8")
+
+    ignored_cursor = tmp_path / ".venv" / "nested" / ".cursor" / "rules"
+    ignored_cursor.mkdir(parents=True)
+    (ignored_cursor / "rule.mdc").write_text(
+        "---\nalwaysApply: true\n---\nignore me\n",
+        encoding="utf-8",
+    )
+
+    valid_cursor = tmp_path / ".cursor" / "rules"
+    valid_cursor.mkdir(parents=True)
+    (valid_cursor / "rule.mdc").write_text(
+        "---\nalwaysApply: true\n---\nUse repository rules.\n",
+        encoding="utf-8",
+    )
+
+    paths = {item.path for item in detect_instruction_signals(tmp_path)}
+
+    assert "AGENTS.md" in paths
+    assert ".cursor/rules/rule.mdc" in paths
+    assert "node_modules/pkg/AGENTS.md" not in paths
+    assert ".venv/nested/.cursor/rules/rule.mdc" not in paths
