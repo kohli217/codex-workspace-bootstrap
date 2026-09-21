@@ -140,19 +140,19 @@ def _static_prefix(pattern: str) -> str:
     return "/".join(parts) if parts else "."
 
 
-def _scope_from_text(text: str) -> str:
+def _scope_metadata(text: str) -> tuple[str, bool]:
     raw = _frontmatter_value(text, ("applyTo", "globs"))
     if not raw:
-        return "."
+        return ".", False
     prefixes = [_static_prefix(pattern) for pattern in _split_patterns(raw)]
     prefixes = [prefix for prefix in prefixes if prefix]
     if not prefixes or "." in prefixes:
-        return "."
+        return ".", True
     try:
         common = posixpath.commonpath(prefixes)
     except ValueError:
-        return "."
-    return common or "."
+        return ".", True
+    return common or ".", True
 
 
 def _agent_signals(root: Path) -> list[InstructionSignal]:
@@ -176,6 +176,21 @@ def _agent_signals(root: Path) -> list[InstructionSignal]:
         tool = "Codex override" if kind == "override" else "Codex / OpenAI agents"
         found.append(InstructionSignal(tool, rel, scope, kind))
     return found
+
+
+def _instruction_file_allowed(tool: str, path: Path) -> bool:
+    name = path.name.lower()
+    if name in {"readme", "readme.md", "readme.txt", "license", "license.md"}:
+        return False
+    if tool == "GitHub Copilot":
+        return name.endswith(".instructions.md")
+    if tool == "Cursor":
+        return path.suffix.lower() in {".mdc", ".md"}
+    if tool == "Continue":
+        return path.suffix.lower() in {".md", ".mdc"}
+    if tool == "Cline":
+        return path.suffix.lower() in {"", ".md", ".mdc"}
+    return True
 
 
 def detect_instruction_signals(root: Path) -> list[InstructionSignal]:
@@ -202,15 +217,15 @@ def detect_instruction_signals(root: Path) -> list[InstructionSignal]:
         if not directory.is_dir():
             continue
         for path in sorted(directory.rglob("*")):
-            if not path.is_file():
+            if not path.is_file() or not _instruction_file_allowed(tool, path):
                 continue
             rel = path.relative_to(root).as_posix()
             key = (tool, rel)
             if key in seen:
                 continue
             text = _safe_read(path)
-            scope = _scope_from_text(text)
-            kind = "path-specific" if scope != "." else "repository"
+            scope, has_scope_metadata = _scope_metadata(text)
+            kind = "path-specific" if has_scope_metadata else "repository"
             found.append(InstructionSignal(tool, rel, scope, kind))
             seen.add(key)
 
@@ -416,6 +431,35 @@ def lint_instructions(
     signal_by_path = {signal.path: signal for signal in signals}
     instruction_managers: dict[str, set[str]] = {}
 
+    scope_evidence_checked: set[str] = set()
+    for signal in signals:
+        if signal.tool == "GitHub Copilot" and signal.path.startswith(".github/instructions/") and signal.kind != "path-specific":
+            findings.append(
+                InstructionFinding(
+                    "missing-scope-metadata",
+                    "warning",
+                    f"{signal.path} is a Copilot path-specific instruction file but has no applyTo scope metadata.",
+                    (signal.path,),
+                    (),
+                    signal.scope,
+                )
+            )
+
+        if signal.scope not in scope_evidence_checked:
+            repo_managers = _repo_package_managers(root, signal.scope)
+            if len(repo_managers) > 1:
+                findings.append(
+                    InstructionFinding(
+                        "package-manager-evidence-conflict",
+                        "warning",
+                        f"Repository evidence in scope '{signal.scope}' points to multiple JavaScript package managers.",
+                        (),
+                        tuple(sorted(repo_managers)),
+                        signal.scope,
+                    )
+                )
+            scope_evidence_checked.add(signal.scope)
+
     for path, commands in per_file_commands.items():
         signal = signal_by_path[path]
         managers = {manager for command in commands if (manager := _manager_for_command(command))}
@@ -521,8 +565,13 @@ def lint_instructions(
 
 
 def finding_summary(findings: list[InstructionFinding]) -> dict[str, int]:
-    drift_kinds = {"package-manager-drift", "package-manager-mismatch", "validation-command-drift"}
-    invalid_kinds = {"missing-package-script"}
+    drift_kinds = {
+        "package-manager-drift",
+        "package-manager-mismatch",
+        "package-manager-evidence-conflict",
+        "validation-command-drift",
+    }
+    invalid_kinds = {"missing-package-script", "missing-scope-metadata"}
     return {
         "findings": len(findings),
         "drift": sum(item.kind in drift_kinds for item in findings),
