@@ -11,7 +11,7 @@ inputs:
     description: "Fail the action when blocking findings are detected (true or false)"
     required: false
     default: "true"
-  fail_on_drift:
+  fail_on_integrity:
     description: "Fail when AI instruction drift or invalid package scripts are detected (true or false)"
     required: false
     default: "false"
@@ -38,10 +38,10 @@ runs:
       env:
         CWB_TARGET_PATH: ${{ inputs.path }}
         CWB_STRICT: ${{ inputs.strict }}
-        CWB_FAIL_ON_DRIFT: ${{ inputs.fail_on_drift }}
+        CWB_FAIL_ON_INTEGRITY: ${{ inputs.fail_on_integrity }}
         CWB_SARIF_PATH: ${{ inputs.sarif }}
       run: |
-        for value_name in CWB_STRICT CWB_FAIL_ON_DRIFT; do
+        for value_name in CWB_STRICT CWB_FAIL_ON_INTEGRITY; do
           value="${!value_name}"
           case "$value" in
             true|false) ;;
@@ -56,7 +56,7 @@ runs:
         cwb preflight "$CWB_TARGET_PATH" --markdown "$report"
         cat "$report" >> "$GITHUB_STEP_SUMMARY"
 
-        if [[ "$CWB_FAIL_ON_DRIFT" == "true" ]]; then
+        if [[ "$CWB_FAIL_ON_INTEGRITY" == "true" ]]; then
           cwb preflight "$CWB_TARGET_PATH" --fail-on-drift
         fi
 
