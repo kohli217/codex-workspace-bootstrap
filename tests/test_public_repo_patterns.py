@@ -1,0 +1,72 @@
+from pathlib import Path
+import json
+
+from codex_workspace_bootstrap.instructions import lint_instructions
+
+
+def test_public_pattern_openai_codex_pnpm_repo_without_js_command_drift(tmp_path: Path) -> None:
+    """Pattern observed in openai/codex at a6fdb11: AGENTS.md + pnpm packageManager."""
+    (tmp_path / "package.json").write_text(
+        json.dumps(
+            {
+                "packageManager": "pnpm@10.34.5",
+                "scripts": {"format": "prettier --check ."},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `just fmt` and `just argument-comment-lint` when relevant.\n",
+        encoding="utf-8",
+    )
+
+    assert lint_instructions(tmp_path) == []
+
+
+def test_public_pattern_cline_multi_instruction_bun_baseline_is_compatible(tmp_path: Path) -> None:
+    """Pattern observed in Cline/Cline at ee46dc4: AGENTS + Copilot + Bun."""
+    (tmp_path / "package.json").write_text(
+        json.dumps(
+            {
+                "packageManager": "bun@1.3.13",
+                "scripts": {
+                    "test:unit": "vitest run",
+                    "compile": "node build.mjs",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "bun.lock").write_text("", encoding="utf-8")
+    (tmp_path / "AGENTS.md").write_text(
+        "Use Bun only. Validate with `bun run test:unit`.\n",
+        encoding="utf-8",
+    )
+    (tmp_path / ".github").mkdir()
+    (tmp_path / ".github" / "copilot-instructions.md").write_text(
+        "Tests: `bun run test:unit`. Build: `bun run compile`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "package-manager-mismatch" for item in findings)
+    assert not any(item.kind == "package-manager-drift" for item in findings)
+    assert not any(item.kind == "validation-command-drift" for item in findings)
+
+
+def test_public_pattern_continue_gradle_rule_does_not_conflict_with_root_npm(tmp_path: Path) -> None:
+    """Pattern observed in continuedev/continue at 5522c6f: scoped Gradle rule + root package.json."""
+    (tmp_path / "package.json").write_text(
+        json.dumps({"scripts": {"format": "prettier --write ."}}),
+        encoding="utf-8",
+    )
+    rules = tmp_path / ".continue" / "rules"
+    rules.mkdir(parents=True)
+    (rules / "intellij-plugin-test-execution.md").write_text(
+        "Run tests with `./gradlew test --tests ExampleTest`.\n",
+        encoding="utf-8",
+    )
+
+    assert lint_instructions(tmp_path) == []
