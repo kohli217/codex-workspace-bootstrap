@@ -207,23 +207,49 @@ def _split_top_level_commas(value: str) -> list[str]:
     return items
 
 
+def _strip_matching_quotes(value: str) -> str:
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+        return value[1:-1].strip()
+    return value
+
+
 def _split_patterns(value: str) -> list[str]:
-    value = value.strip().strip('"').strip("'")
+    value = value.strip()
 
-    # GitHub Copilot commonly uses a brace-wrapped applyTo selector such as
-    # {src/**/test/**,src/**/*.test.ts}. Treat a brace that wraps the entire
-    # selector as alternatives while preserving embedded brace expansion such
-    # as src/{client,server}/**.
-    if value.startswith("{") and value.endswith("}"):
-        value = value[1:-1]
-    elif value.startswith("[") and value.endswith("]"):
-        value = value[1:-1]
+    # Inline YAML arrays are common, but a glob character class such as [ab]
+    # is also valid. Only treat brackets as an array when the interior looks
+    # list-like.
+    if value.startswith("[") and value.endswith("]"):
+        inner = value[1:-1].strip()
+        if "," in inner or inner.startswith(("'", '"')):
+            value = inner
 
-    return [
-        item.strip().strip('"').strip("'")
-        for item in _split_top_level_commas(value)
-        if item.strip().strip('"').strip("'")
-    ]
+    raw_items = _split_top_level_commas(value)
+    patterns: list[str] = []
+
+    for raw in raw_items:
+        item = _strip_matching_quotes(raw)
+        if not item:
+            continue
+
+        # Copilot commonly wraps alternatives in one quoted brace expression:
+        # "{src/**/test/**,src/**/*.test.ts}". Expand only a brace that wraps
+        # the whole selector; embedded brace expansion stays intact so
+        # apps/web/{src,tests}/** still has static prefix apps/web.
+        if item.startswith("{") and item.endswith("}"):
+            alternatives = [
+                _strip_matching_quotes(part)
+                for part in _split_top_level_commas(item[1:-1])
+            ]
+            alternatives = [part for part in alternatives if part]
+            if len(alternatives) > 1:
+                patterns.extend(alternatives)
+                continue
+
+        patterns.append(item)
+
+    return patterns
 
 
 def _static_prefix(pattern: str) -> str:
