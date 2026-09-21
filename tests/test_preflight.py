@@ -113,3 +113,23 @@ def test_readiness_needs_attention_with_only_scoped_instruction() -> None:
     )
 
     assert readiness_state(checks, [scoped]) == "NEEDS ATTENTION"
+
+
+def test_root_prefix_path_specific_rule_is_not_repository_wide() -> None:
+    from codex_workspace_bootstrap.preflight import InstructionSignal
+
+    checks = [
+        Check("git-repository", "pass", "ok"),
+        Check("readme", "pass", "ok"),
+        Check("gitignore", "pass", "ok"),
+        Check("project-manifest", "pass", "ok"),
+    ]
+
+    path_rule = InstructionSignal(
+        "GitHub Copilot",
+        ".github/instructions/python.instructions.md",
+        ".",
+        "path-specific",
+    )
+
+    assert readiness_state(checks, [path_rule]) == "NEEDS ATTENTION"
