@@ -5,6 +5,7 @@ All notable changes to this project will be documented here.
 ## [Unreleased]
 
 ### Added
+- PyPI Trusted Publishing workflow using GitHub OIDC, with tag/version verification and distribution validation.
 - Windows-focused `doctor` command with non-destructive remediation guidance.
 
 ### Changed
