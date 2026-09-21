@@ -127,7 +127,7 @@ Current automated checks include:
 - weekly dependency update checks for Python and GitHub Actions;
 - validated one-click GitHub releases with attached wheel and source distribution.
 
-The repository's first public release is [v0.2.0](https://github.com/kohli217/codex-workspace-bootstrap/releases/tag/v0.2.0).
+Release history began with [v0.1.0](https://github.com/kohli217/codex-workspace-bootstrap/releases/tag/v0.1.0).
 
 ## Codex-oriented workflow
 
