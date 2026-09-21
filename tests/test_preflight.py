@@ -9,6 +9,7 @@ from codex_workspace_bootstrap.preflight import (
     build_preflight,
     detect_instruction_signals,
     readiness_state,
+    next_actions,
     render_markdown,
 )
 
@@ -153,3 +154,41 @@ def test_conditional_cursor_rule_is_not_repository_wide_baseline() -> None:
     )
 
     assert readiness_state(checks, [conditional]) == "NEEDS ATTENTION"
+
+
+def test_next_actions_recommends_detected_pnpm_toolchain() -> None:
+    checks = [
+        Check("pnpm", "warn", "pnpm command not found"),
+    ]
+
+    actions = next_actions(
+        checks,
+        [],
+        ["Node.js"],
+    )
+
+    assert any(
+        item.command == "pnpm --version"
+        and "Node.js/pnpm" in item.title
+        for item in actions
+    )
+    assert not any(item.command == "npm --version" for item in actions)
+
+
+def test_next_actions_asks_to_confirm_package_manager_when_unproven() -> None:
+    checks = [
+        Check(
+            "package-manager-evidence",
+            "warn",
+            "Node.js project detected, but package manager evidence is missing",
+        ),
+    ]
+
+    actions = next_actions(
+        checks,
+        [],
+        ["Node.js"],
+    )
+
+    assert any(item.title == "Confirm the repository package manager" for item in actions)
+    assert not any(item.command and item.command.endswith("--version") for item in actions)
