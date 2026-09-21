@@ -94,3 +94,25 @@ def test_preflight_sarif_combines_audit_and_instruction_rules() -> None:
 
     rule_ids = {item["ruleId"] for item in payload["runs"][0]["results"]}
     assert rule_ids == {"agents", "instruction-missing-scope-metadata"}
+
+
+def test_sarif_has_specific_package_manager_help() -> None:
+    payload = checks_to_sarif(
+        [
+            Check("pnpm", "warn", "pnpm command not found"),
+            Check(
+                "package-manager-evidence",
+                "warn",
+                "Conflicting Node.js package-manager evidence detected: npm, pnpm",
+            ),
+        ]
+    )
+
+    rules = {
+        rule["id"]: rule
+        for rule in payload["runs"][0]["tool"]["driver"]["rules"]
+    }
+
+    assert "pnpm" in rules["pnpm"]["help"]["text"].lower()
+    assert "packageManager" in rules["package-manager-evidence"]["help"]["text"]
+    assert "lockfile" in rules["package-manager-evidence"]["help"]["text"]
