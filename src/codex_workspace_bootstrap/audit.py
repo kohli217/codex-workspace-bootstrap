@@ -108,6 +108,24 @@ def _iter_project_files(root: Path) -> Iterable[Path]:
             yield current_path / filename
 
 
+def _git_tracked_files(root: Path) -> set[str] | None:
+    if shutil.which("git") is None:
+        return None
+    try:
+        result = subprocess.run(
+            ("git", "-C", str(root), "ls-files", "-z"),
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+        if result.returncode != 0:
+            return None
+        return {item for item in result.stdout.split("\0") if item}
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
 def _git_matches(root: Path, args: tuple[str, ...]) -> bool:
     if shutil.which("git") is None:
         return False
@@ -124,13 +142,19 @@ def _git_matches(root: Path, args: tuple[str, ...]) -> bool:
         return False
 
 
-def _classify_risky_paths(root: Path, risky: list[str]) -> tuple[list[str], list[str], list[str]]:
+def _classify_risky_paths(
+    root: Path,
+    risky: list[str],
+    tracked_files: set[str] | None = None,
+) -> tuple[list[str], list[str], list[str]]:
     tracked: list[str] = []
     ignored: list[str] = []
     untracked: list[str] = []
 
     for relative in risky:
-        if _git_matches(root, ("ls-files", "--error-unmatch", "--", relative)):
+        if tracked_files is not None and relative in tracked_files:
+            tracked.append(relative)
+        elif tracked_files is None and _git_matches(root, ("ls-files", "--error-unmatch", "--", relative)):
             tracked.append(relative)
         elif _git_matches(root, ("check-ignore", "--quiet", "--", relative)):
             ignored.append(relative)
@@ -138,6 +162,11 @@ def _classify_risky_paths(root: Path, risky: list[str]) -> tuple[list[str], list
             untracked.append(relative)
 
     return tracked, ignored, untracked
+
+
+def _is_risky_filename(name: str) -> bool:
+    lowered = name.lower()
+    return lowered in RISK_FILENAMES or lowered.endswith(RISK_SUFFIXES)
 
 
 def _preview(paths: list[str], limit: int = 8) -> str:
@@ -255,14 +284,29 @@ def audit_repository(root: Path) -> list[Check]:
                 )
             )
 
-    risky: list[str] = []
+    tracked_files = _git_tracked_files(root)
+    risky: set[str] = set()
+
     for path in _iter_project_files(root):
-        name = path.name.lower()
-        if name in RISK_FILENAMES or name.endswith(RISK_SUFFIXES):
-            risky.append(path.relative_to(root).as_posix())
+        if _is_risky_filename(path.name):
+            risky.add(path.relative_to(root).as_posix())
+
+    # Generated/dependency directories are pruned from the filesystem walk to
+    # avoid expensive scans. Tracked files are different: if a risky filename
+    # is committed, it must still be surfaced even inside a pruned directory.
+    if tracked_files is not None:
+        risky.update(
+            relative
+            for relative in tracked_files
+            if _is_risky_filename(Path(relative).name)
+        )
 
     if risky:
-        tracked, ignored, untracked = _classify_risky_paths(root, risky)
+        tracked, ignored, untracked = _classify_risky_paths(
+            root,
+            sorted(risky),
+            tracked_files,
+        )
         parts: list[str] = []
         if tracked:
             parts.append(f"tracked: {_preview(tracked)}")
