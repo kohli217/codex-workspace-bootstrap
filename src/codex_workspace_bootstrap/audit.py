@@ -5,6 +5,7 @@ from pathlib import Path
 import os
 import shutil
 import subprocess
+import sys
 from typing import Iterable
 
 from .agents import detect_node_package_managers
@@ -125,13 +126,17 @@ def _git_tracked_files(root: Path) -> set[str] | None:
         result = subprocess.run(
             ("git", "-C", str(root), "ls-files", "-z"),
             capture_output=True,
-            text=True,
+            text=False,
             timeout=10,
             check=False,
         )
         if result.returncode != 0:
             return None
-        return {item for item in result.stdout.split("\0") if item}
+        return {
+            item.decode(sys.getfilesystemencoding(), errors="surrogateescape")
+            for item in result.stdout.split(b"\0")
+            if item
+        }
     except (OSError, subprocess.SubprocessError):
         return None
 
