@@ -46,7 +46,8 @@ def readiness_state(
         check.name in ESSENTIAL_CHECKS and check.status != "pass"
         for check in checks
     )
-    if essentials_missing or not instructions or instruction_findings:
+    has_repository_wide = any(item.scope == "." for item in instructions)
+    if essentials_missing or not has_repository_wide or instruction_findings:
         return "NEEDS ATTENTION"
 
     return "READY"
@@ -85,13 +86,18 @@ def next_actions(
                 )
             )
 
-    if not instructions:
+    has_repository_wide = any(item.scope == "." for item in instructions)
+    if not has_repository_wide:
         actions.append(
             NextAction(
                 "P1",
-                "Add repository instructions for AI coding agents",
+                "Add repository-wide instructions for AI coding agents",
                 command="cwb init-agents .",
-                reason="No recognized AI-agent instruction file was detected.",
+                reason=(
+                    "No recognized AI-agent instruction file was detected."
+                    if not instructions
+                    else "Only scoped or nested AI instructions were detected; no repository-wide baseline is present."
+                ),
             )
         )
 
@@ -182,7 +188,8 @@ def render_markdown(report: dict[str, object]) -> str:
 
     if instructions:
         for item in instructions:
-            lines.append(f"- **{item['tool']}** — `{item['path']}`")
+            scope = item.get("scope", ".")
+            lines.append(f"- **{item['tool']}** — `{item['path']}` — scope: `{scope}`")
     else:
         lines.append("- No recognized AI-agent instruction files detected.")
 
@@ -191,7 +198,8 @@ def render_markdown(report: dict[str, object]) -> str:
     if findings:
         for item in findings:
             files = ", ".join(f"`{path}`" for path in item["files"])
-            lines.append(f"- **{item['kind']}** — {item['message']} ({files})")
+            scope = item.get("scope", ".")
+            lines.append(f"- **{item['kind']}** — {item['message']} ({files}) — scope: `{scope}`")
     else:
         lines.append("- No cross-agent instruction drift or invalid package scripts detected.")
 
