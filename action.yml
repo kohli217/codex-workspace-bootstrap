@@ -31,10 +31,11 @@ runs:
         CWB_TARGET_PATH: ${{ inputs.path }}
         CWB_STRICT: ${{ inputs.strict }}
       run: |
-        args=(audit "$CWB_TARGET_PATH")
+        args=(audit)
         if [[ "$CWB_STRICT" == "true" ]]; then
           args+=(--strict)
         fi
+        args+=(-- "$CWB_TARGET_PATH")
         codex-workspace-bootstrap "${args[@]}"
 
 branding:
