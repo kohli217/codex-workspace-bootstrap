@@ -32,7 +32,7 @@ preflightは、次に何をすべきかをP0/P1/P2の優先度付きで表示し
 - .env / private-key系などsecret-riskになりやすいファイル名
 - Git追跡済み / ignore済み / untrackedの区別
 
-さらに、packageManager / lockfile / package.json scriptsを根拠に、AI指示間のpackage manager不一致、存在しないscript、test/lint/build系コマンドの食い違いを保守的に検出します。
+さらに、packageManager / lockfile / package.json scriptsを根拠に、AI指示間のpackage manager不一致、存在しないscript、test/lint/build系コマンドの食い違いを保守的に検出します。ネストされた `AGENTS.md` / `AGENTS.override.md` と、Copilotの `applyTo` やruleの `globs` から適用scopeも判定し、別scopeの指示を無理に矛盾扱いしません。
 
 Secret候補のファイル内容は表示しません。
 
@@ -120,3 +120,12 @@ GitHub Actionでは `fail_on_drift: "true"` を指定します。
 `cwb fix .` はpreviewのみです。`cwb fix . --apply` でも、AGENTS.md新規生成など低リスクな変更だけを適用し、既存の矛盾した指示ファイルは自動書換えしません。
 
 実在公開Repoをread-onlyで確認した評価は [PUBLIC_REPO_EVALUATIONS.md](PUBLIC_REPO_EVALUATIONS.md) を参照してください。これは第三者利用実績の主張ではありません。
+
+
+## scope-aware lint
+
+- rootのrepository-wide指示と、特定ディレクトリ向けの指示を区別します。
+- Codexのnested `AGENTS.md` / `AGENTS.override.md` を検出します。
+- path-specific instructionの `applyTo` / `globs` から静的なscope prefixを推定します。
+- 同一scopeの指示同士を中心にdrift比較します。
+- path-specific / nested指示しかなくrepository-wide baselineがない場合はREADYにしません。
