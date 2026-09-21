@@ -1,23 +1,42 @@
 # SARIF and GitHub Code Scanning
 
-`codex-workspace-bootstrap` can write warnings and blocking findings as SARIF 2.1.0.
+`codex-workspace-bootstrap` can emit SARIF 2.1.0 for the complete preflight.
 
-## Generate a SARIF report
+## Recommended: comprehensive preflight SARIF
 
 ```powershell
-codex-workspace-bootstrap audit . --sarif codex-workspace-bootstrap.sarif
+cwb preflight . --sarif codex-workspace-bootstrap.sarif
 ```
 
-Passing checks are omitted. Non-blocking findings use SARIF level `warning`; blocking findings use `error`.
+The preflight SARIF can include:
 
-The report contains finding messages and stable rule IDs. The audit does not read or include the contents of suspected secret files.
+- repository-readiness warnings;
+- blocking tracked secret-risk filename findings;
+- package-manager mismatch or conflicting package-manager evidence;
+- same-scope instruction drift;
+- referenced package scripts that do not exist;
+- missing path-specific scope metadata.
+
+Instruction-integrity results include the relevant instruction file as a SARIF location when one is available.
+
+Passing checks are omitted. Blocking audit findings use SARIF level `error`; current instruction-integrity findings use `warning`.
+
+The integrity lint reads supported instruction files locally to extract executable-looking commands. **It does not execute those commands.** Secret-risk filename checks do not read or include suspected secret-file contents.
+
+## Audit-only compatibility mode
+
+The earlier audit-only SARIF remains available:
+
+```powershell
+cwb audit . --sarif audit-only.sarif
+```
+
+Use `preflight --sarif` for new integrations.
 
 ## Upload to GitHub Code Scanning
 
-A repository can opt in with a workflow such as:
-
 ```yaml
-name: Codex workspace security audit
+name: AI repository preflight
 
 on:
   pull_request:
@@ -29,7 +48,7 @@ permissions:
   security-events: write
 
 jobs:
-  audit:
+  preflight:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -37,13 +56,11 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Install codex-workspace-bootstrap
-        run: >-
-          python -m pip install
-          "https://github.com/kohli217/codex-workspace-bootstrap/releases/download/v0.3.0/codex_workspace_bootstrap-0.3.0-py3-none-any.whl"
+      - name: Install
+        run: python -m pip install codex-workspace-bootstrap
 
-      - name: Generate SARIF
-        run: codex-workspace-bootstrap audit . --sarif codex-workspace-bootstrap.sarif
+      - name: Generate comprehensive SARIF
+        run: cwb preflight . --sarif codex-workspace-bootstrap.sarif
 
       - name: Upload SARIF
         uses: github/codeql-action/upload-sarif@v4
@@ -52,8 +69,10 @@ jobs:
           category: codex-workspace-bootstrap
 ```
 
-For pull requests from forks, GitHub may restrict the token permissions available to workflows. Keep the workflow permissions minimal and do not introduce secrets merely to upload audit results.
+The Marketplace Action can generate the same report through its `sarif` input.
+
+For pull requests from forks, GitHub may restrict workflow token permissions. Keep permissions minimal and do not introduce secrets merely to upload results.
 
 ## Scope
 
-SARIF integration makes repository-readiness findings visible in security tooling. It does not turn the audit into a comprehensive secret scanner or vulnerability scanner, and a clean report is not a security guarantee.
+SARIF makes deterministic repository-readiness and instruction-integrity findings visible in GitHub tooling. It does not turn the project into a comprehensive secret scanner or vulnerability scanner, and a clean report is not a security guarantee.
