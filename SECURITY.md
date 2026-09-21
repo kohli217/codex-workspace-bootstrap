@@ -32,6 +32,6 @@ Do not include real credentials, private repository contents, or unrelated sensi
 
 ## Scope
 
-The CLI performs local repository and toolchain inspection. The core audit path is designed not to transmit repository contents over the network. Repository instruction/configuration inputs are not read through symbolic links, and write operations refuse symlinked `AGENTS.md` targets.
+The CLI performs local repository and toolchain inspection. The core audit path is designed not to transmit repository contents over the network. Repository instruction/configuration and project-marker inputs are not trusted through symbolic links, and write operations refuse symlinked `AGENTS.md` targets.
 
 Secret-risk detection is filename-based and is not a replacement for dedicated secret or vulnerability scanners. A passing result is not a security guarantee.
