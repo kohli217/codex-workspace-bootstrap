@@ -101,6 +101,8 @@ _SCRIPT_COMMAND = re.compile(
 
 def _safe_read(path: Path) -> str:
     try:
+        if path.is_symlink():
+            return ""
         if path.stat().st_size > 512_000:
             return ""
         return path.read_text(encoding="utf-8")
@@ -199,6 +201,8 @@ def _agent_signals(root: Path) -> list[InstructionSignal]:
             if filename not in {"AGENTS.md", "AGENTS.override.md"}:
                 continue
             path = directory / filename
+            if path.is_symlink():
+                continue
             by_directory.setdefault(directory, {})[filename] = path
 
     found: list[InstructionSignal] = []
@@ -225,6 +229,8 @@ def _hierarchical_named_signals(
         if filename not in filenames:
             continue
         path = directory / filename
+        if path.is_symlink():
+            continue
         rel = path.relative_to(root).as_posix()
         scope_path = directory.relative_to(root).as_posix()
         scope = "." if scope_path == "." else scope_path
@@ -238,7 +244,7 @@ def _claude_signals(root: Path) -> list[InstructionSignal]:
 
 def _gemini_context_filenames(root: Path) -> tuple[str, ...]:
     settings_path = root / ".gemini" / "settings.json"
-    if not settings_path.is_file():
+    if not settings_path.is_file() or settings_path.is_symlink():
         return ("GEMINI.md",)
 
     try:
@@ -330,7 +336,7 @@ def _cursor_rule_signals(root: Path) -> list[InstructionSignal]:
             current_path = Path(current)
             for filename in sorted(filenames):
                 path = current_path / filename
-                if not _instruction_file_allowed("Cursor", path):
+                if path.is_symlink() or not _instruction_file_allowed("Cursor", path):
                     continue
 
                 text = _safe_read(path)
@@ -390,7 +396,7 @@ def detect_instruction_signals(root: Path) -> list[InstructionSignal]:
 
     for tool, relative in EXACT_INSTRUCTION_FILES:
         path = root / relative
-        if path.is_file():
+        if path.is_file() and not path.is_symlink():
             key = (tool, relative)
             if key not in seen:
                 found.append(InstructionSignal(tool, relative))
@@ -398,10 +404,10 @@ def detect_instruction_signals(root: Path) -> list[InstructionSignal]:
 
     for tool, relative in INSTRUCTION_DIRECTORIES:
         directory = root / relative
-        if not directory.is_dir():
+        if not directory.is_dir() or directory.is_symlink():
             continue
         for path in sorted(directory.rglob("*")):
-            if not path.is_file() or not _instruction_file_allowed(tool, path):
+            if path.is_symlink() or not path.is_file() or not _instruction_file_allowed(tool, path):
                 continue
             rel = path.relative_to(root).as_posix()
             key = (tool, rel)
@@ -510,7 +516,7 @@ def extract_commands(text: str) -> list[str]:
 
 
 def _package_json(path: Path) -> dict[str, object]:
-    if not path.is_file():
+    if not path.is_file() or path.is_symlink():
         return {}
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
@@ -574,7 +580,8 @@ def _package_evidence_at(directory: Path) -> tuple[set[str], set[str]]:
         "bun.lockb": "bun",
     }
     for filename, manager in lockfiles.items():
-        if (directory / filename).is_file():
+        candidate = directory / filename
+        if candidate.is_file() and not candidate.is_symlink():
             managers.add(manager)
 
     return managers, scripts
