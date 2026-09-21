@@ -309,3 +309,31 @@ def test_fix_plan_does_not_add_agents_when_repo_wide_baseline_exists(tmp_path: P
     plan = build_fix_plan(tmp_path)
 
     assert not any(item.kind == "create-agents" for item in plan)
+
+
+def test_path_specific_rules_with_same_static_prefix_are_not_cross_compared(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps(
+            {
+                "scripts": {
+                    "test": "vitest",
+                    "test:unit": "vitest run",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    directory = tmp_path / ".github" / "instructions"
+    directory.mkdir(parents=True)
+    (directory / "python.instructions.md").write_text(
+        "---\napplyTo: \"**/*.py\"\n---\nRun §npm test§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+    (directory / "typescript.instructions.md").write_text(
+        "---\napplyTo: \"**/*.ts\"\n---\nRun §npm run test:unit§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "validation-command-drift" for item in findings)
