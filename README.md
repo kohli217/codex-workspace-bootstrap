@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/kohli217/codex-workspace-bootstrap/actions/workflows/ci.yml/badge.svg)](https://github.com/kohli217/codex-workspace-bootstrap/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/kohli217/codex-workspace-bootstrap/actions/workflows/codeql.yml/badge.svg)](https://github.com/kohli217/codex-workspace-bootstrap/actions/workflows/codeql.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/kohli217/codex-workspace-bootstrap/badge)](https://scorecard.dev/viewer/?uri=github.com/kohli217/codex-workspace-bootstrap)
 [![Release](https://img.shields.io/github/v/release/kohli217/codex-workspace-bootstrap)](https://github.com/kohli217/codex-workspace-bootstrap/releases/latest)
 [![PyPI](https://img.shields.io/pypi/v/codex-workspace-bootstrap)](https://pypi.org/project/codex-workspace-bootstrap/)
 [![License](https://img.shields.io/github/license/kohli217/codex-workspace-bootstrap)](LICENSE)
