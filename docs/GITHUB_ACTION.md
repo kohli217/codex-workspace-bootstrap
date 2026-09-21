@@ -27,7 +27,7 @@ jobs:
         with:
           path: .
           strict: "true"
-          fail_on_drift: "true"
+          fail_on_integrity: "true"
 ```
 
 ## Inputs
@@ -36,7 +36,7 @@ jobs:
 | --- | --- | --- |
 | `path` | `.` | Repository directory to check. |
 | `strict` | `true` | Fail when a blocking audit finding is detected. |
-| `fail_on_drift` | `false` | Fail when cross-agent instruction drift or invalid package scripts are detected. |
+| `fail_on_integrity` | `false` | Fail when cross-agent instruction drift or invalid package scripts are detected. |
 | `sarif` | empty | Optional SARIF 2.1.0 output path. |
 
 ## What appears in the job summary
