@@ -81,7 +81,7 @@ GitHub Marketplaceの再利用可能Actionとして利用できます。prefligh
 - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
   with:
     python-version: "3.13"
-- uses: kohli217/codex-workspace-bootstrap@v0.6.0
+- uses: kohli217/codex-workspace-bootstrap@v0.6.1
   with:
     path: .
     strict: "true"
