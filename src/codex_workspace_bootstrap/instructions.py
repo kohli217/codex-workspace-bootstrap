@@ -43,7 +43,6 @@ EXACT_INSTRUCTION_FILES: tuple[tuple[str, str], ...] = (
     ("GitHub Copilot", ".github/copilot-instructions.md"),
     ("Cline", ".clinerules"),
     ("Claude Code", "CLAUDE.md"),
-    ("Gemini CLI", "GEMINI.md"),
     ("Cursor", ".cursorrules"),
 )
 
@@ -237,8 +236,53 @@ def _claude_signals(root: Path) -> list[InstructionSignal]:
     return _hierarchical_named_signals(root, "CLAUDE.md", "Claude Code")
 
 
+def _gemini_context_filenames(root: Path) -> tuple[str, ...]:
+    settings_path = root / ".gemini" / "settings.json"
+    if not settings_path.is_file():
+        return ("GEMINI.md",)
+
+    try:
+        data = json.loads(settings_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return ("GEMINI.md",)
+
+    if not isinstance(data, dict):
+        return ("GEMINI.md",)
+
+    context = data.get("context")
+    if not isinstance(context, dict):
+        return ("GEMINI.md",)
+
+    raw = context.get("fileName")
+    if isinstance(raw, str):
+        values = [raw]
+    elif isinstance(raw, list):
+        values = [item for item in raw if isinstance(item, str)]
+    else:
+        return ("GEMINI.md",)
+
+    filenames: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        name = value.strip()
+        if not name:
+            continue
+        # Gemini documents this setting as a file name. Ignore paths here so
+        # repository discovery cannot escape or reinterpret configured roots.
+        if Path(name).name != name:
+            continue
+        if name not in seen:
+            filenames.append(name)
+            seen.add(name)
+
+    return tuple(filenames) if filenames else ("GEMINI.md",)
+
+
 def _gemini_signals(root: Path) -> list[InstructionSignal]:
-    return _hierarchical_named_signals(root, "GEMINI.md", "Gemini CLI")
+    found: list[InstructionSignal] = []
+    for filename in _gemini_context_filenames(root):
+        found.extend(_hierarchical_named_signals(root, filename, "Gemini CLI"))
+    return found
 
 
 def _instruction_file_allowed(tool: str, path: Path) -> bool:
