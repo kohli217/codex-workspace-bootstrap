@@ -3,6 +3,7 @@
 [![CI](https://github.com/kohli217/codex-workspace-bootstrap/actions/workflows/ci.yml/badge.svg)](https://github.com/kohli217/codex-workspace-bootstrap/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/kohli217/codex-workspace-bootstrap/actions/workflows/codeql.yml/badge.svg)](https://github.com/kohli217/codex-workspace-bootstrap/actions/workflows/codeql.yml)
 [![Release](https://img.shields.io/github/v/release/kohli217/codex-workspace-bootstrap)](https://github.com/kohli217/codex-workspace-bootstrap/releases/latest)
+[![PyPI](https://img.shields.io/pypi/v/codex-workspace-bootstrap)](https://pypi.org/project/codex-workspace-bootstrap/)
 [![License](https://img.shields.io/github/license/kohli217/codex-workspace-bootstrap)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](pyproject.toml)
 
@@ -31,19 +32,15 @@ Codex works better when a repository clearly states its toolchain, validation co
 
 The project targets a real repository-readiness problem around Windows and Windows+WSL development. It does not claim to fix upstream Codex product bugs. See [docs/MOTIVATION.md](docs/MOTIVATION.md) for the scope and public upstream references.
 
-## PyPI installation
+## 30-second start
 
-After the first successful Trusted Publishing run, released versions can be installed with:
+Install from PyPI:
 
 ```powershell
 py -m pip install codex-workspace-bootstrap
 ```
 
-The GitHub release wheel remains available as a pinned alternative.
-
-## 30-second start
-
-Install the pinned v0.3.0 wheel:
+PyPI releases are published through GitHub OIDC Trusted Publishing. A pinned GitHub release wheel remains available for users who want an explicit release artifact:
 
 ```powershell
 py -m pip install "https://github.com/kohli217/codex-workspace-bootstrap/releases/download/v0.3.0/codex_workspace_bootstrap-0.3.0-py3-none-any.whl"
