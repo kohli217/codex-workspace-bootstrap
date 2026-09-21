@@ -571,9 +571,11 @@ def finding_summary(findings: list[InstructionFinding]) -> dict[str, int]:
         "package-manager-evidence-conflict",
         "validation-command-drift",
     }
-    invalid_kinds = {"missing-package-script", "missing-scope-metadata"}
+    invalid_command_kinds = {"missing-package-script"}
+    metadata_kinds = {"missing-scope-metadata"}
     return {
         "findings": len(findings),
         "drift": sum(item.kind in drift_kinds for item in findings),
-        "invalid_commands": sum(item.kind in invalid_kinds for item in findings),
+        "invalid_commands": sum(item.kind in invalid_command_kinds for item in findings),
+        "metadata": sum(item.kind in metadata_kinds for item in findings),
     }
