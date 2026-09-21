@@ -1,11 +1,11 @@
 # GitHub Action
 
-`codex-workspace-bootstrap` can be used directly from GitHub Actions to audit a repository during CI.
+The Marketplace Action runs the repository preflight during CI and surfaces a human-readable report in the GitHub Actions **Job Summary**.
 
 ## Basic workflow
 
 ```yaml
-name: Codex workspace audit
+name: AI repository preflight
 
 on:
   pull_request:
@@ -16,14 +16,14 @@ permissions:
   contents: read
 
 jobs:
-  audit:
+  preflight:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
-      - uses: kohli217/codex-workspace-bootstrap@v0.3.0
+      - uses: kohli217/codex-workspace-bootstrap@v0.4.0
         with:
           path: .
           strict: "true"
@@ -33,37 +33,34 @@ jobs:
 
 | Input | Default | Description |
 | --- | --- | --- |
-| `path` | `.` | Repository directory to audit. |
-| `strict` | `true` | Fail the action when blocking findings are detected. Must be `true` or `false`. |
-| `sarif` | empty | Optional output path for a SARIF 2.1.0 report. |
+| `path` | `.` | Repository directory to check. |
+| `strict` | `true` | Fail when a blocking audit finding is detected. |
+| `sarif` | empty | Optional SARIF 2.1.0 output path. |
 
-## SARIF example
+## What appears in the job summary
+
+The Action writes a Markdown snapshot containing:
+
+- READY / NEEDS ATTENTION / BLOCKED state;
+- detected project signals;
+- detected AI instruction/config files;
+- audit totals;
+- prioritized next actions.
+
+## SARIF
 
 ```yaml
-- uses: kohli217/codex-workspace-bootstrap@v0.3.0
+- uses: kohli217/codex-workspace-bootstrap@v0.4.0
   with:
     path: .
     strict: "true"
     sarif: codex-workspace-bootstrap.sarif
 ```
 
-The generated SARIF file can be uploaded with `github/codeql-action/upload-sarif@v4`. See [SARIF.md](SARIF.md).
+Upload the generated SARIF with `github/codeql-action/upload-sarif@v4` when GitHub Code Scanning integration is desired.
 
-## What the action does
+## Safety
 
-1. verifies that Python is available;
-2. installs the version of `codex-workspace-bootstrap` contained in the referenced action tag;
-3. validates Action inputs;
-4. runs the local repository audit;
-5. optionally writes SARIF;
-6. returns the CLI exit code to the workflow.
+The Action installs the code contained in the referenced release tag, runs local deterministic checks, and does not upload repository contents or suspected secret-file contents.
 
-The action does not upload repository contents or secret-file contents.
-
-## Pinning
-
-For reproducible CI, use a release tag such as `@v0.3.0` rather than `@main`. Review release notes before upgrading.
-
-## GitHub Marketplace
-
-This repository is structured as a single reusable Action with its metadata in the root `action.yml`. Marketplace publication is performed from a tagged GitHub release after tests pass.
+For reproducibility, pin a release tag rather than `@main`.
