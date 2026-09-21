@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented here.
 
+## [0.6.1] - 2026-09-21
+
+### Fixed
+- Audit and preflight now use repository package-manager evidence instead of assuming npm for Node.js projects.
+- Conflicting package-manager evidence is surfaced directly by the repository audit and prioritized in next actions.
+- Workspace/filter commands such as `pnpm --filter`, `pnpm -C`, `npm --workspace`, and `yarn workspace` are parsed through to the real script name for validation.
+- Secret-risk traversal now prunes generated directories before walking them and no longer misbehaves when the repository itself lives under a parent directory named `build`.
+- Doctor and SARIF remediation guidance now covers npm, pnpm, Yarn, Bun, and package-manager evidence conflicts.
+
+### Security
+- README, license, ignore files, AGENTS.md, project manifests, and pytest marker files are no longer trusted through symbolic links.
+- Project detection and generated AGENTS.md validation planning now ignore symlinked project markers.
+
+### Maintenance
+- Updated artifact upload/download and CodeQL SARIF upload Actions to current SHA-pinned releases.
+
 ## [0.6.0] - 2026-09-21
 
 ### Added
