@@ -8,6 +8,7 @@ import sys
 from . import __version__
 from .agents import generate_agents
 from .audit import audit_repository, summary
+from .sarif import checks_to_sarif
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -21,6 +22,7 @@ def _parser() -> argparse.ArgumentParser:
     audit = sub.add_parser("audit", help="Audit a repository and local toolchain")
     audit.add_argument("path", nargs="?", default=".")
     audit.add_argument("--json", dest="json_path", help="Write the complete report to a JSON file")
+    audit.add_argument("--sarif", dest="sarif_path", help="Write warnings and blocking findings as SARIF 2.1.0")
     audit.add_argument(
         "--strict",
         action="store_true",
@@ -34,7 +36,19 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _run_audit(path: str, json_path: str | None, strict: bool) -> int:
+def _write_json(path: str, payload: object, label: str) -> None:
+    output = Path(path).expanduser().resolve()
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    print(f"{label} written to: {output}")
+
+
+def _run_audit(
+    path: str,
+    json_path: str | None,
+    sarif_path: str | None,
+    strict: bool,
+) -> int:
     root = Path(path).expanduser().resolve()
     if not root.exists() or not root.is_dir():
         print(f"error: repository path does not exist or is not a directory: {root}", file=sys.stderr)
@@ -54,15 +68,18 @@ def _run_audit(path: str, json_path: str | None, strict: bool) -> int:
     )
 
     if json_path:
-        payload = {
-            "repository": str(root),
-            "checks": [c.to_dict() for c in checks],
-            "summary": totals,
-        }
-        output = Path(json_path).expanduser().resolve()
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-        print(f"JSON report written to: {output}")
+        _write_json(
+            json_path,
+            {
+                "repository": str(root),
+                "checks": [c.to_dict() for c in checks],
+                "summary": totals,
+            },
+            "JSON report",
+        )
+
+    if sarif_path:
+        _write_json(sarif_path, checks_to_sarif(checks), "SARIF report")
 
     if strict and totals["blocking"]:
         return 1
@@ -88,7 +105,7 @@ def _run_init_agents(path: str, force: bool) -> int:
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     if args.command == "audit":
-        return _run_audit(args.path, args.json_path, args.strict)
+        return _run_audit(args.path, args.json_path, args.sarif_path, args.strict)
     if args.command == "init-agents":
         return _run_init_agents(args.path, args.force)
     return 2
