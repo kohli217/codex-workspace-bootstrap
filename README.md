@@ -30,7 +30,7 @@ State: NEEDS ATTENTION
 Project: Python
 AI instructions: none detected
 Audit: 10 passed, 4 warnings, 0 blocking
-Instruction integrity: 0 findings, 0 drift, 0 invalid commands
+Instruction integrity: 0 findings, 0 drift, 0 invalid commands, 0 metadata
 Next actions:
   [P1] Add repository instructions for AI coding agents -> cwb init-agents .
   [P2] Make the Codex CLI available when local Codex workflows are intended -> codex --version
@@ -130,6 +130,7 @@ Write reports for automation or review:
 ```powershell
 cwb preflight . --json preflight.json
 cwb preflight . --markdown preflight.md
+cwb preflight . --sarif preflight.sarif
 ```
 
 Use strict mode when blocking findings should return a non-zero exit code:
@@ -138,7 +139,7 @@ Use strict mode when blocking findings should return a non-zero exit code:
 cwb preflight . --strict
 ```
 
-Fail CI on instruction drift or invalid package scripts:
+Fail CI on any instruction-integrity finding:
 
 ```powershell
 cwb preflight . --fail-on-integrity
@@ -199,7 +200,7 @@ The reusable Action is published on GitHub Marketplace.
     fail_on_integrity: "true"
 ```
 
-The Action adds the preflight Markdown report to the **GitHub Actions job summary**, so maintainers get a readable readiness snapshot without digging through raw logs. Optional SARIF output can be uploaded to GitHub Code Scanning.
+The Action adds the preflight Markdown report to the **GitHub Actions job summary**, so maintainers get a readable readiness snapshot without digging through raw logs. Optional SARIF output contains both repository-audit and instruction-integrity findings and can be uploaded to GitHub Code Scanning.
 
 See [docs/GITHUB_ACTION.md](docs/GITHUB_ACTION.md).
 
@@ -223,6 +224,7 @@ The intent is to complement those tools, not replace them.
 - Core checks run locally.
 - Suspected secret files are not opened or printed by the filename-risk check.
 - Repository contents are not sent to a remote AI service by the core audit.
+- Instruction files are read locally for deterministic linting; extracted commands are never executed by the integrity lint.
 - Existing `AGENTS.md` files are protected unless overwrite is explicit.
 - A passing preflight is evidence about the checks performed, **not a security guarantee**.
 
