@@ -1,5 +1,5 @@
 name: "Codex Workspace Bootstrap"
-description: "Audit a repository for Codex-ready project instructions, toolchain signals, and risky tracked filenames."
+description: "Audit a repository for Codex-ready project instructions, toolchain signals, risky tracked filenames, and optional SARIF output."
 author: "kohli217"
 
 inputs:
@@ -8,9 +8,13 @@ inputs:
     required: false
     default: "."
   strict:
-    description: "Fail the action when blocking findings are detected"
+    description: "Fail the action when blocking findings are detected (true or false)"
     required: false
     default: "true"
+  sarif:
+    description: "Optional path for a SARIF 2.1.0 report"
+    required: false
+    default: ""
 
 runs:
   using: "composite"
@@ -30,10 +34,22 @@ runs:
       env:
         CWB_TARGET_PATH: ${{ inputs.path }}
         CWB_STRICT: ${{ inputs.strict }}
+        CWB_SARIF_PATH: ${{ inputs.sarif }}
       run: |
+        case "$CWB_STRICT" in
+          true|false) ;;
+          *)
+            echo "strict must be 'true' or 'false'" >&2
+            exit 2
+            ;;
+        esac
+
         args=(audit)
         if [[ "$CWB_STRICT" == "true" ]]; then
           args+=(--strict)
+        fi
+        if [[ -n "$CWB_SARIF_PATH" ]]; then
+          args+=(--sarif "$CWB_SARIF_PATH")
         fi
         args+=(-- "$CWB_TARGET_PATH")
         codex-workspace-bootstrap "${args[@]}"
