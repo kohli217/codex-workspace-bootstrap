@@ -47,6 +47,8 @@ codex-workspace-bootstrap --version
 
 ## GitHub Actionsから使う
 
+v0.3.0の再利用可能ActionはGitHub Marketplaceで公開済みです。第三者がGitHub内から見つけて導入できる配布経路として利用できます。
+
 ```yaml
 - uses: actions/checkout@v7
 - uses: actions/setup-python@v7
