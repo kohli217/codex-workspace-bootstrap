@@ -270,6 +270,9 @@ def _run_init_agents(path: str, force: bool) -> int:
         return 2
 
     target = root / "AGENTS.md"
+    if target.is_symlink():
+        print(f"error: refusing to write through symlink: {target}", file=sys.stderr)
+        return 1
     if target.exists() and not force:
         print(f"error: {target} already exists; use --force to overwrite", file=sys.stderr)
         return 1
