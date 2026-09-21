@@ -625,3 +625,36 @@ def test_invalid_gemini_settings_fall_back_to_default_context_filename(tmp_path:
     signals = detect_instruction_signals(tmp_path)
 
     assert any(item.tool == "Gemini CLI" and item.path == "GEMINI.md" for item in signals)
+
+
+def test_chained_package_commands_are_extracted_individually() -> None:
+    commands = extract_commands("Run §npm test && npm run lint§ before committing.\n".replace("§", "`"))
+
+    assert "npm test" in commands
+    assert "npm run lint" in commands
+
+
+def test_chained_commands_enable_missing_script_detection(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"scripts": {"test": "vitest"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run §npm test && npm run lint§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    missing = [item for item in findings if item.kind == "missing-package-script"]
+    assert len(missing) == 1
+    assert any("lint" in item.message for item in missing)
+
+
+def test_shell_chain_splitter_does_not_split_quoted_separators() -> None:
+    commands = extract_commands(
+        "Run §npm run test -- --grep 'a && b' && npm run lint§.\n".replace("§", "`")
+    )
+
+    assert any(command.startswith("npm run test") for command in commands)
+    assert "npm run lint" in commands
