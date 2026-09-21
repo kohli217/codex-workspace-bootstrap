@@ -11,7 +11,7 @@ def test_init_agents_creates_file(tmp_path: Path) -> None:
     code = main(["init-agents", str(tmp_path)])
     assert code == 0
     content = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
-    assert "No common Python or Node.js manifest detected" in content
+    assert "No supported project manifest detected" in content
 
 
 def test_init_agents_generates_python_validation(tmp_path: Path) -> None:
@@ -296,6 +296,32 @@ def test_init_agents_ignores_symlinked_project_markers(
 
     assert code == 0
     content = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
-    assert "No common Python or Node.js manifest detected" in content
+    assert "No supported project manifest detected" in content
     assert "python -m pytest" not in content
     assert "pnpm run test" not in content
+
+
+@pytest.mark.parametrize(
+    ("filename", "expected_signal"),
+    [
+        ("go.mod", "Go"),
+        ("Cargo.toml", "Rust"),
+        ("build.gradle.kts", "JVM"),
+        ("demo.sln", ".NET"),
+    ],
+)
+def test_init_agents_reports_common_project_signal_without_inventing_commands(
+    tmp_path: Path,
+    filename: str,
+    expected_signal: str,
+) -> None:
+    (tmp_path / filename).write_text("marker\n", encoding="utf-8")
+
+    code = main(["init-agents", str(tmp_path)])
+
+    assert code == 0
+    content = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
+    assert expected_signal in content
+    assert "No supported project manifest detected" not in content
+    for unsupported_guess in ("go test", "cargo test", "gradle test", "dotnet test"):
+        assert unsupported_guess not in content
