@@ -5,29 +5,8 @@ import json
 from pathlib import Path
 import sys
 
+from .agents import generate_agents
 from .audit import audit_repository, summary
-
-
-AGENTS_TEMPLATE = """# AGENTS.md
-
-## Purpose
-This repository is maintained with assistance from Codex.
-
-## Working rules
-- Read README.md and existing project files before editing.
-- Keep changes scoped to the requested issue.
-- Do not add secrets, credentials, tokens, or private data.
-- Prefer deterministic, scriptable commands over manual steps.
-- Preserve Windows compatibility unless an issue explicitly changes platform support.
-- Run the relevant tests before proposing completion.
-- Explain any behavior change in the pull request or commit summary.
-
-## Validation
-Before finishing a change:
-1. run the project test suite;
-2. run `codex-workspace-bootstrap audit . --strict` when available;
-3. inspect `git diff` for accidental files or secrets.
-"""
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -46,7 +25,7 @@ def _parser() -> argparse.ArgumentParser:
         help="Return a non-zero exit code if blocking checks are present",
     )
 
-    init_agents = sub.add_parser("init-agents", help="Create a starter AGENTS.md")
+    init_agents = sub.add_parser("init-agents", help="Create a project-aware starter AGENTS.md")
     init_agents.add_argument("path", nargs="?", default=".")
     init_agents.add_argument("--force", action="store_true", help="Overwrite an existing AGENTS.md")
 
@@ -99,7 +78,7 @@ def _run_init_agents(path: str, force: bool) -> int:
         print(f"error: {target} already exists; use --force to overwrite", file=sys.stderr)
         return 1
 
-    target.write_text(AGENTS_TEMPLATE, encoding="utf-8")
+    target.write_text(generate_agents(root), encoding="utf-8")
     print(f"Created {target}")
     return 0
 
