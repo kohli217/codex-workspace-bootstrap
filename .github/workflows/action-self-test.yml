@@ -23,12 +23,30 @@ jobs:
         with:
           python-version: "3.13"
       - name: Run local action in strict mode with SARIF output
+        id: cwb
         uses: ./
         with:
           path: .
           strict: "true"
           fail_on_integrity: "true"
           sarif: action-report.sarif
+      - name: Validate Action outputs
+        shell: python
+        env:
+          CWB_STATE: ${{ steps.cwb.outputs.state }}
+          CWB_INSTRUCTION_FINDINGS: ${{ steps.cwb.outputs.instruction_findings }}
+          CWB_BLOCKING: ${{ steps.cwb.outputs.blocking }}
+          CWB_WARNINGS: ${{ steps.cwb.outputs.warnings }}
+        run: |
+          import os
+
+          if os.environ["CWB_STATE"] not in {"READY", "NEEDS ATTENTION", "BLOCKED"}:
+              raise SystemExit(f"Unexpected state output: {os.environ['CWB_STATE']!r}")
+          for name in ("CWB_INSTRUCTION_FINDINGS", "CWB_BLOCKING", "CWB_WARNINGS"):
+              value = os.environ[name]
+              if not value.isdigit():
+                  raise SystemExit(f"{name} is not numeric: {value!r}")
+
       - name: Validate SARIF file
         shell: python
         run: |
