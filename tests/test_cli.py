@@ -15,7 +15,10 @@ def test_init_agents_creates_file(tmp_path: Path) -> None:
 
 
 def test_init_agents_generates_python_validation(tmp_path: Path) -> None:
-    (tmp_path / "pyproject.toml").write_text("[project]\nname='demo'\n", encoding="utf-8")
+    (tmp_path / "pyproject.toml").write_text(
+        "[project]\nname='demo'\n[project.optional-dependencies]\ntest=['pytest']\n",
+        encoding="utf-8",
+    )
     (tmp_path / "tests").mkdir()
 
     code = main(["init-agents", str(tmp_path)])
@@ -24,6 +27,7 @@ def test_init_agents_generates_python_validation(tmp_path: Path) -> None:
     content = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
     assert "Python" in content
     assert "python -m pytest" in content
+    assert "pytest configuration or dependency detected" in content
 
 
 def test_init_agents_generates_node_validation_from_script_names(tmp_path: Path) -> None:
@@ -43,7 +47,10 @@ def test_init_agents_generates_node_validation_from_script_names(tmp_path: Path)
 
 
 def test_init_agents_generates_mixed_project_signals(tmp_path: Path) -> None:
-    (tmp_path / "pyproject.toml").write_text("[project]\nname='demo'\n", encoding="utf-8")
+    (tmp_path / "pyproject.toml").write_text(
+        "[project]\nname='demo'\n[tool.pytest.ini_options]\n",
+        encoding="utf-8",
+    )
     (tmp_path / "package.json").write_text('{"scripts":{"test":"vitest"}}', encoding="utf-8")
     (tmp_path / "tests").mkdir()
 
@@ -104,3 +111,33 @@ def test_audit_writes_sarif(tmp_path: Path) -> None:
     payload = json.loads(report.read_text(encoding="utf-8"))
     assert payload["version"] == "2.1.0"
     assert payload["runs"][0]["tool"]["driver"]["name"] == "codex-workspace-bootstrap"
+
+
+def test_init_agents_marks_unconfirmed_pytest_for_review(tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='demo'\n", encoding="utf-8")
+    (tmp_path / "tests").mkdir()
+
+    code = main(["init-agents", str(tmp_path)])
+
+    assert code == 0
+    content = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
+    assert "python -m compileall ." in content
+    assert "Review-required suggestions" in content
+    assert "pytest was not confirmed" in content
+
+
+def test_init_agents_uses_readme_pytest_evidence(tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='demo'\n", encoding="utf-8")
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "README.md").write_text(
+        "# Demo\n\nRun tests with:\n\n    python -m pytest\n",
+        encoding="utf-8",
+    )
+
+    code = main(["init-agents", str(tmp_path)])
+
+    assert code == 0
+    content = (tmp_path / "AGENTS.md").read_text(encoding="utf-8")
+    assert "python -m pytest" in content
+    assert "documented in README" in content
+    assert "Review-required suggestions" not in content
