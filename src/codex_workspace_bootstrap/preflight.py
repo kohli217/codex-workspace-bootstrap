@@ -46,7 +46,10 @@ def readiness_state(
         check.name in ESSENTIAL_CHECKS and check.status != "pass"
         for check in checks
     )
-    has_repository_wide = any(item.scope == "." for item in instructions)
+    has_repository_wide = any(
+        item.scope == "." and item.kind in {"repository", "override"}
+        for item in instructions
+    )
     if essentials_missing or not has_repository_wide or instruction_findings:
         return "NEEDS ATTENTION"
 
@@ -86,7 +89,10 @@ def next_actions(
                 )
             )
 
-    has_repository_wide = any(item.scope == "." for item in instructions)
+    has_repository_wide = any(
+        item.scope == "." and item.kind in {"repository", "override"}
+        for item in instructions
+    )
     if not has_repository_wide:
         actions.append(
             NextAction(
