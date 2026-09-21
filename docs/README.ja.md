@@ -17,10 +17,10 @@ Windows上の既存リポジトリを、Codexで扱いやすい状態に診断�
 
 ## 30秒で試す
 
-公開済みv0.1.0のwheelを固定してインストールします。
+公開済みv0.2.0のwheelを固定してインストールします。
 
 ```powershell
-py -m pip install "https://github.com/kohli217/codex-workspace-bootstrap/releases/download/v0.1.0/codex_workspace_bootstrap-0.1.0-py3-none-any.whl"
+py -m pip install "https://github.com/kohli217/codex-workspace-bootstrap/releases/download/v0.2.0/codex_workspace_bootstrap-0.2.0-py3-none-any.whl"
 ```
 
 監査:
@@ -42,6 +42,21 @@ codex-workspace-bootstrap --version
 ```
 
 より詳しい例は [EXAMPLES.md](EXAMPLES.md) を参照してください。
+
+## GitHub Actionsから使う
+
+```yaml
+- uses: actions/checkout@v4
+- uses: actions/setup-python@v5
+  with:
+    python-version: "3.13"
+- uses: kohli217/codex-workspace-bootstrap@v0.2.0
+  with:
+    path: .
+    strict: "true"
+```
+
+詳しくは [GITHUB_ACTION.md](GITHUB_ACTION.md) を参照してください。
 
 ## CIで使う
 
