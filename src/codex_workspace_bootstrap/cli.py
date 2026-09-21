@@ -11,7 +11,7 @@ from .audit import audit_repository, summary
 from .doctor import doctor_findings
 from .fixes import apply_fix_plan, build_fix_plan
 from .preflight import build_preflight, render_markdown
-from .sarif import checks_to_sarif
+from .sarif import checks_to_sarif, preflight_report_to_sarif
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -26,6 +26,11 @@ def _parser() -> argparse.ArgumentParser:
     preflight.add_argument("path", nargs="?", default=".")
     preflight.add_argument("--json", dest="json_path", help="Write the complete preflight report to JSON")
     preflight.add_argument("--markdown", dest="markdown_path", help="Write a concise Markdown preflight report")
+    preflight.add_argument(
+        "--sarif",
+        dest="sarif_path",
+        help="Write audit and instruction-integrity findings as SARIF 2.1.0",
+    )
     preflight.add_argument(
         "--strict",
         action="store_true",
@@ -77,6 +82,7 @@ def _run_preflight(
     path: str,
     json_path: str | None,
     markdown_path: str | None,
+    sarif_path: str | None,
     strict: bool,
     fail_on_integrity: bool,
 ) -> int:
@@ -143,6 +149,13 @@ def _run_preflight(
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(render_markdown(report), encoding="utf-8")
         print(f"Preflight Markdown report written to: {output}")
+
+    if sarif_path:
+        _write_json(
+            sarif_path,
+            preflight_report_to_sarif(report),
+            "Preflight SARIF report",
+        )
 
     if strict and report["state"] == "BLOCKED":
         return 1
@@ -273,6 +286,7 @@ def main(argv: list[str] | None = None) -> int:
             args.path,
             args.json_path,
             args.markdown_path,
+            args.sarif_path,
             args.strict,
             args.fail_on_integrity,
         )
