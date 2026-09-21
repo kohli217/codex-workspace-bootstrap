@@ -54,16 +54,24 @@ Detection means "present", not "correct"; maintainers should still review the fi
 cwb init-agents .
 ```
 
-The generator uses observable repository evidence and separates unconfirmed validation commands for review.
+The generator recognizes common Python, Node.js, Go, Rust, JVM, and .NET project roots. It only emits validation commands when repository evidence supports them, and separates unconfirmed suggestions for review.
 
-## Detailed audit and CI gate
+## Detailed audit and CI gates
 
 ```powershell
 cwb audit .
 cwb audit . --strict
 ```
 
-Tracked secret-risk filenames can become blocking. File contents are not printed by this check.
+Tracked secret-risk filenames can become blocking. Environment-specific dotenv files such as `.env.production` are included, while common templates such as `.env.example` are excluded. File contents are not printed by this check.
+
+Require the complete preflight state to be `READY`:
+
+```powershell
+cwb preflight . --require-ready
+```
+
+Use this when CI should also fail for readiness gaps that are not blocking security findings, such as missing repository-wide AI instructions or essential repository markers.
 
 ## JSON and SARIF
 
@@ -147,3 +155,32 @@ frontend/.cursor/rules/react.mdc
 ```
 
 A rule with `alwaysApply: true` is treated as a baseline for its containing directory scope. A rule with globs is path-specific. A rule that is neither always-on nor glob-scoped is reported as conditional and does not count as a repository-wide readiness baseline.
+
+
+## Package-manager-aware validation
+
+For Node.js repositories, `cwb` uses repository evidence such as `packageManager` and lockfiles instead of assuming npm.
+
+Examples it can validate include:
+
+```text
+pnpm --filter web run lint
+pnpm -C apps/web test
+npm --workspace app run lint
+yarn workspace web test
+```
+
+Conflicting package-manager evidence is surfaced for review instead of silently choosing one manager.
+
+## Hierarchical AI instructions
+
+The preflight understands nested instruction layouts such as:
+
+```text
+CLAUDE.md
+services/api/CLAUDE.md
+GEMINI.md
+apps/web/GEMINI.md
+```
+
+Gemini CLI project `.gemini/settings.json` `context.fileName` overrides are also respected when present.
