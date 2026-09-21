@@ -134,6 +134,10 @@ See [AGENTS.md](AGENTS.md) for the instructions used when Codex works on this re
 
 See [docs/ROADMAP.md](docs/ROADMAP.md).
 
+## Releasing
+
+Maintainers can create a tested GitHub release from the Actions UI. See [docs/RELEASING.md](docs/RELEASING.md).
+
 ## Contributing
 
 Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
