@@ -39,6 +39,30 @@ jobs:
 | `fail_on_integrity` | `false` | Fail when any instruction-integrity finding is detected. |
 | `sarif` | empty | Optional comprehensive SARIF 2.1.0 output path containing audit and instruction-integrity findings. |
 
+## Outputs
+
+The Action exposes structured outputs so later workflow steps can consume the same preflight result without parsing logs:
+
+| Output | Description |
+| --- | --- |
+| `state` | `READY`, `NEEDS ATTENTION`, or `BLOCKED`. |
+| `instruction_findings` | Number of instruction-integrity findings. |
+| `blocking` | Number of blocking audit findings. |
+| `warnings` | Number of audit warnings. |
+
+Example:
+
+```yaml
+- id: cwb
+  uses: kohli217/codex-workspace-bootstrap@v0.5.2
+  with:
+    path: .
+    strict: "false"
+
+- name: Report preflight state
+  run: echo "state=${{ steps.cwb.outputs.state }}"
+```
+
 ## What appears in the job summary
 
 The Action writes a Markdown snapshot containing:
