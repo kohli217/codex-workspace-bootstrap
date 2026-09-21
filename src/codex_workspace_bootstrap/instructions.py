@@ -216,17 +216,29 @@ def _agent_signals(root: Path) -> list[InstructionSignal]:
     return found
 
 
-def _claude_signals(root: Path) -> list[InstructionSignal]:
+def _hierarchical_named_signals(
+    root: Path,
+    filename: str,
+    tool: str,
+) -> list[InstructionSignal]:
     found: list[InstructionSignal] = []
     for directory, _dirnames, filenames in _walk_repository(root):
-        if "CLAUDE.md" not in filenames:
+        if filename not in filenames:
             continue
-        path = directory / "CLAUDE.md"
+        path = directory / filename
         rel = path.relative_to(root).as_posix()
         scope_path = directory.relative_to(root).as_posix()
         scope = "." if scope_path == "." else scope_path
-        found.append(InstructionSignal("Claude Code", rel, scope, "repository"))
+        found.append(InstructionSignal(tool, rel, scope, "repository"))
     return found
+
+
+def _claude_signals(root: Path) -> list[InstructionSignal]:
+    return _hierarchical_named_signals(root, "CLAUDE.md", "Claude Code")
+
+
+def _gemini_signals(root: Path) -> list[InstructionSignal]:
+    return _hierarchical_named_signals(root, "GEMINI.md", "Gemini CLI")
 
 
 def _instruction_file_allowed(tool: str, path: Path) -> bool:
@@ -315,6 +327,12 @@ def detect_instruction_signals(root: Path) -> list[InstructionSignal]:
             seen.add(key)
 
     for signal in _claude_signals(root):
+        key = (signal.tool, signal.path)
+        if key not in seen:
+            found.append(signal)
+            seen.add(key)
+
+    for signal in _gemini_signals(root):
         key = (signal.tool, signal.path)
         if key not in seen:
             found.append(signal)
