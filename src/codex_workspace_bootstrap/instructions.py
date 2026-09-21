@@ -94,11 +94,6 @@ _COMMAND_PATTERNS: tuple[re.Pattern[str], ...] = (
 _CODE_FENCE = re.compile(r"```(?:[A-Za-z0-9_+.-]+)?\s*\n(.*?)```", re.S)
 _INLINE_CODE = re.compile(r"`([^`\n]+)`")
 _PACKAGE_COMMAND = re.compile(r"^(npm|pnpm|yarn|bun)\b", re.I)
-_SCRIPT_COMMAND = re.compile(
-    r"^(npm|pnpm|bun)\s+(?:run\s+)?([\w:.-]+)|^yarn\s+(?:run\s+)?([\w:.-]+)",
-    re.I,
-)
-
 
 def _safe_read(path: Path) -> str:
     try:
