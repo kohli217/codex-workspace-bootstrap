@@ -41,6 +41,11 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Return a non-zero exit code when AI instruction integrity findings are present",
     )
+    preflight.add_argument(
+        "--require-ready",
+        action="store_true",
+        help="Return a non-zero exit code unless the preflight state is READY",
+    )
 
     fix = sub.add_parser("fix", help="Preview safe repository-readiness fixes")
     fix.add_argument("path", nargs="?", default=".")
@@ -85,6 +90,7 @@ def _run_preflight(
     sarif_path: str | None,
     strict: bool,
     fail_on_integrity: bool,
+    require_ready: bool,
 ) -> int:
     root = Path(path).expanduser().resolve()
     if not root.exists() or not root.is_dir():
@@ -160,6 +166,8 @@ def _run_preflight(
     if strict and report["state"] == "BLOCKED":
         return 1
     if fail_on_integrity and report["instruction_summary"]["findings"]:
+        return 1
+    if require_ready and report["state"] != "READY":
         return 1
     return 0
 
@@ -292,6 +300,7 @@ def main(argv: list[str] | None = None) -> int:
             args.sarif_path,
             args.strict,
             args.fail_on_integrity,
+            args.require_ready,
         )
     if args.command == "fix":
         return _run_fix(args.path, args.apply)
