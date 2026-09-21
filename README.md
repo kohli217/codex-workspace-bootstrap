@@ -141,7 +141,7 @@ cwb preflight . --strict
 Fail CI on instruction drift or invalid package scripts:
 
 ```powershell
-cwb preflight . --fail-on-drift
+cwb preflight . --fail-on-integrity
 ```
 
 ### Detailed audit
@@ -196,7 +196,7 @@ The reusable Action is published on GitHub Marketplace.
   with:
     path: .
     strict: "true"
-    fail_on_drift: "true"
+    fail_on_integrity: "true"
 ```
 
 The Action adds the preflight Markdown report to the **GitHub Actions job summary**, so maintainers get a readable readiness snapshot without digging through raw logs. Optional SARIF output can be uploaded to GitHub Code Scanning.
