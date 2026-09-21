@@ -243,3 +243,25 @@ def test_init_agents_avoids_manager_specific_commands_when_evidence_conflicts(tm
     assert "pnpm run test" not in content
     assert "npm run lint" not in content
     assert "pnpm run lint" not in content
+
+
+def test_init_agents_refuses_symlink_target_even_with_force(
+    tmp_path: Path,
+    monkeypatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    target = tmp_path / "AGENTS.md"
+    original_is_symlink = Path.is_symlink
+
+    def fake_is_symlink(path: Path) -> bool:
+        if path == target:
+            return True
+        return original_is_symlink(path)
+
+    monkeypatch.setattr(Path, "is_symlink", fake_is_symlink)
+
+    code = main(["init-agents", str(tmp_path), "--force"])
+
+    assert code == 1
+    assert "refusing to write through symlink" in capsys.readouterr().err
+    assert not target.exists()
