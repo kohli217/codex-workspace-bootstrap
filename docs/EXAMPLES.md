@@ -16,6 +16,7 @@ State: NEEDS ATTENTION
 Project: Python
 AI instructions: none detected
 Audit: 10 passed, 4 warnings, 0 blocking
+Instruction integrity: 0 findings, 0 drift, 0 invalid commands
 Next actions:
   [P1] Add repository instructions for AI coding agents -> cwb init-agents .
 ```
@@ -78,3 +79,26 @@ cwb doctor .
 ```
 
 Doctor prints remediation guidance without installing software or changing system configuration.
+
+
+## Cross-agent instruction lint
+
+```powershell
+cwb preflight . --fail-on-drift
+```
+
+The command exits non-zero when package-manager drift, validation-command drift, or invalid referenced package scripts are detected.
+
+## Safe fix preview
+
+```powershell
+cwb fix .
+```
+
+Review the plan first. Apply only supported low-risk changes with:
+
+```powershell
+cwb fix . --apply
+```
+
+Conflicting existing instruction files are never auto-rewritten.
