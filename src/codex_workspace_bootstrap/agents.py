@@ -18,11 +18,15 @@ class ValidationCommand:
     review_required: bool = False
 
 
+def _regular_file(path: Path) -> bool:
+    return path.is_file() and not path.is_symlink()
+
+
 def detect_project_signals(root: Path) -> list[str]:
     signals: list[str] = []
-    if any((root / marker).exists() for marker in PYTHON_MARKERS):
+    if any(_regular_file(root / marker) for marker in PYTHON_MARKERS):
         signals.append("Python")
-    if (root / NODE_MARKER).exists():
+    if _regular_file(root / NODE_MARKER):
         signals.append("Node.js")
     return signals
 
@@ -154,8 +158,8 @@ def validation_plan(root: Path) -> list[ValidationCommand]:
     if "Python" in signals:
         pytest_evidence = (
             _pyproject_has_pytest(root)
-            or (root / "pytest.ini").exists()
-            or (root / "conftest.py").exists()
+            or _regular_file(root / "pytest.ini")
+            or _regular_file(root / "conftest.py")
         )
         if "python -m pytest" in documented or "pytest" in documented:
             plan.append(ValidationCommand("python -m pytest", "documented in README"))
