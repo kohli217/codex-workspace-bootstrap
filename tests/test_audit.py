@@ -4,7 +4,7 @@ import subprocess
 
 import pytest
 
-from codex_workspace_bootstrap.audit import audit_repository, summary
+from codex_workspace_bootstrap.audit import _git_tracked_files, audit_repository, summary
 
 
 def _git(root: Path, *args: str) -> None:
@@ -304,3 +304,21 @@ def test_audit_does_not_flag_common_env_templates(tmp_path: Path, filename: str)
     by_name = {check.name: check for check in checks}
 
     assert by_name["secret-risk-files"].status == "pass"
+
+
+def test_git_tracked_files_uses_surrogateescape_for_path_bytes(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    class Result:
+        returncode = 0
+        stdout = b"normal.txt\0invalid-\xff.env\0"
+
+    monkeypatch.setattr(shutil, "which", lambda name: "/usr/bin/git")
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: Result())
+
+    tracked = _git_tracked_files(tmp_path)
+
+    assert tracked is not None
+    assert "normal.txt" in tracked
+    assert any(name.endswith(".env") for name in tracked)
