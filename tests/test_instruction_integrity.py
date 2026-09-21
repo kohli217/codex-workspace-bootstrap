@@ -67,15 +67,31 @@ def test_missing_package_script_is_reported(tmp_path: Path) -> None:
 
 def test_cross_agent_validation_drift_is_reported(tmp_path: Path) -> None:
     (tmp_path / "package.json").write_text(
-        json.dumps({"scripts": {"test": "vitest", "lint": "eslint ."}}),
+        json.dumps({"scripts": {"test": "vitest", "test:unit": "vitest run"}}),
         encoding="utf-8",
     )
     (tmp_path / "AGENTS.md").write_text("Run §npm test§.\n".replace("§", "`"), encoding="utf-8")
-    (tmp_path / "CLAUDE.md").write_text("Run §npm run lint§.\n".replace("§", "`"), encoding="utf-8")
+    (tmp_path / "CLAUDE.md").write_text("Run §npm run test:unit§.\n".replace("§", "`"), encoding="utf-8")
 
     findings = lint_instructions(tmp_path)
 
     assert any(item.kind == "validation-command-drift" for item in findings)
+
+
+def test_shared_validation_command_avoids_false_positive_drift(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"scripts": {"test": "vitest", "test:e2e": "playwright test"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run §npm test§ and §npm run test:e2e§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+    (tmp_path / "CLAUDE.md").write_text("Run §npm test§.\n".replace("§", "`"), encoding="utf-8")
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "validation-command-drift" for item in findings)
 
 
 def test_fix_plan_is_previewable_and_non_destructive(tmp_path: Path) -> None:
