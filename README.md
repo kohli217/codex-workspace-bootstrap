@@ -31,6 +31,16 @@ Codex works better when a repository clearly states its toolchain, validation co
 
 The project targets a real repository-readiness problem around Windows and Windows+WSL development. It does not claim to fix upstream Codex product bugs. See [docs/MOTIVATION.md](docs/MOTIVATION.md) for the scope and public upstream references.
 
+## PyPI installation
+
+Once the trusted publisher is configured, released versions can be installed with:
+
+```powershell
+py -m pip install codex-workspace-bootstrap
+```
+
+The GitHub release wheel remains available as a pinned alternative.
+
 ## 30-second start
 
 Install the pinned v0.3.0 wheel:
