@@ -27,6 +27,10 @@ Codex works better when a repository clearly states its toolchain, validation co
 - fail CI on blocking findings with `--strict`;
 - validate releases through automated tests, self-audit, and build checks.
 
+## Why Windows-first?
+
+The project targets a real repository-readiness problem around Windows and Windows+WSL development. It does not claim to fix upstream Codex product bugs. See [docs/MOTIVATION.md](docs/MOTIVATION.md) for the scope and public upstream references.
+
 ## 30-second start
 
 Install the pinned v0.2.0 wheel:
@@ -171,6 +175,12 @@ pytest -q
 ```
 
 Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), and [SUPPORT.md](SUPPORT.md).
+
+## Maintainer and adoption
+
+Primary maintainer identity and responsibilities are documented in [MAINTAINERS.md](MAINTAINERS.md).
+
+If you use the project, please share a real usage report through the GitHub issue template. The project deliberately avoids fabricated testimonials or adoption claims. See [docs/ADOPTION.md](docs/ADOPTION.md).
 
 ## Roadmap
 
