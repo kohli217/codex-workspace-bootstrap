@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import sys
 
+from . import __version__
 from .agents import generate_agents
 from .audit import audit_repository, summary
 
@@ -14,6 +15,7 @@ def _parser() -> argparse.ArgumentParser:
         prog="codex-workspace-bootstrap",
         description="Audit and bootstrap repositories for reliable Codex workflows.",
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
 
     audit = sub.add_parser("audit", help="Audit a repository and local toolchain")
