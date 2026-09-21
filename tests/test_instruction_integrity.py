@@ -536,3 +536,43 @@ def test_nested_claude_md_uses_nearest_package_manager_evidence(tmp_path: Path) 
     findings = lint_instructions(tmp_path)
 
     assert not any(item.kind == "package-manager-mismatch" for item in findings)
+
+
+def test_nested_gemini_md_uses_directory_scope(tmp_path: Path) -> None:
+    (tmp_path / "GEMINI.md").write_text("root rules\n", encoding="utf-8")
+    nested = tmp_path / "packages" / "worker"
+    nested.mkdir(parents=True)
+    (nested / "GEMINI.md").write_text(
+        "Run §pnpm test§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+
+    signals = detect_instruction_signals(tmp_path)
+    by_path = {item.path: item for item in signals if item.tool == "Gemini CLI"}
+
+    assert by_path["GEMINI.md"].scope == "."
+    assert by_path["packages/worker/GEMINI.md"].scope == "packages/worker"
+
+
+def test_nested_gemini_md_uses_nearest_package_manager_evidence(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"packageManager": "npm@11", "scripts": {"test": "vitest"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "package-lock.json").write_text("{}", encoding="utf-8")
+
+    app = tmp_path / "packages" / "worker"
+    app.mkdir(parents=True)
+    (app / "package.json").write_text(
+        json.dumps({"packageManager": "pnpm@10", "scripts": {"test": "vitest"}}),
+        encoding="utf-8",
+    )
+    (app / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    (app / "GEMINI.md").write_text(
+        "Run §pnpm test§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "package-manager-mismatch" for item in findings)
