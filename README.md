@@ -43,6 +43,32 @@ cwb init-agents .
 cwb preflight .
 ```
 
+### See it catch real mistakes
+
+A reproducible demo creates a temporary repository where the project uses **pnpm** but `AGENTS.md` tells the agent to use **npm** and references a nonexistent `lint` script.
+
+```powershell
+py examples/first-run-demo/run_demo.py
+```
+
+Expected outcome:
+
+```text
+=== BEFORE ===
+State: NEEDS ATTENTION
+Findings:
+  - package-manager-mismatch
+  - missing-package-script
+
+=== AFTER ===
+State: READY
+Findings: none
+
+Demo verification: PASS
+```
+
+See [examples/first-run-demo](examples/first-run-demo) for the full reproducible demo. It uses disposable temporary Git repositories and is verified in CI.
+
 The goal is not a vanity score. The result is one of:
 
 - **READY** — core repository signals and AI instructions are present, with no blocking finding;
