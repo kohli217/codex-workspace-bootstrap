@@ -15,6 +15,16 @@ Windows上の既存リポジトリを、Codexで扱いやすい状態に診断�
 - `--strict` でCIのブロッキング判定に利用
 - Windows / Ubuntu のGitHub Actionsで自動テスト
 
+## PyPIからのインストール
+
+Trusted Publishing設定後は、公開済みバージョンを次のコマンドで導入できます。
+
+```powershell
+py -m pip install codex-workspace-bootstrap
+```
+
+GitHub Releaseの固定wheelも、バージョン固定の代替手段として引き続き利用できます。
+
 ## 30秒で試す
 
 公開済みv0.3.0のwheelを固定してインストールします。
