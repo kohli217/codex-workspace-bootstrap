@@ -70,7 +70,7 @@ cwb preflight . --sarif preflight.sarif
 cwb init-agents .
 ```
 
-pyproject.toml、pytest設定、package.jsonのscript名、READMEに書かれた検証コマンドを照合します。根拠が弱いコマンドは確定扱いせず、review-requiredとして分離します。
+pyproject.toml、pytest設定、package.jsonのpackageManager/lockfile、script名、READMEに書かれた検証コマンドを照合します。根拠が弱いコマンドは確定扱いせず、review-requiredとして分離します。
 
 ## GitHub Actions
 
