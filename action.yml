@@ -29,6 +29,10 @@ inputs:
     description: "Fail when AI instruction-integrity findings are detected (true or false)"
     required: false
     default: "false"
+  require_ready:
+    description: "Fail unless the final preflight state is READY (true or false)"
+    required: false
+    default: "false"
   sarif:
     description: "Optional path for a SARIF 2.1.0 report containing audit and instruction-integrity findings"
     required: false
@@ -54,9 +58,10 @@ runs:
         CWB_TARGET_PATH: ${{ inputs.path }}
         CWB_STRICT: ${{ inputs.strict }}
         CWB_FAIL_ON_INTEGRITY: ${{ inputs.fail_on_integrity }}
+        CWB_REQUIRE_READY: ${{ inputs.require_ready }}
         CWB_SARIF_PATH: ${{ inputs.sarif }}
       run: |
-        for value_name in CWB_STRICT CWB_FAIL_ON_INTEGRITY; do
+        for value_name in CWB_STRICT CWB_FAIL_ON_INTEGRITY CWB_REQUIRE_READY; do
           value="${!value_name}"
           case "$value" in
             true|false) ;;
@@ -78,6 +83,9 @@ runs:
         fi
         if [[ "$CWB_FAIL_ON_INTEGRITY" == "true" ]]; then
           preflight_args+=(--fail-on-integrity)
+        fi
+        if [[ "$CWB_REQUIRE_READY" == "true" ]]; then
+          preflight_args+=(--require-ready)
         fi
 
         set +e
