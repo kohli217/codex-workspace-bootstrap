@@ -276,6 +276,8 @@ def test_missing_copilot_applyto_is_reported(tmp_path: Path) -> None:
     findings = lint_instructions(tmp_path)
 
     assert any(item.kind == "missing-scope-metadata" for item in findings)
+    assert finding_summary(findings)["metadata"] == 1
+    assert finding_summary(findings)["invalid_commands"] == 0
 
 
 def test_conflicting_package_manager_evidence_is_reported_once_per_scope(tmp_path: Path) -> None:
@@ -297,3 +299,13 @@ def test_conflicting_package_manager_evidence_is_reported_once_per_scope(tmp_pat
 
     assert len(conflicts) == 1
     assert set(conflicts[0].evidence) == {"npm", "pnpm"}
+
+
+def test_fix_plan_does_not_add_agents_when_repo_wide_baseline_exists(tmp_path: Path) -> None:
+    github = tmp_path / ".github"
+    github.mkdir()
+    (github / "copilot-instructions.md").write_text("Use existing repository rules.\n", encoding="utf-8")
+
+    plan = build_fix_plan(tmp_path)
+
+    assert not any(item.kind == "create-agents" for item in plan)
