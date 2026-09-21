@@ -29,7 +29,7 @@ preflightは、次に何をすべきかをP0/P1/P2の優先度付きで表示し
 - AGENTS.md
 - GitHub Copilot repository instructions
 - Cline / Claude Code / Gemini CLI / Continue / Cursor系の指示ファイル
-- .env / private-key系などsecret-riskになりやすいファイル名
+- .env / `.env.production` などの環境別 `.env.*` / private-key系などsecret-riskになりやすいファイル名（`.env.example` などの一般的なテンプレート名は除外）
 - Git追跡済み / ignore済み / untrackedの区別
 
 さらに、packageManager / lockfile / package.json scriptsを根拠に、AI指示間のpackage manager不一致、存在しないscript、test/lint/build系コマンドの食い違いを保守的に検出します。ネストされた `AGENTS.md` / `AGENTS.override.md` / `CLAUDE.md` / `GEMINI.md` と、Copilotの `applyTo` やruleの `globs` から適用scopeも判定し、別scopeの指示を無理に矛盾扱いしません。
