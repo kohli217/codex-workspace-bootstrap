@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented here.
 
+## [0.5.1] - 2026-09-21
+
+### Added
+- GitHub private vulnerability reporting guidance and a private security-report contact link.
+- Dependency Review for pull requests, enforced as a required status check.
+- Signed GitHub Artifact Attestations for future release distributions.
+
+### Changed
+- Protected the default branch with required pull requests, required CI checks, deletion protection, and force-push blocking.
+- Pinned GitHub Actions dependencies to immutable commit SHAs.
+- Scoped GitHub Actions write permissions to the jobs that require them.
+- Enabled dependency graph, Dependabot security updates, grouped security updates, secret protection, and push protection.
+
 ## [0.5.0] - 2026-09-21
 
 ### Added
