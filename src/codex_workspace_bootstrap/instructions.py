@@ -623,7 +623,7 @@ def _package_command_tokens(command: str) -> list[str]:
         return command.split()
 
 
-def _script_for_command(command: str) -> tuple[str, str] | None:
+def _script_for_command(command: str) -> tuple[str, str, bool] | None:
     tokens = _package_command_tokens(command.strip())
     if not tokens:
         return None
@@ -654,7 +654,8 @@ def _script_for_command(command: str) -> tuple[str, str] | None:
         if index >= len(tokens):
             return None
 
-    if tokens[index] in {"run", "run-script"}:
+    explicit_run = tokens[index] in {"run", "run-script"}
+    if explicit_run:
         index += 1
         while index < len(tokens) and tokens[index].startswith("-"):
             if tokens[index] in _PACKAGE_OPTIONS_WITH_VALUE:
@@ -668,7 +669,7 @@ def _script_for_command(command: str) -> tuple[str, str] | None:
     if script in {"install", "ci", "exec", "dlx", "workspace"}:
         return None
 
-    return manager, script
+    return manager, script, explicit_run
 
 
 def _validation_key(command: str) -> str | None:
@@ -698,7 +699,7 @@ def _validation_key(command: str) -> str | None:
     parsed = _script_for_command(lowered)
     if not parsed:
         return None
-    manager, script = parsed
+    manager, script, _explicit_run = parsed
     family = script.split(":", 1)[0]
     if family in {"test", "lint", "check", "build", "typecheck", "validate", "verify"}:
         return f"{family}:{manager}:{script}"
@@ -804,11 +805,8 @@ def lint_instructions(
                 parsed = _script_for_command(command)
                 if not parsed:
                     continue
-                _manager, script = parsed
-                if script not in scripts and (
-                    script == "test"
-                    or command.lower().startswith(("npm run ", "pnpm run ", "bun run ", "yarn run "))
-                ):
+                _manager, script, explicit_run = parsed
+                if script not in scripts and (script == "test" or explicit_run):
                     findings.append(
                         InstructionFinding(
                             "missing-package-script",
