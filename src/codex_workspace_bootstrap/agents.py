@@ -44,6 +44,43 @@ def _node_script_names(root: Path) -> set[str]:
     return {name for name, value in scripts.items() if isinstance(name, str) and isinstance(value, str)}
 
 
+def _node_package_managers(root: Path) -> set[str]:
+    managers: set[str] = set()
+    package_json = root / NODE_MARKER
+
+    if package_json.is_file():
+        try:
+            data = json.loads(package_json.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+            data = {}
+        if isinstance(data, dict):
+            declared = data.get("packageManager")
+            if isinstance(declared, str) and declared:
+                manager = declared.split("@", 1)[0].strip().lower()
+                if manager in {"npm", "pnpm", "yarn", "bun"}:
+                    managers.add(manager)
+
+    lockfiles = {
+        "package-lock.json": "npm",
+        "npm-shrinkwrap.json": "npm",
+        "pnpm-lock.yaml": "pnpm",
+        "yarn.lock": "yarn",
+        "bun.lock": "bun",
+        "bun.lockb": "bun",
+    }
+    for filename, manager in lockfiles.items():
+        if (root / filename).is_file():
+            managers.add(manager)
+
+    return managers
+
+
+def _package_script_command(manager: str, script: str) -> str:
+    if manager == "npm" and script == "test":
+        return "npm test"
+    return f"{manager} run {script}"
+
+
 def _readme_text(root: Path) -> str:
     for name in README_NAMES:
         path = root / name
@@ -64,10 +101,10 @@ def _documented_commands(root: Path) -> set[str]:
         "python -m pytest",
         "pytest",
         "python -m unittest",
-        "npm test",
-        "npm run lint",
-        "npm run build",
     }
+    for manager in ("npm", "pnpm", "yarn", "bun"):
+        for script in ("test", "lint", "build"):
+            candidates.add(_package_script_command(manager, script))
     found: set[str] = set()
     for command in candidates:
         pattern = rf"(?m)(^|[\s$>]){re.escape(command)}(?=$|\s)"
@@ -136,19 +173,56 @@ def validation_plan(root: Path) -> list[ValidationCommand]:
 
     if "Node.js" in signals:
         scripts = _node_script_names(root)
-        if "test" in scripts:
-            plan.append(ValidationCommand("npm test", "package.json defines scripts.test"))
-        if "lint" in scripts:
-            plan.append(ValidationCommand("npm run lint", "package.json defines scripts.lint"))
-        if "build" in scripts and "npm run build" in documented:
-            plan.append(ValidationCommand("npm run build", "package.json defines scripts.build and README documents it"))
-        if not {"test", "lint"} & scripts:
-            plan.append(
-                ValidationCommand(
-                    "npm install --ignore-scripts --package-lock-only --dry-run",
-                    "Node.js project detected; no test or lint script confirmed",
+        managers = _node_package_managers(root)
+        manager = next(iter(managers)) if len(managers) == 1 else None
+
+        if manager:
+            if "test" in scripts:
+                plan.append(
+                    ValidationCommand(
+                        _package_script_command(manager, "test"),
+                        f"package.json defines scripts.test and repository evidence selects {manager}",
+                    )
                 )
-            )
+            if "lint" in scripts:
+                plan.append(
+                    ValidationCommand(
+                        _package_script_command(manager, "lint"),
+                        f"package.json defines scripts.lint and repository evidence selects {manager}",
+                    )
+                )
+            build_command = _package_script_command(manager, "build")
+            if "build" in scripts and build_command in documented:
+                plan.append(
+                    ValidationCommand(
+                        build_command,
+                        f"package.json defines scripts.build, repository evidence selects {manager}, and README documents it",
+                    )
+                )
+        elif len(managers) > 1:
+            # Conflicting package-manager evidence is handled by preflight.
+            # Do not manufacture a manager-specific validation command here.
+            pass
+        else:
+            # package.json alone does not prove npm. Preserve the historical
+            # npm suggestions only as review-required hints until the project
+            # supplies a lockfile, packageManager field, or documented command.
+            if "test" in scripts:
+                plan.append(
+                    ValidationCommand(
+                        "npm test",
+                        "package.json defines scripts.test, but the package manager is not confirmed",
+                        review_required=True,
+                    )
+                )
+            if "lint" in scripts:
+                plan.append(
+                    ValidationCommand(
+                        "npm run lint",
+                        "package.json defines scripts.lint, but the package manager is not confirmed",
+                        review_required=True,
+                    )
+                )
 
     plan.extend(
         [
