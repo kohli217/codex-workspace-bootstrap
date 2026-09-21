@@ -71,7 +71,8 @@ def _documented_commands(root: Path) -> set[str]:
     }
     found: set[str] = set()
     for command in candidates:
-        if re.search(rf"(?m)(^|[\\s$>]){re.escape(command)}(?=$|\\s)", text):
+        pattern = rf"(?m)(^|[\s$>]){re.escape(command)}(?=$|\s)"
+        if re.search(pattern, text):
             found.add(command)
     return found
 
@@ -103,7 +104,12 @@ def _pyproject_has_pytest(root: Path) -> bool:
         if not isinstance(group, list):
             continue
         for value in group:
-            if isinstance(value, str) and re.match(r"(?i)^pytest(?:\\b|[<>=!~\\[])?", value.strip()):
+            if not isinstance(value, str):
+                continue
+            normalized = value.strip().lower()
+            if normalized == "pytest":
+                return True
+            if any(normalized.startswith(prefix) for prefix in ("pytest<", "pytest>", "pytest=", "pytest!", "pytest~", "pytest[")):
                 return True
     return False
 
