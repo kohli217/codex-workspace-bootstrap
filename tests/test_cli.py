@@ -141,3 +141,20 @@ def test_init_agents_uses_readme_pytest_evidence(tmp_path: Path) -> None:
     assert "python -m pytest" in content
     assert "documented in README" in content
     assert "Review-required suggestions" not in content
+
+
+def test_preflight_writes_markdown(tmp_path: Path) -> None:
+    report = tmp_path / "preflight.md"
+
+    code = main(["preflight", str(tmp_path), "--markdown", str(report)])
+
+    assert code == 0
+    assert report.exists()
+    content = report.read_text(encoding="utf-8")
+    assert "# AI Repository Preflight" in content
+    assert "**State:**" in content
+
+
+def test_preflight_strict_fails_only_on_blocking(tmp_path: Path) -> None:
+    code = main(["preflight", str(tmp_path), "--strict"])
+    assert code == 0
