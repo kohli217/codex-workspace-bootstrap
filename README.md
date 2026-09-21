@@ -69,6 +69,17 @@ Demo verification: PASS
 
 See [examples/first-run-demo](examples/first-run-demo) for the full reproducible demo. It uses disposable temporary Git repositories and is verified in CI.
 
+### Try it on your repository
+
+```powershell
+py -m pip install codex-workspace-bootstrap
+cwb preflight .
+```
+
+If the result is useful, noisy, or surprising, open a [Usage report](https://github.com/kohli217/codex-workspace-bootstrap/issues/new?template=usage_report.yml). Public references are optional; do not include private repository contents, credentials, or secret values.
+
+Useful feedback includes false positives, missing repository layouts, monorepo behavior, and which check saved you time.
+
 The goal is not a vanity score. The result is one of:
 
 - **READY** — core repository signals and AI instructions are present, with no blocking finding;
