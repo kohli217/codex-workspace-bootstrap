@@ -4,7 +4,6 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 import re
-import tomllib
 
 
 PYTHON_MARKERS = ("pyproject.toml", "requirements.txt", "setup.py", "setup.cfg")
@@ -83,35 +82,15 @@ def _pyproject_has_pytest(root: Path) -> bool:
         return False
 
     try:
-        data = tomllib.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
         return False
 
-    tool = data.get("tool")
-    if isinstance(tool, dict) and isinstance(tool.get("pytest"), dict):
+    if re.search(r"(?mi)^\\[tool\\.pytest(?:\\.|\\])", text):
         return True
 
-    project = data.get("project")
-    if not isinstance(project, dict):
-        return False
-
-    dependency_groups: list[object] = [project.get("dependencies")]
-    optional = project.get("optional-dependencies")
-    if isinstance(optional, dict):
-        dependency_groups.extend(optional.values())
-
-    for group in dependency_groups:
-        if not isinstance(group, list):
-            continue
-        for value in group:
-            if not isinstance(value, str):
-                continue
-            normalized = value.strip().lower()
-            if normalized == "pytest":
-                return True
-            if any(normalized.startswith(prefix) for prefix in ("pytest<", "pytest>", "pytest=", "pytest!", "pytest~", "pytest[")):
-                return True
-    return False
+    dependency_pattern = r"""(?i)["']pytest(?:[<>=!~\\[].*?)?["']"""
+    return re.search(dependency_pattern, text) is not None
 
 
 def validation_plan(root: Path) -> list[ValidationCommand]:
