@@ -35,6 +35,8 @@ Codex向けAGENTS.md生成:
 codex-workspace-bootstrap init-agents .
 ```
 
+生成する検証コマンドは、pyproject.toml、pytest設定、package.jsonのscript名、READMEに明記されたコマンドを照合します。根拠が弱い候補は確定コマンドと分けてレビュー対象として表示します。
+
 バージョン確認:
 
 ```powershell
