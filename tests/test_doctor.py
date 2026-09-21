@@ -41,3 +41,20 @@ def test_doctor_has_repository_guidance() -> None:
 
     assert "init-agents" in findings[0].guidance
     assert ".gitignore" in findings[1].guidance
+
+
+def test_doctor_has_detected_package_manager_guidance() -> None:
+    findings = doctor_findings(
+        [
+            Check("pnpm", "warn", "pnpm command not found"),
+            Check(
+                "package-manager-evidence",
+                "warn",
+                "Node.js project detected, but package manager evidence is missing",
+            ),
+        ]
+    )
+
+    assert "pnpm" in findings[0].guidance.lower()
+    assert "packageManager" in findings[1].guidance
+    assert "lockfile" in findings[1].guidance
