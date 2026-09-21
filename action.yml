@@ -11,6 +11,10 @@ inputs:
     description: "Fail the action when blocking findings are detected (true or false)"
     required: false
     default: "true"
+  fail_on_drift:
+    description: "Fail when AI instruction drift or invalid package scripts are detected (true or false)"
+    required: false
+    default: "false"
   sarif:
     description: "Optional path for a SARIF 2.1.0 report"
     required: false
@@ -34,19 +38,27 @@ runs:
       env:
         CWB_TARGET_PATH: ${{ inputs.path }}
         CWB_STRICT: ${{ inputs.strict }}
+        CWB_FAIL_ON_DRIFT: ${{ inputs.fail_on_drift }}
         CWB_SARIF_PATH: ${{ inputs.sarif }}
       run: |
-        case "$CWB_STRICT" in
-          true|false) ;;
-          *)
-            echo "strict must be 'true' or 'false'" >&2
-            exit 2
-            ;;
-        esac
+        for value_name in CWB_STRICT CWB_FAIL_ON_DRIFT; do
+          value="${!value_name}"
+          case "$value" in
+            true|false) ;;
+            *)
+              echo "$value_name must be 'true' or 'false'" >&2
+              exit 2
+              ;;
+          esac
+        done
 
         report="$RUNNER_TEMP/cwb-preflight.md"
         cwb preflight "$CWB_TARGET_PATH" --markdown "$report"
         cat "$report" >> "$GITHUB_STEP_SUMMARY"
+
+        if [[ "$CWB_FAIL_ON_DRIFT" == "true" ]]; then
+          cwb preflight "$CWB_TARGET_PATH" --fail-on-drift
+        fi
 
         args=(audit)
         if [[ "$CWB_STRICT" == "true" ]]; then
