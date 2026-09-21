@@ -576,3 +576,52 @@ def test_nested_gemini_md_uses_nearest_package_manager_evidence(tmp_path: Path) 
     findings = lint_instructions(tmp_path)
 
     assert not any(item.kind == "package-manager-mismatch" for item in findings)
+
+
+def test_gemini_project_setting_customizes_context_filename(tmp_path: Path) -> None:
+    settings = tmp_path / ".gemini"
+    settings.mkdir()
+    (settings / "settings.json").write_text(
+        json.dumps({"context": {"fileName": "CONTEXT.md"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "GEMINI.md").write_text("default should be ignored\n", encoding="utf-8")
+    (tmp_path / "CONTEXT.md").write_text("custom root\n", encoding="utf-8")
+    nested = tmp_path / "services" / "api"
+    nested.mkdir(parents=True)
+    (nested / "CONTEXT.md").write_text("custom nested\n", encoding="utf-8")
+
+    signals = [item for item in detect_instruction_signals(tmp_path) if item.tool == "Gemini CLI"]
+    by_path = {item.path: item for item in signals}
+
+    assert "GEMINI.md" not in by_path
+    assert by_path["CONTEXT.md"].scope == "."
+    assert by_path["services/api/CONTEXT.md"].scope == "services/api"
+
+
+def test_gemini_project_setting_accepts_context_filename_list(tmp_path: Path) -> None:
+    settings = tmp_path / ".gemini"
+    settings.mkdir()
+    (settings / "settings.json").write_text(
+        json.dumps({"context": {"fileName": ["AGENTS.md", "GEMINI.md", "AGENTS.md"]}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text("shared instructions\n", encoding="utf-8")
+    (tmp_path / "GEMINI.md").write_text("gemini instructions\n", encoding="utf-8")
+
+    signals = detect_instruction_signals(tmp_path)
+    gemini_paths = [item.path for item in signals if item.tool == "Gemini CLI"]
+
+    assert gemini_paths.count("AGENTS.md") == 1
+    assert gemini_paths.count("GEMINI.md") == 1
+
+
+def test_invalid_gemini_settings_fall_back_to_default_context_filename(tmp_path: Path) -> None:
+    settings = tmp_path / ".gemini"
+    settings.mkdir()
+    (settings / "settings.json").write_text("{not-json", encoding="utf-8")
+    (tmp_path / "GEMINI.md").write_text("default context\n", encoding="utf-8")
+
+    signals = detect_instruction_signals(tmp_path)
+
+    assert any(item.tool == "Gemini CLI" and item.path == "GEMINI.md" for item in signals)
