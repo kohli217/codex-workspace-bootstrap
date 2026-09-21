@@ -99,7 +99,7 @@ def _run_preflight(
     if instructions:
         print("AI instructions:")
         for item in instructions:
-            print(f"  - {item['tool']}: {item['path']}")
+            print(f"  - {item['tool']}: {item['path']} [scope={item.get('scope', '.')}]")
     else:
         print("AI instructions: none detected")
 
@@ -120,7 +120,10 @@ def _run_preflight(
     if findings:
         print("Instruction findings:")
         for item in findings:
-            print(f"  [{item['severity'].upper()}] {item['kind']}: {item['message']}")
+            print(
+                f"  [{item['severity'].upper()}] {item['kind']}: {item['message']} "
+                f"[scope={item.get('scope', '.')}]"
+            )
 
     actions = report["next_actions"]
     if actions:
