@@ -39,6 +39,7 @@ EXACT_INSTRUCTION_FILES: tuple[tuple[str, str], ...] = (
 
 INSTRUCTION_DIRECTORIES: tuple[tuple[str, str], ...] = (
     ("GitHub Copilot", ".github/instructions"),
+    ("Cline", ".clinerules"),
     ("Cline", ".cline/rules"),
     ("Continue", ".continue/rules"),
     ("Cursor", ".cursor/rules"),
