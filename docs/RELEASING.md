@@ -25,15 +25,17 @@ The workflow then:
 - verifies that the tag matches the package version;
 - installs and tests the package;
 - runs the repository self-audit in strict mode;
-- builds the wheel and source distribution;
-- creates the GitHub tag and release;
-- attaches the distributions to the release.
+- builds and validates the wheel and source distribution;
+- stores that exact wheel/source distribution pair as a short-lived workflow artifact for PyPI publication;
+- creates GitHub artifact attestations and a Sigstore bundle;
+- creates the GitHub tag and immutable release;
+- attaches the distributions and Sigstore bundle to the release.
 
-The release is created only after the validation, test, audit, and build steps succeed.
+The release is created only after validation, tests, audit, build, distribution checks, and attestation succeed.
 
 ## Permissions
 
-The workflow requests only `contents: write`, which is required to create the tag and GitHub release. It uses GitHub's ephemeral repository token and does not require a stored personal access token.
+The release job uses narrowly scoped GitHub permissions: `contents: write` to create the tag/release, plus `id-token: write`, `attestations: write`, and `artifact-metadata: write` for GitHub artifact attestations. It uses GitHub's ephemeral repository token and does not require a stored personal access token.
 
 
 ## PyPI Trusted Publishing
@@ -50,14 +52,16 @@ Before the first publish:
 6. Workflow filename: `pypi-publish.yml`.
 7. Environment: `pypi`.
 
-Then on GitHub:
+After a successful **Release** workflow, **Publish to PyPI** starts automatically. It downloads the exact wheel and source distribution produced by that triggering Release run and publishes those same bytes through OIDC. It does not select "the latest release" and does not rebuild during the automatic path.
+
+A manual **Publish to PyPI** dispatch remains available only as a recovery path:
 
 1. Open **Actions**.
 2. Select **Publish to PyPI**.
 3. Click **Run workflow**.
-4. Enter an existing release tag such as `v0.3.0`.
+4. Enter an existing release tag such as `v0.6.1`.
 5. Run the workflow.
 
-The workflow checks out the exact release tag, verifies the package version, builds wheel and source distributions, validates them with Twine, and publishes through OIDC.
+The manual recovery path checks out that exact tag, verifies the package version, rebuilds and validates the distributions, and then publishes through OIDC.
 
 Do not publish an unreleased working-tree state under an existing version number.
