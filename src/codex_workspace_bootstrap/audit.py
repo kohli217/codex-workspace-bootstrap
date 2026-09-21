@@ -6,6 +6,8 @@ import shutil
 import subprocess
 from typing import Iterable
 
+from .agents import detect_node_package_managers
+
 
 @dataclass(frozen=True)
 class Check:
@@ -22,7 +24,6 @@ COMMON_TOOLS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("git", ("git", "--version")),
     ("python", ("python", "--version")),
     ("node", ("node", "--version")),
-    ("npm", ("npm", "--version")),
     ("powershell", ("powershell", "-NoProfile", "-Command", "$PSVersionTable.PSVersion.ToString()")),
     ("wsl", ("wsl", "--status")),
     ("codex", ("codex", "--version")),
@@ -48,6 +49,13 @@ RISK_FILENAMES = {
 }
 
 RISK_SUFFIXES = (".pem", ".p12", ".pfx", ".key")
+
+NODE_PACKAGE_MANAGER_COMMANDS: dict[str, tuple[str, ...]] = {
+    "npm": ("npm", "--version"),
+    "pnpm": ("pnpm", "--version"),
+    "yarn": ("yarn", "--version"),
+    "bun": ("bun", "--version"),
+}
 
 
 def _tool_check(label: str, command: tuple[str, ...]) -> Check:
@@ -177,6 +185,21 @@ def audit_repository(root: Path) -> list[Check]:
 
     for label, command in COMMON_TOOLS:
         checks.append(_tool_check(label, command))
+
+    if (root / "package.json").is_file() and not (root / "package.json").is_symlink():
+        managers = detect_node_package_managers(root)
+        if managers:
+            for manager in sorted(managers):
+                command = NODE_PACKAGE_MANAGER_COMMANDS[manager]
+                checks.append(_tool_check(manager, command))
+        else:
+            checks.append(
+                Check(
+                    "package-manager-evidence",
+                    "warn",
+                    "Node.js project detected, but packageManager/lockfile evidence does not confirm npm, pnpm, yarn, or bun",
+                )
+            )
 
     risky: list[str] = []
     for path in _iter_project_files(root):
