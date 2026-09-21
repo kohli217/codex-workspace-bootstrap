@@ -159,7 +159,14 @@ def audit_repository(root: Path) -> list[Check]:
         )
     )
 
-    readme = next((p for p in root.iterdir() if p.is_file() and p.name.lower().startswith("readme")), None)
+    readme = next(
+        (
+            p
+            for p in root.iterdir()
+            if p.is_file() and not p.is_symlink() and p.name.lower().startswith("readme")
+        ),
+        None,
+    )
     checks.append(
         Check(
             "readme",
@@ -168,7 +175,14 @@ def audit_repository(root: Path) -> list[Check]:
         )
     )
 
-    license_file = next((p for p in root.iterdir() if p.is_file() and p.name.lower().startswith("license")), None)
+    license_file = next(
+        (
+            p
+            for p in root.iterdir()
+            if p.is_file() and not p.is_symlink() and p.name.lower().startswith("license")
+        ),
+        None,
+    )
     checks.append(
         Check(
             "license",
@@ -180,20 +194,32 @@ def audit_repository(root: Path) -> list[Check]:
     checks.append(
         Check(
             "gitignore",
-            "pass" if (root / ".gitignore").exists() else "warn",
-            ".gitignore detected" if (root / ".gitignore").exists() else ".gitignore not found",
+            "pass"
+            if (root / ".gitignore").is_file() and not (root / ".gitignore").is_symlink()
+            else "warn",
+            ".gitignore detected"
+            if (root / ".gitignore").is_file() and not (root / ".gitignore").is_symlink()
+            else ".gitignore not found",
         )
     )
 
     checks.append(
         Check(
             "agents",
-            "pass" if (root / "AGENTS.md").exists() else "warn",
-            "AGENTS.md detected" if (root / "AGENTS.md").exists() else "AGENTS.md not found; run init-agents",
+            "pass"
+            if (root / "AGENTS.md").is_file() and not (root / "AGENTS.md").is_symlink()
+            else "warn",
+            "AGENTS.md detected"
+            if (root / "AGENTS.md").is_file() and not (root / "AGENTS.md").is_symlink()
+            else "AGENTS.md not found; run init-agents",
         )
     )
 
-    manifests = [name for name in MANIFESTS if (root / name).exists()]
+    manifests = [
+        name
+        for name in MANIFESTS
+        if (root / name).is_file() and not (root / name).is_symlink()
+    ]
     checks.append(
         Check(
             "project-manifest",
