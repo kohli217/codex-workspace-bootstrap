@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If this tool helps your research or developer tooling work, please cite the repository and release."
+title: "codex-workspace-bootstrap"
+type: software
+authors:
+  - family-names: "kohli217"
+repository-code: "https://github.com/kohli217/codex-workspace-bootstrap"
+url: "https://github.com/kohli217/codex-workspace-bootstrap"
+license: MIT
+version: 0.1.0
+date-released: 2026-09-21
