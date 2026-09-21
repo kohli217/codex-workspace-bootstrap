@@ -410,8 +410,18 @@ def _same_scope_groups(
         if not items:
             continue
         signal = by_path.get(path)
-        scope = signal.scope if signal else "."
-        groups.setdefault(scope, {})[path] = items
+        if signal is None:
+            continue
+
+        # Path-specific rules may share a coarse static prefix while applying
+        # to disjoint globs (for example **/*.py vs **/*.ts). Without keeping
+        # the full selector semantics, comparing them as peers would create
+        # false drift findings. Validate them individually against repository
+        # evidence, but exclude them from cross-file drift groups.
+        if signal.kind == "path-specific":
+            continue
+
+        groups.setdefault(signal.scope, {})[path] = items
     return groups
 
 
