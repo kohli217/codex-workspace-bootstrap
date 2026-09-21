@@ -13,6 +13,7 @@ All notable changes to this project will be documented here.
 - Instruction integrity metrics in CLI, JSON, Markdown, and GitHub Actions Job Summary.
 - Reproducible read-only evaluations of public repositories.
 - Scope-aware discovery for nested `AGENTS.md` / `AGENTS.override.md`.
+- Nested Cursor `.cursor/rules/*.mdc` discovery with conservative `globs` / `alwaysApply` applicability semantics.
 - Static scope inference from common `applyTo` and `globs` frontmatter.
 - Validation-command recognition for uv/poetry/pdm pytest flows, make/just, Gradle, Maven, and dotnet.
 - Comprehensive preflight SARIF containing repository-audit and instruction-integrity findings with file locations.
