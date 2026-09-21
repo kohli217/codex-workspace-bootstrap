@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 import json
+import os
 from pathlib import Path
 import posixpath
 import re
@@ -59,9 +60,21 @@ _EXCLUDED_PARTS = {
     "venv",
     "node_modules",
     "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".tox",
+    ".nox",
     "dist",
     "build",
 }
+
+
+def _walk_repository(root: Path):
+    """Walk repository content while pruning directories we never inspect."""
+    for current, dirnames, filenames in os.walk(root):
+        dirnames[:] = [name for name in dirnames if name not in _EXCLUDED_PARTS]
+        yield Path(current), dirnames, filenames
 
 _COMMAND_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\b(?:uv|poetry|pdm)\s+run\s+pytest(?:\s+[^\n`]+)?", re.I),
@@ -182,12 +195,12 @@ def _scope_metadata(text: str) -> tuple[str, bool]:
 
 def _agent_signals(root: Path) -> list[InstructionSignal]:
     by_directory: dict[Path, dict[str, Path]] = {}
-    for path in root.rglob("*"):
-        if any(part in _EXCLUDED_PARTS for part in path.relative_to(root).parts):
-            continue
-        if not path.is_file() or path.name not in {"AGENTS.md", "AGENTS.override.md"}:
-            continue
-        by_directory.setdefault(path.parent, {})[path.name] = path
+    for directory, _dirnames, filenames in _walk_repository(root):
+        for filename in filenames:
+            if filename not in {"AGENTS.md", "AGENTS.override.md"}:
+                continue
+            path = directory / filename
+            by_directory.setdefault(directory, {})[filename] = path
 
     found: list[InstructionSignal] = []
     for directory, candidates in sorted(by_directory.items(), key=lambda item: item[0].as_posix()):
@@ -229,12 +242,10 @@ def _combine_scope(base_scope: str, child_scope: str) -> str:
 def _cursor_rule_signals(root: Path) -> list[InstructionSignal]:
     found: list[InstructionSignal] = []
 
-    cursor_dirs = [
-        path
-        for path in root.rglob(".cursor")
-        if path.is_dir()
-        and not any(part in _EXCLUDED_PARTS for part in path.relative_to(root).parts)
-    ]
+    cursor_dirs: list[Path] = []
+    for directory, dirnames, _filenames in _walk_repository(root):
+        if ".cursor" in dirnames:
+            cursor_dirs.append(directory / ".cursor")
 
     for cursor_dir in sorted(cursor_dirs):
         rules_dir = cursor_dir / "rules"
@@ -245,36 +256,39 @@ def _cursor_rule_signals(root: Path) -> list[InstructionSignal]:
         base_rel = base_dir.relative_to(root).as_posix()
         base_scope = "." if base_rel == "." else base_rel
 
-        for path in sorted(rules_dir.rglob("*")):
-            if not path.is_file() or not _instruction_file_allowed("Cursor", path):
-                continue
+        for current, dirnames, filenames in os.walk(rules_dir):
+            dirnames[:] = [name for name in dirnames if name not in _EXCLUDED_PARTS]
+            current_path = Path(current)
+            for filename in sorted(filenames):
+                path = current_path / filename
+                if not _instruction_file_allowed("Cursor", path):
+                    continue
 
-            text = _safe_read(path)
-            glob_scope, has_glob_scope = _scope_metadata(text)
-            always_apply = _frontmatter_value(text, ("alwaysApply",))
-            always = bool(always_apply and always_apply.strip().lower() == "true")
+                text = _safe_read(path)
+                glob_scope, has_glob_scope = _scope_metadata(text)
+                always_apply = _frontmatter_value(text, ("alwaysApply",))
+                always = bool(always_apply and always_apply.strip().lower() == "true")
 
-            if has_glob_scope:
-                scope = _combine_scope(base_scope, glob_scope)
-                kind = "path-specific"
-            elif always:
-                scope = base_scope
-                kind = "repository"
-            else:
-                scope = base_scope
-                kind = "conditional"
+                if has_glob_scope:
+                    scope = _combine_scope(base_scope, glob_scope)
+                    kind = "path-specific"
+                elif always:
+                    scope = base_scope
+                    kind = "repository"
+                else:
+                    scope = base_scope
+                    kind = "conditional"
 
-            found.append(
-                InstructionSignal(
-                    "Cursor",
-                    path.relative_to(root).as_posix(),
-                    scope,
-                    kind,
+                found.append(
+                    InstructionSignal(
+                        "Cursor",
+                        path.relative_to(root).as_posix(),
+                        scope,
+                        kind,
+                    )
                 )
-            )
 
     return found
-
 
 def detect_instruction_signals(root: Path) -> list[InstructionSignal]:
     root = root.resolve()
