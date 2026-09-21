@@ -23,6 +23,8 @@ def test_detect_instruction_signals_across_agents(tmp_path: Path) -> None:
     )
     (tmp_path / ".cursor" / "rules").mkdir(parents=True)
     (tmp_path / ".cursor" / "rules" / "repo.mdc").write_text("# cursor\n", encoding="utf-8")
+    (tmp_path / ".clinerules").mkdir()
+    (tmp_path / ".clinerules" / "coding.md").write_text("# cline\n", encoding="utf-8")
 
     signals = detect_instruction_signals(tmp_path)
     pairs = {(item.tool, item.path) for item in signals}
@@ -31,6 +33,7 @@ def test_detect_instruction_signals_across_agents(tmp_path: Path) -> None:
     assert ("Claude Code", "CLAUDE.md") in pairs
     assert ("GitHub Copilot", ".github/instructions/python.instructions.md") in pairs
     assert ("Cursor", ".cursor/rules/repo.mdc") in pairs
+    assert ("Cline", ".clinerules/coding.md") in pairs
 
 
 def test_readiness_is_blocked_when_a_blocking_check_exists() -> None:
