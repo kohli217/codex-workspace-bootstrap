@@ -434,16 +434,78 @@ def _command_regions(text: str) -> list[str]:
     return regions
 
 
+def _split_shell_chain(region: str) -> list[str]:
+    """Split common shell command chains while respecting simple quotes."""
+    parts: list[str] = []
+    current: list[str] = []
+    quote: str | None = None
+    escaped = False
+    index = 0
+
+    while index < len(region):
+        char = region[index]
+
+        if escaped:
+            current.append(char)
+            escaped = False
+            index += 1
+            continue
+
+        if char == "\\":
+            current.append(char)
+            escaped = True
+            index += 1
+            continue
+
+        if quote:
+            current.append(char)
+            if char == quote:
+                quote = None
+            index += 1
+            continue
+
+        if char in {"'", '"'}:
+            quote = char
+            current.append(char)
+            index += 1
+            continue
+
+        if region.startswith("&&", index) or region.startswith("||", index):
+            value = "".join(current).strip()
+            if value:
+                parts.append(value)
+            current = []
+            index += 2
+            continue
+
+        if char in {";", "|"}:
+            value = "".join(current).strip()
+            if value:
+                parts.append(value)
+            current = []
+            index += 1
+            continue
+
+        current.append(char)
+        index += 1
+
+    value = "".join(current).strip()
+    if value:
+        parts.append(value)
+    return parts
+
+
 def extract_commands(text: str) -> list[str]:
     found: list[str] = []
     seen: set[str] = set()
     for region in _command_regions(text):
-        for pattern in _COMMAND_PATTERNS:
-            for match in pattern.finditer(region):
-                command = " ".join(match.group(0).strip().split())
-                if command and command.lower() not in seen:
-                    found.append(command)
-                    seen.add(command.lower())
+        for segment in _split_shell_chain(region):
+            for pattern in _COMMAND_PATTERNS:
+                for match in pattern.finditer(segment):
+                    command = " ".join(match.group(0).strip().split())
+                    if command and command.lower() not in seen:
+                        found.append(command)
+                        seen.add(command.lower())
     return found
 
 
