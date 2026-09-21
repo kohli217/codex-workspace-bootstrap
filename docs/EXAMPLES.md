@@ -135,3 +135,15 @@ The inferred scope is shown in CLI and Markdown output. Different scopes are not
 ### Conservative path-specific comparison
 
 Path-specific rules are still checked against nearby repository evidence such as `packageManager`, lockfiles, and `package.json` scripts. They are not cross-compared with repository-wide or other path-specific rules when only a coarse static prefix is known. This avoids false drift findings between selectors such as `**/*.py` and `**/*.ts`.
+
+
+## Nested Cursor rules
+
+Cursor project rules can be discovered below subdirectories:
+
+```text
+backend/server/.cursor/rules/always.mdc
+frontend/.cursor/rules/react.mdc
+```
+
+A rule with `alwaysApply: true` is treated as a baseline for its containing directory scope. A rule with globs is path-specific. A rule that is neither always-on nor glob-scoped is reported as conditional and does not count as a repository-wide readiness baseline.
