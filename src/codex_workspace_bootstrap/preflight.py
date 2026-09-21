@@ -186,7 +186,7 @@ def render_markdown(report: dict[str, object]) -> str:
         "",
         f"**Project signals:** {project_text}",
         f"**Audit:** {totals['passed']} passed · {totals['warnings']} warnings · {totals['blocking']} blocking",
-        f"**Instruction integrity:** {instruction_totals['findings']} findings · {instruction_totals['drift']} drift · {instruction_totals['invalid_commands']} invalid commands",
+        f"**Instruction integrity:** {instruction_totals['findings']} findings · {instruction_totals['drift']} drift · {instruction_totals['invalid_commands']} invalid commands · {instruction_totals['metadata']} metadata",
         "",
         "## AI instruction coverage",
         "",
