@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented here.
 
+## [0.7.0] - 2026-09-22
+
+### Added
+- `--require-ready` CLI policy and `require_ready` GitHub Action input for CI that must reject both NEEDS ATTENTION and BLOCKED states.
+- Project-signal detection for Go, Rust, JVM, and .NET repositories without inventing unsupported validation commands.
+- A public microsoft/vscode regression fixture for brace-wrapped Copilot `applyTo` selectors.
+
+### Fixed
+- Brace-wrapped scoped instruction selectors now keep their correct static scope, while embedded brace expansions remain intact.
+- Root package-manager evidence conflicts are no longer duplicated between repository-audit and instruction-integrity output.
+- The PowerShell installer now stays version-locked to package metadata through regression coverage.
+- Git tracked-file enumeration now handles undecodable filename bytes without text-mode Unicode failures.
+
+### Security
+- Environment-specific dotenv files such as `.env.production` and `.env.development.local` are detected while common template names remain excluded.
+- Tracked secret-risk filenames remain visible even inside filesystem-pruned directories such as `node_modules`, `dist`, and `build`.
+- Automatic PyPI publishing now uses the exact wheel and source distribution produced by the triggering Release workflow rather than rebuilding or selecting the latest release.
+
+### Maintenance
+- Release distributions are validated before attestation and preserved as short-lived workflow artifacts for exact PyPI handoff.
+- Release permission and publishing documentation now matches the implemented OIDC/attestation workflow.
+
 ## [0.6.1] - 2026-09-21
 
 ### Fixed
