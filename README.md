@@ -33,10 +33,10 @@ The project targets a real repository-readiness problem around Windows and Windo
 
 ## 30-second start
 
-Install the pinned v0.2.0 wheel:
+Install the pinned v0.3.0 wheel:
 
 ```powershell
-py -m pip install "https://github.com/kohli217/codex-workspace-bootstrap/releases/download/v0.2.0/codex_workspace_bootstrap-0.2.0-py3-none-any.whl"
+py -m pip install "https://github.com/kohli217/codex-workspace-bootstrap/releases/download/v0.3.0/codex_workspace_bootstrap-0.3.0-py3-none-any.whl"
 ```
 
 Audit the current repository:
@@ -68,11 +68,11 @@ The recommended quick start installs a specific published wheel so users can see
 Use the tool directly in an OSS repository workflow:
 
 ```yaml
-- uses: actions/checkout@v4
-- uses: actions/setup-python@v5
+- uses: actions/checkout@v7
+- uses: actions/setup-python@v7
   with:
     python-version: "3.13"
-- uses: kohli217/codex-workspace-bootstrap@v0.2.0
+- uses: kohli217/codex-workspace-bootstrap@v0.3.0
   with:
     path: .
     strict: "true"
