@@ -16,7 +16,7 @@ State: NEEDS ATTENTION
 Project: Python
 AI instructions: none detected
 Audit: 10 passed, 4 warnings, 0 blocking
-Instruction integrity: 0 findings, 0 drift, 0 invalid commands
+Instruction integrity: 0 findings, 0 drift, 0 invalid commands, 0 metadata
 Next actions:
   [P1] Add repository instructions for AI coding agents -> cwb init-agents .
 ```
@@ -69,7 +69,7 @@ Tracked secret-risk filenames can become blocking. File contents are not printed
 
 ```powershell
 cwb preflight . --json preflight.json
-cwb audit . --sarif audit.sarif
+cwb preflight . --sarif preflight.sarif
 ```
 
 ## Doctor
@@ -87,7 +87,7 @@ Doctor prints remediation guidance without installing software or changing syste
 cwb preflight . --fail-on-integrity
 ```
 
-The command exits non-zero when package-manager drift, validation-command drift, or invalid referenced package scripts are detected.
+The command exits non-zero when any instruction-integrity finding is detected, including drift, invalid referenced package scripts, conflicting package-manager evidence, or missing scope metadata.
 
 ## Safe fix preview
 
