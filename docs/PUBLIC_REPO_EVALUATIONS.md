@@ -101,3 +101,14 @@ When instruction parsing or drift rules change, maintainers should re-check thes
 1. single primary instruction file + explicit package manager;
 2. multiple agent-specific instruction sources sharing a common toolchain;
 3. mixed-language/subproject rules where unrelated commands must not trigger JavaScript drift.
+
+
+## Regression fixtures
+
+The observed repository patterns are encoded as automated regression tests in `tests/test_public_repo_patterns.py`:
+
+- `test_public_pattern_openai_codex_pnpm_repo_without_js_command_drift`
+- `test_public_pattern_cline_multi_instruction_bun_baseline_is_compatible`
+- `test_public_pattern_continue_gradle_rule_does_not_conflict_with_root_npm`
+
+The fixtures intentionally model only the relevant public signals needed to exercise the lint rules. They are not copies of the upstream repositories and they do not imply compatibility certification.
