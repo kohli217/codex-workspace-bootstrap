@@ -216,3 +216,82 @@ def test_next_actions_prioritizes_conflicting_package_manager_evidence() -> None
         and item.title == "Resolve conflicting repository package-manager evidence"
         for item in actions
     )
+
+
+def test_build_preflight_deduplicates_root_package_manager_conflict(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    (tmp_path / "package.json").write_text(
+        '{"packageManager":"pnpm@10","scripts":{"test":"vitest"}}',
+        encoding="utf-8",
+    )
+    (tmp_path / "package-lock.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "AGENTS.md").write_text("Run §pnpm test§.\n".replace("§", "`"), encoding="utf-8")
+
+    def fake_tool_check(label: str, command: tuple[str, ...]):
+        return Check(label, "pass", "available")
+
+    monkeypatch.setattr("codex_workspace_bootstrap.audit._tool_check", fake_tool_check)
+
+    report = build_preflight(tmp_path)
+
+    audit_conflicts = [
+        item
+        for item in report["checks"]
+        if item["name"] == "package-manager-evidence"
+        and item["message"].startswith("Conflicting Node.js package-manager evidence")
+    ]
+    instruction_conflicts = [
+        item
+        for item in report["instruction_findings"]
+        if item["kind"] == "package-manager-evidence-conflict"
+        and item["scope"] == "."
+    ]
+    conflict_actions = [
+        item
+        for item in report["next_actions"]
+        if "package-manager" in item["title"].lower()
+        and "conflict" in item["title"].lower()
+    ]
+
+    assert len(audit_conflicts) == 1
+    assert instruction_conflicts == []
+    assert len(conflict_actions) == 1
+
+
+def test_build_preflight_keeps_nested_package_manager_conflict(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    (tmp_path / "package.json").write_text(
+        '{"packageManager":"npm@11","scripts":{"test":"vitest"}}',
+        encoding="utf-8",
+    )
+    (tmp_path / "package-lock.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "AGENTS.md").write_text("Run §npm test§.\n".replace("§", "`"), encoding="utf-8")
+
+    nested = tmp_path / "apps" / "web"
+    nested.mkdir(parents=True)
+    (nested / "package.json").write_text(
+        '{"packageManager":"pnpm@10","scripts":{"test":"vitest"}}',
+        encoding="utf-8",
+    )
+    (nested / "package-lock.json").write_text("{}", encoding="utf-8")
+    (nested / "AGENTS.md").write_text("Run §pnpm test§.\n".replace("§", "`"), encoding="utf-8")
+
+    def fake_tool_check(label: str, command: tuple[str, ...]):
+        return Check(label, "pass", "available")
+
+    monkeypatch.setattr("codex_workspace_bootstrap.audit._tool_check", fake_tool_check)
+
+    report = build_preflight(tmp_path)
+
+    nested_conflicts = [
+        item
+        for item in report["instruction_findings"]
+        if item["kind"] == "package-manager-evidence-conflict"
+        and item["scope"] == "apps/web"
+    ]
+
+    assert len(nested_conflicts) == 1
