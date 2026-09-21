@@ -72,4 +72,4 @@ For reproducibility, pin a release tag rather than `@main`.
 
 ## Scope-aware behavior
 
-The integrity lint distinguishes repository-wide instructions from nested/path-specific rules. Common `applyTo` and `globs` frontmatter is used to infer a static scope prefix. Drift comparisons are conservative and do not treat unrelated scopes as if they were global instructions.
+The integrity lint distinguishes repository-wide instructions from nested/path-specific rules. Common `applyTo` and `globs` frontmatter is used to infer a static scope prefix. Drift comparisons are conservative and do not treat unrelated scopes as if they were global instructions. Path-specific rules are validated against repository evidence but excluded from cross-file drift comparison when their full selector semantics cannot be represented safely.
