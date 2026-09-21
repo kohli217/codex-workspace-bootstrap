@@ -183,6 +183,14 @@ Fail CI on any instruction-integrity finding:
 cwb preflight . --fail-on-integrity
 ```
 
+Require the full preflight state to be `READY`:
+
+```powershell
+cwb preflight . --require-ready
+```
+
+Use `--require-ready` when CI should reject both `NEEDS ATTENTION` and `BLOCKED`, including missing repository-wide AI instructions or essential repository markers.
+
 ### Detailed audit
 
 ```powershell
@@ -236,6 +244,7 @@ The reusable Action is published on GitHub Marketplace.
     path: .
     strict: "true"
     fail_on_integrity: "true"
+    require_ready: "true"
 ```
 
 The Action adds the preflight Markdown report to the **GitHub Actions job summary**, so maintainers get a readable readiness snapshot without digging through raw logs. Optional SARIF output contains both repository-audit and instruction-integrity findings and can be uploaded to GitHub Code Scanning.
