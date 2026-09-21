@@ -811,3 +811,25 @@ def test_yarn_workspace_command_validates_real_script_name(tmp_path: Path) -> No
 
     assert not any(item.kind == "missing-package-script" for item in findings)
     assert not any(item.kind == "package-manager-mismatch" for item in findings)
+
+
+def test_embedded_brace_glob_keeps_parent_static_scope(tmp_path: Path) -> None:
+    directory = tmp_path / ".github" / "instructions"
+    directory.mkdir(parents=True)
+    (directory / "web.instructions.md").write_text(
+        "---\n"
+        'applyTo: "apps/web/{src,tests}/**/*.ts"\n'
+        "---\n"
+        "Use web validation.\n",
+        encoding="utf-8",
+    )
+
+    signals = detect_instruction_signals(tmp_path)
+    signal = next(
+        item
+        for item in signals
+        if item.path == ".github/instructions/web.instructions.md"
+    )
+
+    assert signal.kind == "path-specific"
+    assert signal.scope == "apps/web"
