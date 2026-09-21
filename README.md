@@ -13,7 +13,7 @@ Codex works best when a repository is explicit about its toolchain, commands, co
 - checks common developer tools such as Git, Python, Node.js, npm, PowerShell, WSL, and Codex
 - audits a repository for Codex-friendly project instructions
 - detects common secret-bearing files before they are accidentally committed
-- generates a starter `AGENTS.md`
+- generates a project-aware `AGENTS.md` for Python, Node.js, mixed, or unknown projects
 - generates a machine-readable audit report
 - provides a `--strict` mode suitable for CI
 - is dependency-light and designed to work well on Windows
@@ -75,13 +75,13 @@ codex-workspace-bootstrap audit . --json report.json
 codex-workspace-bootstrap audit . --strict
 ```
 
-### Generate a starter AGENTS.md
+### Generate a project-aware AGENTS.md
 
 ```powershell
 codex-workspace-bootstrap init-agents .
 ```
 
-The command never overwrites an existing `AGENTS.md` unless `--force` is supplied.
+The command inspects common project manifests and test/layout signals, then writes conservative validation commands. It never overwrites an existing `AGENTS.md` unless `--force` is supplied.
 
 ## What the audit checks
 
