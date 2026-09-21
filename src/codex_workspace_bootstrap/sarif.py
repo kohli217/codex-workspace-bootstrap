@@ -23,8 +23,29 @@ RULE_HELP: dict[str, str] = {
     "secret-risk-files": "Review risky filenames before publishing or merging. The audit does not read file contents.",
 }
 
+INSTRUCTION_HELP: dict[str, str] = {
+    "package-manager-mismatch": (
+        "Align executable-looking AI instructions with the package manager selected by repository evidence."
+    ),
+    "package-manager-drift": (
+        "Review same-scope AI instruction files that prescribe different JavaScript package managers."
+    ),
+    "package-manager-evidence-conflict": (
+        "Resolve conflicting package-manager evidence such as a packageManager declaration and a stale lockfile."
+    ),
+    "validation-command-drift": (
+        "Review same-scope AI instructions that prescribe incompatible validation commands for the same command family."
+    ),
+    "missing-package-script": (
+        "Update the instruction or package.json so referenced package scripts actually exist in the relevant scope."
+    ),
+    "missing-scope-metadata": (
+        "Add required path-specific scope metadata such as Copilot applyTo frontmatter."
+    ),
+}
 
-def _rule(check: Check) -> dict[str, object]:
+
+def _audit_rule(check: Check) -> dict[str, object]:
     help_text = RULE_HELP.get(
         check.name,
         "Review this repository-readiness finding and update project documentation or tooling as appropriate.",
@@ -42,13 +63,51 @@ def _rule(check: Check) -> dict[str, object]:
     }
 
 
+def _instruction_rule(kind: str) -> dict[str, object]:
+    rule_id = f"instruction-{kind}"
+    help_text = INSTRUCTION_HELP.get(
+        kind,
+        "Review this AI instruction-integrity finding and reconcile it with repository evidence.",
+    )
+    return {
+        "id": rule_id,
+        "name": rule_id,
+        "shortDescription": {"text": f"codex-workspace-bootstrap: {kind}"},
+        "fullDescription": {"text": help_text},
+        "help": {"text": help_text},
+        "properties": {
+            "precision": "medium",
+            "tags": ["ai-instructions", "repository-readiness"],
+        },
+    }
+
+
+def _payload(
+    rules: list[dict[str, object]],
+    results: list[dict[str, object]],
+) -> dict[str, object]:
+    return {
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [
+            {
+                "tool": {
+                    "driver": {
+                        "name": "codex-workspace-bootstrap",
+                        "informationUri": "https://github.com/kohli217/codex-workspace-bootstrap",
+                        "version": __version__,
+                        "rules": rules,
+                    }
+                },
+                "results": results,
+            }
+        ],
+    }
+
+
 def checks_to_sarif(checks: Iterable[Check]) -> dict[str, object]:
     findings = [check for check in checks if check.status != "pass"]
-    rule_ids = sorted({check.name for check in findings})
-    rule_by_id = {
-        check.name: _rule(check)
-        for check in findings
-    }
+    rule_by_id = {check.name: _audit_rule(check) for check in findings}
 
     results: list[dict[str, object]] = []
     for check in findings:
@@ -64,20 +123,83 @@ def checks_to_sarif(checks: Iterable[Check]) -> dict[str, object]:
             }
         )
 
-    return {
-        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
-        "version": "2.1.0",
-        "runs": [
-            {
-                "tool": {
-                    "driver": {
-                        "name": "codex-workspace-bootstrap",
-                        "informationUri": "https://github.com/kohli217/codex-workspace-bootstrap",
-                        "version": __version__,
-                        "rules": [rule_by_id[rule_id] for rule_id in rule_ids],
-                    }
+    return _payload(
+        [rule_by_id[rule_id] for rule_id in sorted(rule_by_id)],
+        results,
+    )
+
+
+def preflight_report_to_sarif(report: dict[str, object]) -> dict[str, object]:
+    checks = report.get("checks", [])
+    instruction_findings = report.get("instruction_findings", [])
+
+    rules: dict[str, dict[str, object]] = {}
+    results: list[dict[str, object]] = []
+
+    if isinstance(checks, list):
+        for item in checks:
+            if not isinstance(item, dict) or item.get("status") == "pass":
+                continue
+            name = str(item.get("name", "repository-readiness"))
+            check = Check(
+                name=name,
+                status=str(item.get("status", "warn")),
+                message=str(item.get("message", "")),
+                blocking=bool(item.get("blocking", False)),
+            )
+            rules[name] = _audit_rule(check)
+            results.append(
+                {
+                    "ruleId": name,
+                    "level": "error" if check.blocking else "warning",
+                    "message": {"text": check.message},
+                    "properties": {
+                        "blocking": check.blocking,
+                        "source": "codex-workspace-bootstrap",
+                    },
+                }
+            )
+
+    if isinstance(instruction_findings, list):
+        for item in instruction_findings:
+            if not isinstance(item, dict):
+                continue
+            kind = str(item.get("kind", "instruction-integrity"))
+            rule_id = f"instruction-{kind}"
+            rules[rule_id] = _instruction_rule(kind)
+
+            result: dict[str, object] = {
+                "ruleId": rule_id,
+                "level": "error" if item.get("severity") == "error" else "warning",
+                "message": {"text": str(item.get("message", ""))},
+                "properties": {
+                    "scope": str(item.get("scope", ".")),
+                    "source": "codex-workspace-bootstrap",
+                    "instructionIntegrity": True,
                 },
-                "results": results,
             }
-        ],
-    }
+
+            files = item.get("files", [])
+            if isinstance(files, list) and files:
+                locations: list[dict[str, object]] = []
+                for path in files:
+                    if not isinstance(path, str) or not path:
+                        continue
+                    locations.append(
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": path.replace("\\", "/"),
+                                }
+                            }
+                        }
+                    )
+                if locations:
+                    result["locations"] = locations
+
+            results.append(result)
+
+    return _payload(
+        [rules[rule_id] for rule_id in sorted(rules)],
+        results,
+    )
