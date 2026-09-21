@@ -174,3 +174,35 @@ def test_audit_reports_conflicting_node_package_manager_evidence(
     assert "Conflicting" in by_name["package-manager-evidence"].message
     assert "npm" in by_name["package-manager-evidence"].message
     assert "pnpm" in by_name["package-manager-evidence"].message
+
+
+def test_audit_does_not_accept_symlinked_repository_markers(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    readme = tmp_path / "README.md"
+    readme.write_text("# demo\n", encoding="utf-8")
+    gitignore = tmp_path / ".gitignore"
+    gitignore.write_text(".venv/\n", encoding="utf-8")
+    agents = tmp_path / "AGENTS.md"
+    agents.write_text("# agents\n", encoding="utf-8")
+    manifest = tmp_path / "pyproject.toml"
+    manifest.write_text("[project]\nname='demo'\n", encoding="utf-8")
+
+    symlinked = {readme, gitignore, agents, manifest}
+    original_is_symlink = Path.is_symlink
+
+    def fake_is_symlink(path: Path) -> bool:
+        if path in symlinked:
+            return True
+        return original_is_symlink(path)
+
+    monkeypatch.setattr(Path, "is_symlink", fake_is_symlink)
+
+    checks = audit_repository(tmp_path)
+    by_name = {check.name: check for check in checks}
+
+    assert by_name["readme"].status == "warn"
+    assert by_name["gitignore"].status == "warn"
+    assert by_name["agents"].status == "warn"
+    assert by_name["project-manifest"].status == "warn"
