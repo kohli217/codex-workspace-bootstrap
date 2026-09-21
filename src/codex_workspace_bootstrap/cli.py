@@ -32,7 +32,7 @@ def _parser() -> argparse.ArgumentParser:
         help="Return a non-zero exit code when blocking findings are present",
     )
     preflight.add_argument(
-        "--fail-on-drift",
+        "--fail-on-integrity",
         action="store_true",
         help="Return a non-zero exit code when AI instruction integrity findings are present",
     )
@@ -78,7 +78,7 @@ def _run_preflight(
     json_path: str | None,
     markdown_path: str | None,
     strict: bool,
-    fail_on_drift: bool,
+    fail_on_integrity: bool,
 ) -> int:
     root = Path(path).expanduser().resolve()
     if not root.exists() or not root.is_dir():
@@ -145,7 +145,7 @@ def _run_preflight(
 
     if strict and report["state"] == "BLOCKED":
         return 1
-    if fail_on_drift and report["instruction_summary"]["findings"]:
+    if fail_on_integrity and report["instruction_summary"]["findings"]:
         return 1
     return 0
 
@@ -273,7 +273,7 @@ def main(argv: list[str] | None = None) -> int:
             args.json_path,
             args.markdown_path,
             args.strict,
-            args.fail_on_drift,
+            args.fail_on_integrity,
         )
     if args.command == "fix":
         return _run_fix(args.path, args.apply)
