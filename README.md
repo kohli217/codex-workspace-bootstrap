@@ -29,10 +29,10 @@ Codex works better when a repository clearly states its toolchain, validation co
 
 ## 30-second start
 
-Install the pinned v0.1.0 wheel:
+Install the pinned v0.2.0 wheel:
 
 ```powershell
-py -m pip install "https://github.com/kohli217/codex-workspace-bootstrap/releases/download/v0.1.0/codex_workspace_bootstrap-0.1.0-py3-none-any.whl"
+py -m pip install "https://github.com/kohli217/codex-workspace-bootstrap/releases/download/v0.2.0/codex_workspace_bootstrap-0.2.0-py3-none-any.whl"
 ```
 
 Audit the current repository:
@@ -58,6 +58,23 @@ For more examples, see [docs/EXAMPLES.md](docs/EXAMPLES.md).
 ## Why a pinned release instead of `irm ... | iex`?
 
 The recommended quick start installs a specific published wheel so users can see exactly which release they are installing. A PowerShell helper script remains available in [scripts/install.ps1](scripts/install.ps1), but piping remote scripts directly into PowerShell is not the recommended path.
+
+## GitHub Action
+
+Use the tool directly in an OSS repository workflow:
+
+```yaml
+- uses: actions/checkout@v4
+- uses: actions/setup-python@v5
+  with:
+    python-version: "3.13"
+- uses: kohli217/codex-workspace-bootstrap@v0.2.0
+  with:
+    path: .
+    strict: "true"
+```
+
+See [docs/GITHUB_ACTION.md](docs/GITHUB_ACTION.md) for the full workflow and input reference.
 
 ## Commands
 
@@ -110,7 +127,7 @@ Current automated checks include:
 - weekly dependency update checks for Python and GitHub Actions;
 - validated one-click GitHub releases with attached wheel and source distribution.
 
-The repository's first public release is [v0.1.0](https://github.com/kohli217/codex-workspace-bootstrap/releases/tag/v0.1.0).
+The repository's first public release is [v0.2.0](https://github.com/kohli217/codex-workspace-bootstrap/releases/tag/v0.2.0).
 
 ## Codex-oriented workflow
 
