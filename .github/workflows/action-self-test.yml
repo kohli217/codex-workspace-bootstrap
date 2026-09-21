@@ -29,6 +29,7 @@ jobs:
           path: .
           strict: "true"
           fail_on_integrity: "true"
+          require_ready: "true"
           sarif: action-report.sarif
       - name: Validate Action outputs
         shell: python
