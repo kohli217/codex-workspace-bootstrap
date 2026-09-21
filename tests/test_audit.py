@@ -262,3 +262,45 @@ def test_audit_recognizes_extended_project_manifests(tmp_path: Path, filename: s
 
     assert by_name["project-manifest"].status == "pass"
     assert filename in by_name["project-manifest"].message
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        ".env.production",
+        ".env.development.local",
+        ".env.test",
+        ".env.staging",
+    ],
+)
+def test_audit_warns_on_environment_specific_secret_risk_files(
+    tmp_path: Path,
+    filename: str,
+) -> None:
+    (tmp_path / filename).write_text("TOKEN=not-a-real-secret\n", encoding="utf-8")
+
+    checks = audit_repository(tmp_path)
+    by_name = {check.name: check for check in checks}
+
+    risk = by_name["secret-risk-files"]
+    assert risk.status == "warn"
+    assert filename in risk.message
+
+
+@pytest.mark.parametrize(
+    "filename",
+    [
+        ".env.example",
+        ".env.sample",
+        ".env.template",
+        ".env.dist",
+        ".env.defaults",
+    ],
+)
+def test_audit_does_not_flag_common_env_templates(tmp_path: Path, filename: str) -> None:
+    (tmp_path / filename).write_text("TOKEN=replace-me\n", encoding="utf-8")
+
+    checks = audit_repository(tmp_path)
+    by_name = {check.name: check for check in checks}
+
+    assert by_name["secret-risk-files"].status == "pass"
