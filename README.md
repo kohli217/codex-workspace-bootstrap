@@ -204,6 +204,14 @@ cwb preflight . --require-ready
 
 Use `--require-ready` when CI should reject both `NEEDS ATTENTION` and `BLOCKED`, including missing repository-wide AI instructions or essential repository markers.
 
+For a remote service such as a GitHub App, skip host-machine tool availability checks while keeping repository evidence, Git tracking, risk filenames, and instruction integrity checks:
+
+```powershell
+cwb preflight . --repository-only
+```
+
+This prevents a remote scanner from reporting the scanner host's Node.js, package-manager, WSL, PowerShell, or Codex availability as if it belonged to the inspected repository.
+
 ### Detailed audit
 
 ```powershell
