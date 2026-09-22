@@ -54,7 +54,7 @@ The zero-cost deployment is public-repository-only. Private-repository webhook e
 
 The Cloudflare installation-token broker accepts GitHub Actions OIDC only after verifying GitHub's signature, repository, main-branch ref, `workflow_dispatch` event, and exact `.github/workflows/github-app-worker.yml` workflow identity. It also requires an HMAC broker grant derived from the verified webhook secret and bound to the delivery ID plus the complete normalized scan target, including the commit SHA and pull-request/ref metadata. Tokens returned to Actions are limited to the single webhook repository and only `contents:read` + `checks:write`.
 
-The Cloudflare workflow-dispatch credential must be a fine-grained personal access token restricted to `kohli217/codex-workspace-bootstrap` with Actions write access only. It is stored as a Worker secret and must never be committed or logged.
+The Cloudflare workflow-dispatch credential must be a fine-grained personal access token restricted to `kohli217/codex-workspace-bootstrap` with Actions write and Variables write. Variables write is used by the deployment script to pin the trusted `CWB_TOKEN_ENDPOINT` repository variable; the deployed Worker uses the credential only for workflow dispatch. The token is stored as a Worker secret and must never be committed or logged.
 
 The reference Cloud Run deployment further separates credentials by service identity: the public ingress can read the webhook/setup secrets and add new Manifest-generated secret versions, while the private worker can read only the App client ID and private key. Pub/Sub invokes the worker through Cloud Run IAM rather than a public worker endpoint.
 
