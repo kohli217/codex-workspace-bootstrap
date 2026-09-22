@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+from dataclasses import asdict
 import json
 import os
 from urllib.error import HTTPError, URLError
@@ -175,10 +176,9 @@ def request_installation_token(
         url,
         data=json.dumps(
             {
-                "repository": target.repository,
-                "installation_id": target.installation_id,
                 "delivery_id": delivery_id,
                 "broker_grant": broker_grant,
+                "target": asdict(target),
             },
             separators=(",", ":"),
         ).encode("utf-8"),
