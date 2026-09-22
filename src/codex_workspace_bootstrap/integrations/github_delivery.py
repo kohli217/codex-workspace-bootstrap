@@ -113,7 +113,11 @@ def build_installation_token_request(
 ) -> GitHubApiRequest:
     """Build GitHub's installation-access-token request."""
 
-    if isinstance(installation_id, bool) or installation_id <= 0:
+    if (
+        isinstance(installation_id, bool)
+        or not isinstance(installation_id, int)
+        or installation_id <= 0
+    ):
         raise GitHubDeliveryContractError("installation_id must be a positive integer")
 
     return GitHubApiRequest(
