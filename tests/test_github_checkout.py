@@ -1,4 +1,5 @@
 from pathlib import Path
+import base64
 import subprocess
 
 import pytest
@@ -155,7 +156,11 @@ def test_checkout_uses_secret_only_in_environment(
         assert env["GIT_CONFIG_NOSYSTEM"] == "1"
         assert env["GIT_CONFIG_GLOBAL"]
         assert env["GIT_CONFIG_KEY_0"] == "http.https://github.com/.extraheader"
-        assert env["GIT_CONFIG_VALUE_0"] == "Authorization: Bearer ghs_super_secret"
+        authorization = env["GIT_CONFIG_VALUE_0"]
+        assert authorization.startswith("Authorization: Basic ")
+        encoded = authorization.removeprefix("Authorization: Basic ")
+        decoded = base64.b64decode(encoded).decode("utf-8")
+        assert decoded == "x-access-token:ghs_super_secret"
         assert env["GIT_CONFIG_KEY_1"] == "core.hooksPath"
 
 
