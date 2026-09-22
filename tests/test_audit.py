@@ -334,7 +334,7 @@ def test_repository_only_audit_skips_local_toolchain_checks(
     )
     (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
 
-    def fail_tool_check(label: str, command: tuple[str, ...]) -> Check:
+    def fail_tool_check(label: str, command: tuple[str, ...]):
         raise AssertionError(f"local tool check should not run: {label} {command}")
 
     monkeypatch.setattr("codex_workspace_bootstrap.audit._tool_check", fail_tool_check)
