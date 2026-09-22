@@ -10,6 +10,7 @@ import html
 import json
 import os
 import sys
+import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, quote, urlparse
 from urllib.request import Request, urlopen
@@ -39,6 +40,8 @@ METADATA_TOKEN_URL = (
 )
 GITHUB_API_VERSION = "2026-03-10"
 USER_AGENT = "codex-workspace-bootstrap"
+SETUP_TOKEN_TTL_SECONDS = 60 * 60
+SETUP_TOKEN_FUTURE_SKEW_SECONDS = 5 * 60
 
 
 class CloudRunAppError(RuntimeError):
@@ -411,6 +414,40 @@ def _cookie_value(cookie_header: str | None, name: str) -> str | None:
     return None
 
 
+def setup_token_is_valid(
+    expected: str,
+    supplied: str | None,
+    *,
+    now: int | None = None,
+) -> bool:
+    """Validate an exact setup token and enforce its one-hour lifetime."""
+
+    if supplied is None or not hmac.compare_digest(expected, supplied):
+        return False
+
+    prefix, separator, remainder = expected.partition(".")
+    issued_text, separator_two, random_value = remainder.partition(".")
+    if (
+        prefix != "v1"
+        or not separator
+        or not separator_two
+        or not random_value
+    ):
+        return False
+
+    try:
+        issued_at = int(issued_text)
+    except ValueError:
+        return False
+    current = int(time.time()) if now is None else now
+    age = current - issued_at
+    return (
+        -SETUP_TOKEN_FUTURE_SKEW_SECONDS
+        <= age
+        <= SETUP_TOKEN_TTL_SECONDS
+    )
+
+
 def _safe_header_value(value: str) -> str:
     if "\r" in value or "\n" in value:
         raise CloudRunAppError("response header value contains a line break")
@@ -540,7 +577,7 @@ class CloudRunHandler(BaseHTTPRequestHandler):
             )
         )
         received = _cookie_value(self.headers.get("Cookie"), "cwb_setup")
-        return received is not None and hmac.compare_digest(expected, received)
+        return setup_token_is_valid(expected, received)
 
     def _handle_setup(self, parsed) -> None:
         if os.environ.get("CWB_GITHUB_APP_MODE") != "ingress":
@@ -577,7 +614,7 @@ class CloudRunHandler(BaseHTTPRequestHandler):
                     "Set-Cookie",
                     "cwb_manifest_state="
                     + registration.state
-                    + "; Path=/setup/github; Max-Age=3600; Secure; HttpOnly; SameSite=Lax",
+                    + f"; Path=/setup/github; Max-Age={SETUP_TOKEN_TTL_SECONDS}; Secure; HttpOnly; SameSite=Lax",
                 ),
             ),
         )
@@ -595,7 +632,7 @@ class CloudRunHandler(BaseHTTPRequestHandler):
                     "/var/run/secrets/cwb/setup-token",
                 )
             )
-            if not hmac.compare_digest(expected, supplied):
+            if not setup_token_is_valid(expected, supplied):
                 self._send_json(403, {"error": "forbidden"})
                 return
         except (UnicodeDecodeError, CloudRunAppError) as exc:
