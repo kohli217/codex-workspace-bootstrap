@@ -4,6 +4,21 @@ This document defines the GitHub-side registration settings for the `codex-works
 
 The application service should remain a thin adapter over the existing preflight, webhook, policy, and Check Run code. Do not add repository permissions that are not required by the documented flow.
 
+## Current public App
+
+The verified public GitHub App is:
+
+- **Name:** `CWB Preflight`
+- **Public page:** https://github.com/apps/cwb-preflight
+- **Install:** https://github.com/apps/cwb-preflight/installations/new
+- **Repository permissions:** Checks read/write, Contents read-only, Pull requests read-only
+- **Webhook events:** Push and Pull request only
+- **Free deployment boundary:** public repositories only; private-repository events are rejected before queueing
+
+After the development App was renamed and made public, a fresh push event was sent through the live deployment. The App created a completed **CWB Preflight** Check Run with conclusion `success` and state `READY` on the exact test commit. This revalidated the deployed credentials, webhook, Cloudflare Queue, GitHub Actions OIDC broker, repository-scoped installation token, hardened checkout, and Check Run delivery after public promotion.
+
+GitHub Marketplace listing is not required for direct installation from the public App page.
+
 ## Preferred development registration: App Manifest
 
 For the development App, prefer GitHub's App Manifest flow instead of manually re-entering permissions and events. GitHub's manifest flow lets the registration page inherit CWB's code-level settings and generates the App private key and webhook secret after creation.
