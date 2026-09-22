@@ -22,6 +22,7 @@ This roadmap records intended work; it is not a promise of delivery dates.
 - JSON, Markdown, and SARIF reporting
 - versioned preflight report contract and shared policy evaluation for CLI, Action, and future adapters
 - network-free GitHub Check adapter with schema validation and shared policy/result mapping
+- constant-time GitHub webhook signature verification plus PR/push event normalization
 - reusable GitHub Action with Windows and Ubuntu self-tests, structured outputs, and an optional `require_ready` gate
 - PyPI Trusted Publishing through GitHub OIDC
 - CodeQL, Dependency Review, Dependabot, secret scanning, push protection, and protected `main`
@@ -41,7 +42,7 @@ This roadmap records intended work; it is not a promise of delivery dates.
 - additional repository-policy checks for maintainers
 - safer generation of CI configuration from detected repository evidence
 - broader SARIF interoperability and remediation metadata
-- a thin GitHub App service that authenticates webhooks and posts the existing GitHub Check adapter result
+- a thin GitHub App service that exchanges installation credentials, checks out the target revision, and posts the existing GitHub Check adapter result
 - AI-agent skill adapters that run the same preflight contract before repository edits
 - optional assisted instruction drafting, only when explicitly requested and never by sending repository content remotely by default
 
