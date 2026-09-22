@@ -101,6 +101,41 @@ else:
 
 This API performs no HTTP requests and does not exchange GitHub credentials. The outer delivery service remains responsible for installation authentication, checkout, and posting the Check Run.
 
+## Secure repository checkout
+
+The App should inspect the exact webhook revision without executing repository code:
+
+```python
+from codex_workspace_bootstrap.integrations.github_checkout import (
+    build_github_checkout_plan,
+    checkout_github_repository,
+)
+
+plan = build_github_checkout_plan(decision.target)
+checkout = checkout_github_repository(
+    plan,
+    installation_token=installation_token,
+    destination=temporary_repository_path,
+)
+
+check = build_github_app_check(checkout.root)
+```
+
+For pull requests, the checkout plan prefers the exact GitHub test merge commit when `merge_commit_sha` is available. This matches GitHub's normal pull-request CI model. If GitHub has not produced a test merge commit, it falls back to the exact webhook head commit. The base repository's pull refs provide a fallback for fork pull requests without requiring credentials for the contributor's fork.
+
+For pushes, the exact webhook commit is preferred. Any ref fallback must resolve to that same SHA or the checkout is rejected.
+
+Checkout hardening:
+
+- the installation token is supplied through Git configuration environment values, never a command-line argument;
+- interactive Git credential prompts are disabled;
+- system and global Git configuration are disabled for the checkout subprocesses;
+- Git hooks are redirected to an empty temporary directory;
+- submodules are not initialized;
+- no project, build, test, package-manager, or instruction-file command is executed.
+
+Use `checkout.commit_sha` as the SHA for the resulting Check Run. This ensures the Check describes the exact tree CWB inspected.
+
 ## Delivery contract
 
 The package also defines the GitHub REST delivery contract without adding an HTTP or crypto dependency:
@@ -146,7 +181,7 @@ normalize repository + head SHA + installation ID
         ↓
 create installation access token
         ↓
-checkout/read the exact target revision
+secure checkout of the exact webhook revision
         ↓
 build_preflight(..., include_local_toolchain=False)
         ↓
