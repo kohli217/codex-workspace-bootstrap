@@ -12,7 +12,7 @@
 
 Windows-first. Local by default. CI-friendly. Designed for repositories used with Codex, Copilot, Cline, Claude Code, Gemini CLI, Continue, Cursor, and similar coding agents.
 
-[日本語ガイド](docs/README.ja.md) · [Examples](docs/EXAMPLES.md) · [GitHub Action](docs/GITHUB_ACTION.md) · [Roadmap](docs/ROADMAP.md) · [Releases](https://github.com/kohli217/codex-workspace-bootstrap/releases)
+[日本語ガイド](docs/README.ja.md) · [Examples](docs/EXAMPLES.md) · [GitHub Action](docs/GITHUB_ACTION.md) · [Integration contract](docs/INTEGRATIONS.md) · [Roadmap](docs/ROADMAP.md) · [Releases](https://github.com/kohli217/codex-workspace-bootstrap/releases)
 
 > Community-maintained project. Not an official OpenAI product and not affiliated with OpenAI.
 
@@ -265,6 +265,12 @@ The Action adds the preflight Markdown report to the **GitHub Actions job summar
 See [docs/GITHUB_ACTION.md](docs/GITHUB_ACTION.md).
 
 Read-only evaluations against real public repositories are documented in [docs/PUBLIC_REPO_EVALUATIONS.md](docs/PUBLIC_REPO_EVALUATIONS.md). They are reproducible technical evaluations, not claims of third-party adoption.
+
+## Integration boundary
+
+The CLI, reusable GitHub Action, future GitHub App, and future AI-agent skills are intended to share one preflight engine and one policy evaluator. Machine-readable reports declare a schema version so integrations can detect incompatible changes instead of silently drifting.
+
+See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
 
 ## Where it fits
 
