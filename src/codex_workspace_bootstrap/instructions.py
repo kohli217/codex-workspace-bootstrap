@@ -887,6 +887,37 @@ def _workspace_target_for_command(command: str) -> tuple[bool, str | None]:
             return True, None
         return True, nonempty[0]
 
+    if manager == "pnpm":
+        targets: list[str] = []
+        index = 1
+        while index < len(tokens):
+            token = tokens[index]
+            if token == "--":
+                break
+            if token in {"--filter", "-F"}:
+                if index + 1 < len(tokens):
+                    targets.append(tokens[index + 1])
+                else:
+                    targets.append("")
+                index += 2
+                continue
+            if token.startswith("--filter="):
+                targets.append(token[len("--filter="):])
+                index += 1
+                continue
+            if token.startswith("-F="):
+                targets.append(token[len("-F="):])
+                index += 1
+                continue
+            index += 1
+
+        if not targets:
+            return False, None
+        nonempty = [target for target in targets if target]
+        if len(nonempty) != 1 or len(targets) != 1:
+            return True, None
+        return True, nonempty[0]
+
     target_options = {"--filter", "-F", "--workspace", "-w"}
     target_long_options = {"--filter", "--workspace"}
     directory_options = {"--dir", "-C", "--prefix", "--cwd"}
