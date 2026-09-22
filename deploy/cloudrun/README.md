@@ -47,7 +47,7 @@ The script:
 7. configures authenticated Pub/Sub push delivery;
 8. prints a one-time GitHub App setup URL.
 
-The setup URL contains a short-lived bootstrap secret. The ingress immediately moves it from the URL into a Secure/HttpOnly cookie before rendering the App Manifest form. The normal HTTP access log is disabled by the application so the query token is not emitted by Python's request handler.
+The setup URL keeps the short-lived bootstrap secret in the URL fragment (`#token=...`). Browser fragments are not sent in the HTTP request, so the bootstrap token is not included in Cloud Run's request URL. A small bootstrap page POSTs the token in the request body and the ingress moves the verified server-side value into a Secure/HttpOnly cookie before rendering the App Manifest form.
 
 After GitHub redirects to the Manifest callback, the generated client ID, private key, and webhook secret are written directly to Secret Manager. They are never rendered back to the browser.
 
