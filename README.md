@@ -12,7 +12,7 @@
 
 Windows-first. Local by default. CI-friendly. Designed for repositories used with Codex, Copilot, Cline, Claude Code, Gemini CLI, Continue, Cursor, and similar coding agents.
 
-[日本語ガイド](docs/README.ja.md) · [Examples](docs/EXAMPLES.md) · [GitHub Action](docs/GITHUB_ACTION.md) · [Integration contract](docs/INTEGRATIONS.md) · [Roadmap](docs/ROADMAP.md) · [Releases](https://github.com/kohli217/codex-workspace-bootstrap/releases)
+[日本語ガイド](docs/README.ja.md) · [Examples](docs/EXAMPLES.md) · [GitHub Action](docs/GITHUB_ACTION.md) · [GitHub App](docs/GITHUB_APP.md) · [Integration contract](docs/INTEGRATIONS.md) · [Roadmap](docs/ROADMAP.md) · [Releases](https://github.com/kohli217/codex-workspace-bootstrap/releases)
 
 > Community-maintained project. Not an official OpenAI product and not affiliated with OpenAI.
 
@@ -270,7 +270,7 @@ Read-only evaluations against real public repositories are documented in [docs/P
 
 The CLI, reusable GitHub Action, future GitHub App, and future AI-agent skills are intended to share one preflight engine and one policy evaluator. Machine-readable reports declare a schema version so integrations can detect incompatible changes instead of silently drifting.
 
-See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
+See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md). The minimum GitHub App permissions and webhook subscriptions are defined in [docs/GITHUB_APP.md](docs/GITHUB_APP.md) and mirrored by code-level regression tests.
 
 ## Where it fits
 
