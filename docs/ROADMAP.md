@@ -31,6 +31,7 @@ This roadmap records intended work; it is not a promise of delivery dates.
 - dependency-free GitHub App worker runtime for RS256 signing, least-privilege token exchange, secure checkout, preflight, and Check Run publication
 - GitHub App Manifest generation/callback contract so development registration reuses the code-level permission and webhook configuration
 - Cloud Run + Pub/Sub reference deployment with public signed-webhook ingress, private IAM-protected worker, durable redelivery, Manifest setup, and Secret Manager credential storage
+- completed-delivery idempotency using GitHub delivery IDs and Check Run `external_id` to suppress duplicate scans after queue redelivery
 - reusable GitHub Action with Windows and Ubuntu self-tests, structured outputs, and an optional `require_ready` gate
 - PyPI Trusted Publishing through GitHub OIDC
 - CodeQL, Dependency Review, Dependabot, secret scanning, push protection, and protected `main`
@@ -50,7 +51,7 @@ This roadmap records intended work; it is not a promise of delivery dates.
 - additional repository-policy checks for maintainers
 - safer generation of CI configuration from detected repository evidence
 - broader SARIF interoperability and remediation metadata
-- deployment observability and idempotency hardening for at-least-once queue redelivery
+- deployment observability and stronger concurrent-delivery coordination if production traffic warrants it
 - AI-agent skill adapters that run the same preflight contract before repository edits
 - optional assisted instruction drafting, only when explicitly requested and never by sending repository content remotely by default
 
