@@ -31,3 +31,7 @@ service-account.json
 
 # Generated reports
 audit-report.json
+
+# Generated Cloudflare deployment metadata
+deploy/cloudflare/wrangler.generated.json
+deploy/cloudflare/.worker-url
