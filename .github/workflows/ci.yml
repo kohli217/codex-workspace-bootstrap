@@ -76,7 +76,8 @@ jobs:
       - name: Test free Cloudflare gateway
         run: node --test deploy/cloudflare/test/*.test.mjs
       - name: Guard GitHub App worker src import path
-        run: grep -Fq "PYTHONPATH: src" .github/workflows/github-app-worker.yml
+        run: |
+          grep -Fq "PYTHONPATH: src" .github/workflows/github-app-worker.yml
       - name: Validate free Windows deployment scripts
         shell: pwsh
         run: |
