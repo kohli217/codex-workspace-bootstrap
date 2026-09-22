@@ -1,6 +1,6 @@
 # Integration contract
 
-`codex-workspace-bootstrap` keeps repository analysis separate from delivery surfaces such as the CLI, GitHub Action, a future GitHub App, and future AI-agent skills.
+`codex-workspace-bootstrap` keeps repository analysis separate from delivery surfaces such as the CLI, GitHub Action, GitHub App, and future AI-agent skills.
 
 The supported integration boundary is the preflight report plus the shared policy evaluator.
 
@@ -279,9 +279,9 @@ registration = required_github_app_registration()
 
 The current contract is Checks write, Contents read, Pull requests read, with only `pull_request` and `push` webhook subscriptions. See [GITHUB_APP.md](GITHUB_APP.md) for the registration runbook.
 
-## Intended GitHub App service
+## GitHub App service architecture
 
-A future GitHub App should remain a thin delivery layer:
+The GitHub App remains a thin delivery layer over the shared preflight and policy core:
 
 ```text
 GitHub webhook
@@ -297,7 +297,7 @@ build_github_check(...)
 GitHub Check Run API
 ```
 
-The App should not duplicate repository detection, instruction linting, readiness-state logic, policy gating, Check result mapping, or webhook routing rules.
+The App does not duplicate repository detection, instruction linting, readiness-state logic, policy gating, Check result mapping, or webhook routing rules.
 
 ## Intended AI-skill adapter
 
