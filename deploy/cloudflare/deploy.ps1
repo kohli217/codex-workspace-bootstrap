@@ -203,6 +203,22 @@ function Resolve-CwbKvNamespace {
     return $null
 }
 
+function Test-WranglerSecretPresent {
+    param(
+        [string[]]$Lines,
+        [string]$Name
+    )
+
+    try {
+        $items = @(($Lines -join [Environment]::NewLine) | ConvertFrom-Json)
+    }
+    catch {
+        return $false
+    }
+
+    return [bool](@($items | Where-Object { $_.name -eq $Name }).Count)
+}
+
 $nodeVersion = (& $script:CwbNode --version).Trim()
 Write-Host "Using CWB-local Node.js $nodeVersion"
 
@@ -275,22 +291,6 @@ function New-RandomBase64Url {
         throw "Could not generate secure random value with Node.js."
     }
     return $value
-}
-
-function Test-WranglerSecretPresent {
-    param(
-        [string[]]$Lines,
-        [string]$Name
-    )
-
-    try {
-        $items = @(($Lines -join [Environment]::NewLine) | ConvertFrom-Json)
-    }
-    catch {
-        return $false
-    }
-
-    return [bool](@($items | Where-Object { $_.name -eq $Name }).Count)
 }
 
 Write-Host "Checking Cloudflare authentication..."
