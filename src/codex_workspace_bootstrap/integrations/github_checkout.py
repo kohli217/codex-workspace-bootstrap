@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
+import base64
 import os
 import re
 import shutil
@@ -130,6 +131,10 @@ def _git_environment(
     if not installation_token.strip():
         raise GitHubCheckoutError("installation token must not be empty")
 
+    basic_credentials = base64.b64encode(
+        f"x-access-token:{installation_token}".encode("utf-8")
+    ).decode("ascii")
+
     env = os.environ.copy()
     env.update(
         {
@@ -138,7 +143,7 @@ def _git_environment(
             "GIT_CONFIG_GLOBAL": os.devnull,
             "GIT_CONFIG_COUNT": "2",
             "GIT_CONFIG_KEY_0": "http.https://github.com/.extraheader",
-            "GIT_CONFIG_VALUE_0": f"Authorization: Bearer {installation_token}",
+            "GIT_CONFIG_VALUE_0": f"Authorization: Basic {basic_credentials}",
             "GIT_CONFIG_KEY_1": "core.hooksPath",
             "GIT_CONFIG_VALUE_1": hooks_path,
         }
