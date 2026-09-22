@@ -15,6 +15,9 @@ from .instructions import (
 )
 
 
+PREFLIGHT_REPORT_SCHEMA_VERSION = 1
+
+
 @dataclass(frozen=True)
 class NextAction:
     priority: str
@@ -24,6 +27,18 @@ class NextAction:
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
+
+
+@dataclass(frozen=True)
+class PolicyDecision:
+    passed: bool
+    failures: tuple[str, ...]
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "passed": self.passed,
+            "failures": list(self.failures),
+        }
 
 
 ESSENTIAL_CHECKS = {
@@ -166,6 +181,37 @@ def next_actions(
     return actions
 
 
+def evaluate_preflight_policy(
+    report: dict[str, object],
+    *,
+    strict: bool = False,
+    fail_on_integrity: bool = False,
+    require_ready: bool = False,
+) -> PolicyDecision:
+    """Evaluate CI/App policy gates against an already-built preflight report."""
+
+    failures: list[str] = []
+    state = str(report.get("state", ""))
+    instruction_summary = report.get("instruction_summary", {})
+    findings = (
+        int(instruction_summary.get("findings", 0))
+        if isinstance(instruction_summary, dict)
+        else 0
+    )
+
+    if strict and state == "BLOCKED":
+        failures.append("blocking-findings")
+    if fail_on_integrity and findings:
+        failures.append("instruction-integrity-findings")
+    if require_ready and state != "READY":
+        failures.append("repository-not-ready")
+
+    return PolicyDecision(
+        passed=not failures,
+        failures=tuple(failures),
+    )
+
+
 def build_preflight(root: Path) -> dict[str, object]:
     root = root.resolve()
     checks = audit_repository(root)
@@ -195,6 +241,7 @@ def build_preflight(root: Path) -> dict[str, object]:
     actions = next_actions(checks, instructions, projects, instruction_findings)
 
     return {
+        "schema_version": PREFLIGHT_REPORT_SCHEMA_VERSION,
         "repository": str(root),
         "state": state,
         "project_signals": projects,
