@@ -1838,3 +1838,115 @@ def test_cd_context_pnpm_recursive_command_does_not_use_cwd_package_only(
 
     assert not any(item.kind == "missing-package-script" for item in findings)
 
+
+def test_npm_workspaces_command_does_not_require_root_script(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps(
+            {
+                "workspaces": ["apps/*"],
+                "scripts": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+    app = tmp_path / "apps" / "web"
+    app.mkdir(parents=True)
+    (app / "package.json").write_text(
+        json.dumps({"name": "@demo/web", "scripts": {"test": "vitest"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `npm test --workspaces`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
+
+def test_npm_short_workspaces_command_does_not_require_root_script(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"workspaces": ["packages/*"], "scripts": {}}),
+        encoding="utf-8",
+    )
+    package = tmp_path / "packages" / "core"
+    package.mkdir(parents=True)
+    (package / "package.json").write_text(
+        json.dumps({"name": "@demo/core", "scripts": {"test": "vitest"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `npm test -ws`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
+
+def test_npm_exact_workspace_target_still_validates_selected_workspace(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps(
+            {
+                "workspaces": ["apps/*"],
+                "scripts": {"test": "vitest root"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    app = tmp_path / "apps" / "web"
+    app.mkdir(parents=True)
+    (app / "package.json").write_text(
+        json.dumps({"name": "@demo/web", "scripts": {"build": "vite build"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `npm test --workspace @demo/web`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    missing = [item for item in findings if item.kind == "missing-package-script"]
+    assert len(missing) == 1
+    assert "test" in missing[0].message
+
+
+def test_npm_workspaces_after_double_dash_is_script_argument(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"scripts": {}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `npm test -- --workspaces`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    missing = [item for item in findings if item.kind == "missing-package-script"]
+    assert len(missing) == 1
+
+
+def test_cd_context_npm_workspaces_does_not_use_cwd_package_only(
+    tmp_path: Path,
+) -> None:
+    plugins = tmp_path / "plugins"
+    plugins.mkdir()
+    (plugins / "package.json").write_text(
+        json.dumps({"workspaces": ["packages/*"], "scripts": {}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `cd plugins && npm test --workspaces`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
