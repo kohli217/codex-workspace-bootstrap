@@ -232,6 +232,31 @@ Expected behavior of the current integrity model:
 - preserve a true warning when the resolved workspace lacks the script;
 - treat workspace-looking text after npm's `--` separator as script arguments, not npm routing options.
 
+## vtex/address-form
+
+Snapshot: `2643de390eaaff7e2bfc288b9a2841033e77932c`
+
+Observed signals:
+
+- root `AGENTS.md` is a regular file;
+- root `CLAUDE.md` is a Git symlink (mode `120000`);
+- the symlink blob contains exactly `AGENTS.md`;
+- the repository documents the link as the Claude Code compatibility entry point.
+
+Why this matters:
+
+- exercises a common multi-agent layout that intentionally keeps one canonical instruction file;
+- lets CWB report Claude Code coverage without trusting instruction content through an arbitrary symbolic link;
+- preserves the security boundary by accepting only an exact sibling alias to a regular `AGENTS.md`.
+
+Expected behavior of the current integrity model:
+
+- detect regular `AGENTS.md` for Codex/OpenAI agents;
+- recognize exact `CLAUDE.md -> AGENTS.md` (or `./AGENTS.md`) as a Claude Code alias;
+- read the regular `AGENTS.md` directly when linting the alias;
+- reject parent traversal, absolute/other targets, missing targets, and symlinked/chained `AGENTS.md` targets;
+- continue ignoring all other symlinked instruction/configuration inputs.
+
 ## What these evaluations do not prove
 
 These evaluations do not prove:
@@ -265,5 +290,6 @@ The observed repository patterns are encoded as automated regression tests in `t
 - `test_public_pattern_tracecat_directory_target_uses_frontend_package`
 - `test_public_pattern_warp_yarn_inline_cwd_uses_website_package`
 - `test_public_pattern_wordpress_npm_post_script_workspace_uses_workspace_script`
+- `test_public_pattern_vtex_claude_alias_reuses_regular_agents`
 
 The fixtures intentionally model only the relevant public signals needed to exercise the lint rules. They are not copies of the upstream repositories and they do not imply compatibility certification.
