@@ -170,6 +170,34 @@ The injected `rs256_signer` must sign the provided JWT signing input using RSA P
 
 The request builders currently target GitHub REST API version `2026-03-10` and send `User-Agent: codex-workspace-bootstrap`, which is required for GitHub REST API requests.
 
+## Worker runtime
+
+The package now contains a synchronous **worker** runtime for one already-accepted scan event:
+
+```python
+from codex_workspace_bootstrap.integrations.github_runtime import (
+    execute_github_scan,
+)
+
+result = execute_github_scan(
+    target,
+    client_id=github_app_client_id,
+    private_key_path=private_key_path,
+)
+```
+
+The worker:
+
+1. signs the GitHub App JWT with OpenSSL/RS256;
+2. requests an installation token scoped to only the event repository and only `contents:read` + `checks:write`;
+3. performs the hardened exact-revision checkout;
+4. runs repository-only CWB preflight;
+5. creates the completed GitHub Check Run for the exact inspected commit.
+
+The runtime uses Python's standard-library HTTPS client. It does not depend on PyJWT, cryptography, requests, or a web framework. Installation token parsing intentionally does not assume a fixed token length or legacy token format.
+
+**Do not run this full worker inline before acknowledging the webhook.** GitHub expects webhook servers to return a 2xx response within 10 seconds. Production ingress should verify/rout the webhook, enqueue the normalized target, return 2xx, and let this worker perform checkout/scanning/API calls separately.
+
 ## End-to-end flow
 
 ```text
@@ -177,9 +205,9 @@ GitHub push / pull_request
         ↓
 prepare_github_app_event(...)
         ↓
-normalize repository + head SHA + installation ID
+enqueue normalized scan target + return 2xx
         ↓
-create installation access token
+worker: create repository-scoped installation access token
         ↓
 secure checkout of the exact webhook revision
         ↓
