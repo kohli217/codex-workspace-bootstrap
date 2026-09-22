@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 import base64
 import json
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 from .github import GitHubCheckResult
 
@@ -160,6 +160,7 @@ def build_check_run_request(
     head_sha: str,
     installation_token: str,
     check: GitHubCheckResult,
+    external_id: str | None = None,
 ) -> GitHubApiRequest:
     """Build a completed GitHub Check Run request for an inspected commit."""
 
@@ -169,6 +170,10 @@ def build_check_run_request(
 
     body = dict(check.to_check_run_fields())
     body["head_sha"] = head_sha
+    if external_id is not None:
+        if not external_id.strip():
+            raise GitHubDeliveryContractError("external_id must not be empty")
+        body["external_id"] = external_id
 
     return GitHubApiRequest(
         method="POST",
@@ -178,4 +183,38 @@ def build_check_run_request(
         ),
         headers=_headers(installation_token),
         json_body=body,
+    )
+
+
+
+def build_list_check_runs_request(
+    *,
+    repository: str,
+    ref: str,
+    installation_token: str,
+    check_name: str = "CWB Preflight",
+) -> GitHubApiRequest:
+    """Build a request that lists CWB Check Runs for one exact Git ref."""
+
+    owner, repo = _repository_parts(repository)
+    if not ref.strip():
+        raise GitHubDeliveryContractError("ref must not be empty")
+    if not check_name.strip():
+        raise GitHubDeliveryContractError("check_name must not be empty")
+
+    query = urlencode(
+        {
+            "check_name": check_name,
+            "filter": "all",
+            "per_page": 100,
+        }
+    )
+    return GitHubApiRequest(
+        method="GET",
+        url=(
+            f"{GITHUB_API_BASE_URL}/repos/"
+            f"{quote(owner, safe='')}/{quote(repo, safe='')}/commits/"
+            f"{quote(ref, safe='')}/check-runs?{query}"
+        ),
+        headers=_headers(installation_token),
     )
