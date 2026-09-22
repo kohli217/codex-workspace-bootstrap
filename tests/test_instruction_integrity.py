@@ -1015,6 +1015,16 @@ def test_directory_target_path_traversal_does_not_read_outside_repo(tmp_path: Pa
     assert not any(item.kind == "missing-package-script" for item in findings)
 
 
+def test_extract_commands_keeps_yarn_inline_cwd_value() -> None:
+    commands = extract_commands(
+        "Preview with `yarn --cwd=website start` and validate with "
+        "`yarn --cwd=website build`."
+    )
+
+    assert "yarn --cwd=website start" in commands
+    assert "yarn --cwd=website build" in commands
+
+
 def test_yarn_inline_cwd_uses_target_package_scripts(tmp_path: Path) -> None:
     (tmp_path / "package.json").write_text(
         json.dumps({"packageManager": "yarn@4", "scripts": {}}),
@@ -1050,7 +1060,7 @@ def test_yarn_inline_cwd_reports_missing_script_in_target(tmp_path: Path) -> Non
         encoding="utf-8",
     )
     (tmp_path / "AGENTS.md").write_text(
-        "Run `yarn --cwd=website build`.\n",
+        "Run `yarn --cwd=website run build`.\n",
         encoding="utf-8",
     )
 
