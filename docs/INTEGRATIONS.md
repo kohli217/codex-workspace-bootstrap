@@ -233,6 +233,24 @@ from codex_workspace_bootstrap.integrations.github_manifest import (
 
 The manifest uses the deployed HTTPS base URL for the webhook and registration callback, preserves the minimum CWB permissions/events, defaults the development App to private, and produces a CSRF state value. Conversion-response credentials are represented by a redacted object whose public metadata excludes the private key and webhook secret.
 
+## Free Cloudflare ingress + GitHub Actions worker
+
+The preferred zero-cost deployment is [deploy/cloudflare](../deploy/cloudflare/README.md):
+
+```text
+GitHub webhook
+  -> Cloudflare Worker signature verification
+  -> Cloudflare Queue durable handoff
+  -> workflow_dispatch in the public CWB repository
+  -> GitHub Actions OIDC
+  -> Cloudflare installation-token broker
+  -> execute_github_scan_with_token(...)
+```
+
+The Actions worker calls the same core runtime with a pre-scoped installation token. This keeps repository scanning in Python while the edge gateway remains a small JavaScript adapter. The broker validates GitHub's OIDC signature and exact workflow identity before minting a token restricted to one event repository with `contents:read` and `checks:write`.
+
+The App private key and webhook secret remain in Cloudflare KV and are never copied to the GitHub Actions runner.
+
 ## Cloud Run ingress + durable queue
 
 The reference deployment in [deploy/cloudrun](../deploy/cloudrun/README.md) keeps webhook acknowledgement and repository scanning on separate services:
