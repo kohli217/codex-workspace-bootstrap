@@ -7,6 +7,7 @@ from codex_workspace_bootstrap.integrations.github import build_github_check
 from codex_workspace_bootstrap.integrations.github_delivery import (
     GITHUB_ACCEPT,
     GITHUB_API_VERSION,
+    GITHUB_USER_AGENT,
     GitHubDeliveryContractError,
     assemble_github_app_jwt,
     build_check_run_request,
@@ -106,6 +107,7 @@ def test_installation_token_request_uses_current_github_headers() -> None:
     assert request.headers == {
         "Accept": GITHUB_ACCEPT,
         "Authorization": "Bearer app.jwt.token",
+        "User-Agent": GITHUB_USER_AGENT,
         "X-GitHub-Api-Version": GITHUB_API_VERSION,
     }
     assert GITHUB_API_VERSION == "2026-03-10"
@@ -125,6 +127,7 @@ def test_check_run_request_combines_adapter_fields_and_head_sha() -> None:
     assert request.method == "POST"
     assert request.url == "https://api.github.com/repos/octo/demo/check-runs"
     assert request.headers["Authorization"] == "Bearer ghs_example"
+    assert request.headers["User-Agent"] == "codex-workspace-bootstrap"
     assert request.headers["X-GitHub-Api-Version"] == "2026-03-10"
     assert request.json_body is not None
     assert request.json_body["head_sha"] == "abc123"
