@@ -163,6 +163,30 @@ function Set-WranglerSecret {
     }
 }
 
+function Resolve-CwbKvNamespace {
+    param(
+        [object[]]$Namespaces,
+        [string]$PreferredTitle
+    )
+
+    $preferred = @($Namespaces | Where-Object { $_.title -eq $PreferredTitle }) |
+        Select-Object -First 1
+    if ($preferred) {
+        return $preferred
+    }
+
+    # Compatibility with deployments created by CWB <= 0.7.0, where Wrangler
+    # created the namespace with the binding name itself as the title.
+    $legacy = @($Namespaces | Where-Object { $_.title -eq "CWB_STATE" }) |
+        Select-Object -First 1
+    if ($legacy) {
+        Write-Host "Reusing existing legacy Workers KV namespace: CWB_STATE"
+        return $legacy
+    }
+
+    return $null
+}
+
 $nodeVersion = (& $script:CwbNode --version).Trim()
 Write-Host "Using CWB-local Node.js $nodeVersion"
 
@@ -187,8 +211,23 @@ if ($ToolchainOnly) {
         throw "Windows PowerShell native stderr capture smoke test failed."
     }
 
+    $preferredTitle = "cwb-github-free-CWB_STATE"
+    $preferredNamespace = [PSCustomObject]@{ title = $preferredTitle; id = "preferred-id" }
+    $legacyNamespace = [PSCustomObject]@{ title = "CWB_STATE"; id = "legacy-id" }
+
+    $resolvedPreferred = Resolve-CwbKvNamespace -Namespaces @($legacyNamespace, $preferredNamespace) -PreferredTitle $preferredTitle
+    if (-not $resolvedPreferred -or $resolvedPreferred.id -ne "preferred-id") {
+        throw "Workers KV namespace resolver did not prefer the canonical title."
+    }
+
+    $resolvedLegacy = Resolve-CwbKvNamespace -Namespaces @($legacyNamespace) -PreferredTitle $preferredTitle
+    if (-not $resolvedLegacy -or $resolvedLegacy.id -ne "legacy-id") {
+        throw "Workers KV namespace resolver did not reuse the legacy CWB_STATE title."
+    }
+
     Write-Host "CWB-local Windows Wrangler toolchain smoke test: PASS"
     Write-Host "Windows PowerShell harmless native stderr smoke test: PASS"
+    Write-Host "Workers KV namespace compatibility smoke test: PASS"
     exit 0
 }
 
@@ -200,30 +239,6 @@ function New-RandomBase64Url {
         throw "Could not generate secure random value with Node.js."
     }
     return $value
-}
-
-function Resolve-CwbKvNamespace {
-    param(
-        [object[]]$Namespaces,
-        [string]$PreferredTitle
-    )
-
-    $preferred = @($Namespaces | Where-Object { $_.title -eq $PreferredTitle }) |
-        Select-Object -First 1
-    if ($preferred) {
-        return $preferred
-    }
-
-    # Compatibility with deployments created by CWB <= 0.7.0, where Wrangler
-    # created the namespace with the binding name itself as the title.
-    $legacy = @($Namespaces | Where-Object { $_.title -eq "CWB_STATE" }) |
-        Select-Object -First 1
-    if ($legacy) {
-        Write-Host "Reusing existing legacy Workers KV namespace: CWB_STATE"
-        return $legacy
-    }
-
-    return $null
 }
 
 function Set-GitHubRepositoryVariable {
@@ -309,6 +324,7 @@ if (-not $kv) {
 if (-not $kv -or -not $kv.id) {
     throw "Could not resolve the CWB_STATE KV namespace id."
 }
+Write-Host "Using Workers KV namespace '$($kv.title)' ($($kv.id))"
 
 Write-Host "Ensuring Cloudflare Queue..."
 $queueListResult = Invoke-WranglerCapture -Arguments @("queues", "list", "--config", $ConfigPath)
