@@ -230,6 +230,28 @@ The runtime uses Python's standard-library HTTPS client. It does not depend on P
 
 **Do not run this full worker inline before acknowledging the webhook.** GitHub expects webhook servers to return a 2xx response within 10 seconds. Production ingress should verify/rout the webhook, enqueue the normalized target, return 2xx, and let this worker perform checkout/scanning/API calls separately.
 
+## Preferred zero-cost deployment: Cloudflare + GitHub Actions
+
+For development and low-volume public OSS use, the preferred deployment is [deploy/cloudflare](../deploy/cloudflare/README.md).
+
+```text
+GitHub webhook
+  -> Cloudflare Worker
+  -> Cloudflare Queue
+  -> CWB public-repository GitHub Actions worker
+  -> OIDC-authenticated installation-token broker
+  -> secure exact-revision checkout
+  -> CWB Check Run
+```
+
+This design avoids a Google Cloud billing account. The ingress, durable queue, state storage, and broker use Cloudflare's Free plan, while the scan runs on standard GitHub-hosted Actions runners in this public repository.
+
+The Cloudflare Worker receives the App Manifest callback and stores the generated client ID, private key, and webhook secret in Workers KV. Cloudflare encrypts KV values at rest. The GitHub Actions runner never receives the App private key or webhook secret.
+
+For each scan, GitHub Actions obtains an OIDC token and calls the Worker token broker. The broker accepts only OIDC tokens for `kohli217/codex-workspace-bootstrap`, `refs/heads/main`, the `workflow_dispatch` event, and the exact `.github/workflows/github-app-worker.yml` workflow. It then returns a short-lived installation token scoped to the single event repository with only `contents:read` and `checks:write`.
+
+Cloudflare Queue remains in front of GitHub Actions because GitHub does not automatically redeliver failed webhook deliveries. If workflow dispatch is temporarily unavailable, the queue consumer retries instead of dropping the event.
+
 ## Cloud Run + Pub/Sub deployment
 
 A deployable production shell is available in [deploy/cloudrun](../deploy/cloudrun/README.md).
@@ -273,6 +295,6 @@ The App service must use repository-only preflight mode. Local tool availability
 
 ## Manual boundary
 
-With the preferred App Manifest flow, the authenticated GitHub action is reduced to reviewing/naming the preconfigured development App, clicking **Create GitHub App**, and then installing it on the selected test repository. The manifest callback can receive GitHub's generated private key and webhook secret automatically.
+With the preferred free deployment and App Manifest flow, the authenticated GitHub action is reduced to creating the narrowly scoped workflow-dispatch token once, reviewing/naming the preconfigured development App, clicking **Create GitHub App**, and installing it on the selected test repository. The manifest callback can receive GitHub's generated private key and webhook secret automatically.
 
 Those credentials must never be pasted into an issue, pull request, committed file, or public chat. The deployed callback must put them directly into its deployment secret store before any real webhook processing begins.
