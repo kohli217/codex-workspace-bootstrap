@@ -109,6 +109,28 @@ Expected behavior of the current integrity model:
 - keep embedded brace expansion such as `apps/web/{src,tests}/**` scoped to `apps/web`;
 - avoid promoting the path-specific rule to a repository-wide baseline.
 
+## ModelEngine-Group/fit-framework
+
+Snapshot: `e2f285d1cf2f4d53330b2796bc56ecce6dc63544`
+
+Observed signals:
+
+- root `AGENTS.md`;
+- project `.gemini/settings.json`;
+- Gemini CLI `context.fileName` is configured as `["AGENTS.md"]`.
+
+Why this matters:
+
+- exercises a real repository that intentionally reuses the vendor-neutral `AGENTS.md` file as Gemini CLI context;
+- verifies that CWB honors the project-level Gemini filename override instead of requiring a separate `GEMINI.md`;
+- protects multi-agent discovery so one physical instruction file can be recognized by both Codex/OpenAI agents and Gemini CLI without being duplicated.
+
+Expected behavior of the current integrity model:
+
+- detect root `AGENTS.md` for Codex/OpenAI agents;
+- also detect that same `AGENTS.md` as Gemini CLI context because of `.gemini/settings.json`;
+- not invent a `GEMINI.md` signal when that filename is not part of the configured context list.
+
 ## What these evaluations do not prove
 
 These evaluations do not prove:
@@ -137,5 +159,6 @@ The observed repository patterns are encoded as automated regression tests in `t
 - `test_public_pattern_cline_multi_instruction_bun_baseline_is_compatible`
 - `test_public_pattern_continue_gradle_rule_does_not_conflict_with_root_npm`
 - `test_public_pattern_vscode_brace_wrapped_apply_to_keeps_static_scope`
+- `test_public_pattern_fit_framework_gemini_reads_agents_md`
 
 The fixtures intentionally model only the relevant public signals needed to exercise the lint rules. They are not copies of the upstream repositories and they do not imply compatibility certification.
