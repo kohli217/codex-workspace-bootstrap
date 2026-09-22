@@ -112,6 +112,7 @@ def build_installation_token_request(
     *,
     installation_id: int,
     app_jwt: str,
+    repository: str | None = None,
 ) -> GitHubApiRequest:
     """Build GitHub's installation-access-token request."""
 
@@ -122,6 +123,17 @@ def build_installation_token_request(
     ):
         raise GitHubDeliveryContractError("installation_id must be a positive integer")
 
+    json_body: dict[str, object] | None = None
+    if repository is not None:
+        _, repo = _repository_parts(repository)
+        json_body = {
+            "repositories": [repo],
+            "permissions": {
+                "checks": "write",
+                "contents": "read",
+            },
+        }
+
     return GitHubApiRequest(
         method="POST",
         url=(
@@ -129,6 +141,7 @@ def build_installation_token_request(
             f"{installation_id}/access_tokens"
         ),
         headers=_headers(app_jwt),
+        json_body=json_body,
     )
 
 
