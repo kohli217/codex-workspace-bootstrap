@@ -158,9 +158,9 @@ def test_check_run_request_rejects_invalid_target(
         )
 
 
-@pytest.mark.parametrize("installation_id", [0, -1, True])
+@pytest.mark.parametrize("installation_id", [0, -1, True, "123"])
 def test_installation_token_request_rejects_invalid_installation_id(
-    installation_id: int,
+    installation_id: object,
 ) -> None:
     with pytest.raises(GitHubDeliveryContractError):
         build_installation_token_request(
