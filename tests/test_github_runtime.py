@@ -271,3 +271,242 @@ def test_execute_scan_requires_installation_id(tmp_path: Path) -> None:
             client_id="Iv23liExample",
             private_key_path=tmp_path / "missing.pem",
         )
+
+
+
+def test_execute_scan_reuses_completed_check_for_same_delivery(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    target = GitHubWebhookTarget(
+        event="push",
+        repository="octo/demo",
+        head_sha=HEAD,
+        installation_id=1234,
+        ref="refs/heads/main",
+    )
+    private_key = tmp_path / "app.pem"
+    private_key.write_text("key", encoding="utf-8")
+    requests: list[GitHubApiRequest] = []
+
+    monkeypatch.setattr(
+        "codex_workspace_bootstrap.integrations.github_runtime.openssl_rs256_sign",
+        lambda path, value: b"signature",
+    )
+
+    def fake_checkout(plan, *, installation_token: str, destination: Path):
+        destination.mkdir(parents=True)
+        return GitHubCheckoutResult(
+            root=destination,
+            commit_sha=HEAD,
+            fetched_ref=HEAD,
+        )
+
+    monkeypatch.setattr(
+        "codex_workspace_bootstrap.integrations.github_runtime.checkout_github_repository",
+        fake_checkout,
+    )
+    monkeypatch.setattr(
+        "codex_workspace_bootstrap.integrations.github_runtime.build_github_app_check",
+        lambda root: (_ for _ in ()).throw(
+            AssertionError("deduplicated delivery must not rerun preflight")
+        ),
+    )
+
+    def fake_send(request: GitHubApiRequest) -> GitHubApiResponse:
+        requests.append(request)
+        if request.url.endswith("/access_tokens"):
+            return GitHubApiResponse(
+                status=201,
+                body={"token": "ghs_runtime_token"},
+            )
+        if "/check-runs?" in request.url:
+            return GitHubApiResponse(
+                status=200,
+                body={
+                    "check_runs": [
+                        {
+                            "id": 987,
+                            "external_id": "delivery-123",
+                            "html_url": "https://github.com/octo/demo/runs/987",
+                            "conclusion": "success",
+                        }
+                    ]
+                },
+            )
+        raise AssertionError(f"unexpected request: {request.method} {request.url}")
+
+    result = execute_github_scan(
+        target,
+        client_id="Iv23liExample",
+        private_key_path=private_key,
+        workspace_parent=tmp_path,
+        now=1_800_000_000,
+        external_id="delivery-123",
+        send_request=fake_send,
+    )
+
+    assert result.repository == "octo/demo"
+    assert result.commit_sha == HEAD
+    assert result.conclusion == "success"
+    assert result.check_run_id == 987
+    assert result.check_run_url == "https://github.com/octo/demo/runs/987"
+    assert result.deduplicated is True
+    assert [request.method for request in requests] == ["POST", "GET"]
+
+
+def test_execute_scan_creates_check_when_delivery_is_new(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    target = GitHubWebhookTarget(
+        event="push",
+        repository="octo/demo",
+        head_sha=HEAD,
+        installation_id=1234,
+        ref="refs/heads/main",
+    )
+    private_key = tmp_path / "app.pem"
+    private_key.write_text("key", encoding="utf-8")
+    requests: list[GitHubApiRequest] = []
+
+    monkeypatch.setattr(
+        "codex_workspace_bootstrap.integrations.github_runtime.openssl_rs256_sign",
+        lambda path, value: b"signature",
+    )
+
+    def fake_checkout(plan, *, installation_token: str, destination: Path):
+        destination.mkdir(parents=True)
+        return GitHubCheckoutResult(
+            root=destination,
+            commit_sha=HEAD,
+            fetched_ref=HEAD,
+        )
+
+    monkeypatch.setattr(
+        "codex_workspace_bootstrap.integrations.github_runtime.checkout_github_repository",
+        fake_checkout,
+    )
+
+    fake_check = GitHubCheckResult(
+        name="CWB Preflight",
+        conclusion="success",
+        title="CWB preflight: READY",
+        summary="# report",
+        policy=PolicyDecision(True, ()),
+    )
+    monkeypatch.setattr(
+        "codex_workspace_bootstrap.integrations.github_runtime.build_github_app_check",
+        lambda root: fake_check,
+    )
+
+    def fake_send(request: GitHubApiRequest) -> GitHubApiResponse:
+        requests.append(request)
+        if request.url.endswith("/access_tokens"):
+            return GitHubApiResponse(
+                status=201,
+                body={"token": "ghs_runtime_token"},
+            )
+        if "/check-runs?" in request.url:
+            return GitHubApiResponse(
+                status=200,
+                body={"check_runs": []},
+            )
+        if request.url.endswith("/check-runs"):
+            return GitHubApiResponse(
+                status=201,
+                body={
+                    "id": 988,
+                    "html_url": "https://github.com/octo/demo/runs/988",
+                },
+            )
+        raise AssertionError(f"unexpected request: {request.method} {request.url}")
+
+    result = execute_github_scan(
+        target,
+        client_id="Iv23liExample",
+        private_key_path=private_key,
+        workspace_parent=tmp_path,
+        now=1_800_000_000,
+        external_id="delivery-new",
+        send_request=fake_send,
+    )
+
+    assert result.deduplicated is False
+    assert result.check_run_id == 988
+    assert [request.method for request in requests] == ["POST", "GET", "POST"]
+    assert requests[-1].json_body is not None
+    assert requests[-1].json_body["external_id"] == "delivery-new"
+
+
+def test_incomplete_matching_check_does_not_suppress_retry(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    target = GitHubWebhookTarget(
+        event="push",
+        repository="octo/demo",
+        head_sha=HEAD,
+        installation_id=1234,
+    )
+    private_key = tmp_path / "app.pem"
+    private_key.write_text("key", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "codex_workspace_bootstrap.integrations.github_runtime.openssl_rs256_sign",
+        lambda path, value: b"signature",
+    )
+    monkeypatch.setattr(
+        "codex_workspace_bootstrap.integrations.github_runtime.checkout_github_repository",
+        lambda plan, *, installation_token, destination: GitHubCheckoutResult(
+            root=tmp_path,
+            commit_sha=HEAD,
+            fetched_ref=HEAD,
+        ),
+    )
+    fake_check = GitHubCheckResult(
+        name="CWB Preflight",
+        conclusion="success",
+        title="CWB preflight: READY",
+        summary="# report",
+        policy=PolicyDecision(True, ()),
+    )
+    monkeypatch.setattr(
+        "codex_workspace_bootstrap.integrations.github_runtime.build_github_app_check",
+        lambda root: fake_check,
+    )
+
+    call_count = 0
+
+    def fake_send(request: GitHubApiRequest) -> GitHubApiResponse:
+        nonlocal call_count
+        call_count += 1
+        if request.url.endswith("/access_tokens"):
+            return GitHubApiResponse(status=201, body={"token": "token"})
+        if "/check-runs?" in request.url:
+            return GitHubApiResponse(
+                status=200,
+                body={
+                    "check_runs": [
+                        {
+                            "id": 1,
+                            "external_id": "delivery-123",
+                            "conclusion": None,
+                        }
+                    ]
+                },
+            )
+        return GitHubApiResponse(status=201, body={"id": 2})
+
+    result = execute_github_scan(
+        target,
+        client_id="Iv23liExample",
+        private_key_path=private_key,
+        now=1_800_000_000,
+        external_id="delivery-123",
+        send_request=fake_send,
+    )
+
+    assert result.deduplicated is False
+    assert result.check_run_id == 2
+    assert call_count == 3
