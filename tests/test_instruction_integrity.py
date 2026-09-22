@@ -1070,3 +1070,80 @@ def test_yarn_inline_cwd_reports_missing_script_in_target(tmp_path: Path) -> Non
     assert len(missing) == 1
     assert "build" in missing[0].message
 
+
+def test_npm_post_script_workspace_flags_use_target_package_scripts(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"packageManager": "npm@11", "scripts": {}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "package-lock.json").write_text("{}\n", encoding="utf-8")
+    web = tmp_path / "packages" / "web"
+    web.mkdir(parents=True)
+    (web / "package.json").write_text(
+        json.dumps({"name": "@demo/web", "scripts": {"lint": "eslint ."}}),
+        encoding="utf-8",
+    )
+
+    commands = (
+        "npm run lint --workspace=@demo/web",
+        "npm run lint --workspace @demo/web",
+        "npm run lint -w @demo/web",
+        "npm run lint -w=@demo/web",
+    )
+    for command in commands:
+        (tmp_path / "AGENTS.md").write_text(
+            f"Run `{command}`.\n",
+            encoding="utf-8",
+        )
+        findings = lint_instructions(tmp_path)
+        assert not any(
+            item.kind == "missing-package-script"
+            for item in findings
+        ), command
+
+
+def test_npm_post_script_workspace_reports_missing_script_in_target(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"packageManager": "npm@11", "scripts": {"lint": "eslint root"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "package-lock.json").write_text("{}\n", encoding="utf-8")
+    web = tmp_path / "packages" / "web"
+    web.mkdir(parents=True)
+    (web / "package.json").write_text(
+        json.dumps({"name": "@demo/web", "scripts": {"test": "vitest"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `npm run lint --workspace=@demo/web`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    missing = [item for item in findings if item.kind == "missing-package-script"]
+    assert len(missing) == 1
+    assert "lint" in missing[0].message
+
+
+def test_npm_script_argument_separator_stops_workspace_resolution(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"packageManager": "npm@11", "scripts": {"test": "vitest root"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "package-lock.json").write_text("{}\n", encoding="utf-8")
+    web = tmp_path / "packages" / "web"
+    web.mkdir(parents=True)
+    (web / "package.json").write_text(
+        json.dumps({"name": "@demo/web", "scripts": {}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `npm run test -- --workspace=@demo/web`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
