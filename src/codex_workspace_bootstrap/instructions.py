@@ -706,7 +706,9 @@ def _workspace_target_for_command(command: str) -> tuple[bool, str | None]:
         return True, tokens[2]
 
     target_options = {"--filter", "-F", "--workspace", "-w"}
-    long_options = {"--filter", "--workspace"}
+    target_long_options = {"--filter", "--workspace"}
+    directory_options = {"--dir", "-C", "--prefix", "--cwd"}
+    directory_long_options = {"--dir", "--prefix", "--cwd"}
     targets: list[str] = []
 
     index = 1
@@ -721,13 +723,20 @@ def _workspace_target_for_command(command: str) -> tuple[bool, str | None]:
             continue
 
         matched_inline = False
-        for option in long_options:
+        for option in target_long_options:
             prefix = f"{option}="
             if token.startswith(prefix):
                 targets.append(token[len(prefix):])
                 matched_inline = True
                 break
         if matched_inline:
+            index += 1
+            continue
+
+        if token in directory_options:
+            index += 2
+            continue
+        if any(token.startswith(f"{option}=") for option in directory_long_options):
             index += 1
             continue
 
@@ -742,6 +751,110 @@ def _workspace_target_for_command(command: str) -> tuple[bool, str | None]:
     if len(nonempty) != 1 or len(targets) != 1:
         return True, None
     return True, nonempty[0]
+
+
+def _directory_target_for_command(command: str) -> tuple[bool, str | None]:
+    tokens = _package_command_tokens(command.strip())
+    if not tokens:
+        return False, None
+
+    manager = tokens[0].lower()
+    if manager not in {"npm", "pnpm", "yarn", "bun"}:
+        return False, None
+
+    supported_options: set[str]
+    supported_long_options: set[str]
+    if manager == "pnpm":
+        supported_options = {"--dir", "-C"}
+        supported_long_options = {"--dir"}
+    elif manager == "npm":
+        supported_options = {"--prefix"}
+        supported_long_options = {"--prefix"}
+    elif manager in {"yarn", "bun"}:
+        supported_options = {"--cwd"}
+        supported_long_options = {"--cwd"}
+    else:
+        return False, None
+
+    targets: list[str] = []
+    index = 1
+    while index < len(tokens):
+        token = tokens[index]
+        if token in supported_options:
+            if index + 1 < len(tokens):
+                targets.append(tokens[index + 1])
+            else:
+                targets.append("")
+            index += 2
+            continue
+
+        matched_inline = False
+        for option in supported_long_options:
+            prefix = f"{option}="
+            if token.startswith(prefix):
+                targets.append(token[len(prefix):])
+                matched_inline = True
+                break
+        if matched_inline:
+            index += 1
+            continue
+
+        if token in {"--filter", "-F", "--workspace", "-w"}:
+            index += 2
+            continue
+        if token.startswith(("--filter=", "--workspace=")):
+            index += 1
+            continue
+
+        if manager == "yarn" and token == "workspace":
+            break
+        if not token.startswith("-"):
+            break
+        index += 1
+
+    if not targets:
+        return False, None
+    nonempty = [target for target in targets if target]
+    if len(nonempty) != 1 or len(targets) != 1:
+        return True, None
+    return True, nonempty[0]
+
+
+def _safe_repository_directory(root: Path, target: str) -> Path | None:
+    value = target.strip().replace("\\", "/")
+    if not value or value.startswith("/") or re.match(r"^[A-Za-z]:/", value):
+        return None
+
+    parts = [part for part in value.split("/") if part not in {"", "."}]
+    if any(part == ".." for part in parts):
+        return None
+
+    candidate = root.joinpath(*parts) if parts else root
+    try:
+        candidate.resolve().relative_to(root.resolve())
+    except (OSError, ValueError):
+        return None
+    return candidate
+
+
+def _directory_script_names(root: Path, target: str) -> set[str] | None:
+    directory = _safe_repository_directory(root, target)
+    if directory is None:
+        return None
+
+    package_path = directory / "package.json"
+    if not package_path.is_file() or package_path.is_symlink():
+        return None
+
+    package = _package_json(package_path)
+    raw_scripts = package.get("scripts")
+    if not isinstance(raw_scripts, dict):
+        return set()
+    return {
+        str(name)
+        for name, value in raw_scripts.items()
+        if isinstance(name, str) and isinstance(value, str)
+    }
 
 
 def _workspace_script_names(root: Path, target: str) -> set[str] | None:
@@ -770,11 +883,18 @@ def _workspace_script_names(root: Path, target: str) -> set[str] | None:
 
 
 def _script_names_for_command(root: Path, scope: str, command: str) -> set[str] | None:
-    has_workspace_target, target = _workspace_target_for_command(command)
+    has_workspace_target, workspace_target = _workspace_target_for_command(command)
     if has_workspace_target:
-        if target is None:
+        if workspace_target is None:
             return None
-        return _workspace_script_names(root, target)
+        return _workspace_script_names(root, workspace_target)
+
+    has_directory_target, directory_target = _directory_target_for_command(command)
+    if has_directory_target:
+        if directory_target is None:
+            return None
+        return _directory_script_names(root, directory_target)
+
     return _script_names(root, scope)
 
 
