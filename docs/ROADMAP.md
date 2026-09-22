@@ -44,6 +44,10 @@ This roadmap records intended work; it is not a promise of delivery dates.
 - signed GitHub release attestations with Sigstore bundle assets
 - release/documentation consistency tests to prevent version drift
 - package-manager-aware validation for npm, pnpm, Yarn, and Bun, including workspace/filter command forms
+- exact workspace-target script validation for pnpm filters, npm workspace selectors (including post-script forms), and Yarn workspaces
+- safe repository-relative directory-target script validation for pnpm, npm, Yarn, and Bun without path traversal or unrelated-root fallback
+- narrowly constrained `CLAUDE.md -> AGENTS.md` and `GEMINI.md -> AGENTS.md` compatibility aliases that read only the regular canonical file and preserve Gemini context-filename semantics
+- fixed public regression fixtures for d3plus/d3plus, TracecatHQ/tracecat, broadinstitute/warp, WordPress/pattern-directory, vtex/address-form, and kickflip-labs/cissp-study-hub
 - Go, Rust, JVM, and .NET project-root detection without inventing unsupported validation commands
 - broader dotenv risk detection for environment-specific files such as `.env.production`
 - exact Release-to-PyPI artifact handoff so automatic publishing uses the same built distributions
