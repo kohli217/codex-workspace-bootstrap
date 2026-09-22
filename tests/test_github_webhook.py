@@ -48,6 +48,7 @@ def test_normalize_pull_request_webhook() -> None:
             "installation": {"id": 1234},
             "pull_request": {
                 "head": {"sha": "abc123"},
+                "merge_commit_sha": "def456",
             },
         },
     )
@@ -58,6 +59,7 @@ def test_normalize_pull_request_webhook() -> None:
     assert target.installation_id == 1234
     assert target.action == "synchronize"
     assert target.pull_request_number == 42
+    assert target.merge_commit_sha == "def456"
     assert target.ref is None
     assert should_run_github_preflight(target) is True
 
