@@ -101,6 +101,40 @@ else:
 
 This API performs no HTTP requests and does not exchange GitHub credentials. The outer delivery service remains responsible for installation authentication, checkout, and posting the Check Run.
 
+## Delivery contract
+
+The package also defines the GitHub REST delivery contract without adding an HTTP or crypto dependency:
+
+```python
+from codex_workspace_bootstrap.integrations.github_delivery import (
+    build_check_run_request,
+    build_github_app_jwt,
+    build_installation_token_request,
+)
+
+app_jwt = build_github_app_jwt(
+    client_id=client_id,
+    now=unix_time,
+    signer=rs256_signer,
+)
+
+token_request = build_installation_token_request(
+    installation_id=installation_id,
+    app_jwt=app_jwt,
+)
+
+check_request = build_check_run_request(
+    repository=target.repository,
+    head_sha=target.head_sha,
+    installation_token=installation_token,
+    check=check,
+)
+```
+
+The injected `rs256_signer` must sign the provided JWT signing input using RSA PKCS#1 v1.5 with SHA-256. GitHub requires RS256 for App JWTs. The contract sets `iat` 60 seconds in the past, keeps `exp` within 10 minutes, and uses the App client ID as `iss`.
+
+The request builders currently target GitHub REST API version `2026-03-10`.
+
 ## End-to-end flow
 
 ```text
