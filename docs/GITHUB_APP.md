@@ -297,6 +297,6 @@ The App service must use repository-only preflight mode. Local tool availability
 
 ## Manual boundary
 
-With the preferred free deployment and App Manifest flow, the authenticated GitHub action is reduced to creating the narrowly scoped workflow-dispatch token once, reviewing/naming the preconfigured development App, clicking **Create GitHub App**, and installing it on the selected test repository. The manifest callback can receive GitHub's generated private key and webhook secret automatically.
+With the preferred free deployment and App Manifest flow, the authenticated GitHub action is reduced to creating the narrowly scoped workflow-dispatch token once, reviewing/naming the preconfigured development App, clicking **Create GitHub App**, and installing it on the selected test repository. The Manifest callback now carries an HMAC-signed one-hour `state`, avoiding reliance on callback cookies after the GitHub round trip. The manifest callback can receive GitHub's generated private key and webhook secret automatically.
 
 Those credentials must never be pasted into an issue, pull request, committed file, or public chat. The deployed callback must put them directly into its deployment secret store before any real webhook processing begins.
