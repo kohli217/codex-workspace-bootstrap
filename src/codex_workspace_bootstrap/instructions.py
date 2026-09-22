@@ -959,6 +959,19 @@ def _directory_script_names(root: Path, target: str) -> set[str] | None:
     }
 
 
+def _exact_pnpm_path_filter_script_names(root: Path, target: str) -> set[str] | None:
+    value = target.strip().replace("\\", "/")
+    if not value.startswith("./"):
+        return None
+
+    if any(token in value for token in ("*", "?", "[", "]", "{", "}", "...")):
+        return None
+    if value.startswith("./!") or value == "./":
+        return None
+
+    return _directory_script_names(root, value)
+
+
 def _workspace_script_names(root: Path, target: str) -> set[str] | None:
     matches: list[set[str]] = []
     for directory, _dirnames, filenames in _walk_repository(root):
@@ -989,6 +1002,8 @@ def _script_names_for_command(root: Path, scope: str, command: str) -> set[str] 
     if has_workspace_target:
         if workspace_target is None:
             return None
+        if _manager_for_command(command) == "pnpm" and workspace_target.startswith("./"):
+            return _exact_pnpm_path_filter_script_names(root, workspace_target)
         return _workspace_script_names(root, workspace_target)
 
     has_directory_target, directory_target = _directory_target_for_command(command)
