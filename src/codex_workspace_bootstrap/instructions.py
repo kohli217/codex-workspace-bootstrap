@@ -1132,6 +1132,19 @@ def _is_pnpm_recursive_command(command: str) -> bool:
     return False
 
 
+def _is_npm_workspaces_command(command: str) -> bool:
+    tokens = _package_command_tokens(command.strip())
+    if not tokens or tokens[0].lower() != "npm":
+        return False
+
+    for token in tokens[1:]:
+        if token == "--":
+            break
+        if token in {"--workspaces", "-ws"}:
+            return True
+    return False
+
+
 def _script_names_for_command(root: Path, scope: str, command: str) -> set[str] | None:
     has_workspace_target, workspace_target = _workspace_target_for_command(command)
     if has_workspace_target:
@@ -1145,6 +1158,12 @@ def _script_names_for_command(root: Path, scope: str, command: str) -> set[str] 
         # Recursive pnpm commands fan out over workspace projects. Without an
         # exact filter, a single root/nearest package.json is not sufficient
         # evidence for whether the recursive script is valid.
+        return None
+
+    if _is_npm_workspaces_command(command):
+        # npm --workspaces / -ws similarly fans the command out over the
+        # configured workspaces. Without a single --workspace/-w target,
+        # root/nearest package.json evidence is insufficient.
         return None
 
     has_directory_target, directory_target = _directory_target_for_command(command)
@@ -1172,6 +1191,8 @@ def _script_names_for_context(
     if has_workspace_target or has_directory_target:
         return None
     if _is_pnpm_recursive_command(context.command):
+        return None
+    if _is_npm_workspaces_command(context.command):
         return None
 
     return _directory_script_names(root, context.cwd)
