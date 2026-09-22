@@ -952,3 +952,65 @@ def test_unresolved_workspace_selector_does_not_fall_back_to_root_scripts(tmp_pa
 
     assert not any(item.kind == "missing-package-script" for item in findings)
 
+
+def test_pnpm_directory_target_uses_target_package_scripts(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"packageManager": "pnpm@10", "scripts": {}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    frontend = tmp_path / "frontend"
+    frontend.mkdir()
+    (frontend / "package.json").write_text(
+        json.dumps({"scripts": {"test": "jest"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `pnpm -C frontend test`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
+
+def test_pnpm_directory_target_reports_missing_script_in_target(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"packageManager": "pnpm@10", "scripts": {"lint": "eslint ."}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    frontend = tmp_path / "frontend"
+    frontend.mkdir()
+    (frontend / "package.json").write_text(
+        json.dumps({"scripts": {"test": "jest"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `pnpm --dir=frontend run lint`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    missing = [item for item in findings if item.kind == "missing-package-script"]
+    assert len(missing) == 1
+    assert "lint" in missing[0].message
+
+
+def test_directory_target_path_traversal_does_not_read_outside_repo(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"packageManager": "pnpm@10", "scripts": {}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `pnpm -C ../outside run test`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
