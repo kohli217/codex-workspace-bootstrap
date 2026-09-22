@@ -48,4 +48,8 @@ The future GitHub App uses an App private key, a webhook secret, and short-lived
 - Pull request code is untrusted input. The GitHub App checkout path disables system/global Git configuration and Git hooks, does not initialize submodules, and never executes project validation commands from the checked-out repository.
 - A dynamic branch or pull-request ref is accepted only when it resolves to the SHA expected from the webhook event.
 
+The reference Cloud Run deployment further separates credentials by service identity: the public ingress can read the webhook/setup secrets and add new Manifest-generated secret versions, while the private worker can read only the App client ID and private key. Pub/Sub invokes the worker through Cloud Run IAM rather than a public worker endpoint.
+
+The Manifest setup endpoint requires a bootstrap token before it will render or accept a GitHub App registration callback. The Python HTTP handler suppresses its default request logging so the one-time bootstrap token is not copied into application access logs.
+
 The repository ignores common private-key and local-secret filenames, but ignore rules are not a substitute for secure credential storage.
