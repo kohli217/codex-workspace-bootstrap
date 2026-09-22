@@ -35,3 +35,15 @@ Do not include real credentials, private repository contents, or unrelated sensi
 The CLI performs local repository and toolchain inspection. The core audit path is designed not to transmit repository contents over the network. Repository instruction/configuration and project-marker inputs are not trusted through symbolic links, and write operations refuse symlinked `AGENTS.md` targets.
 
 Secret-risk detection is filename-based and is not a replacement for dedicated secret or vulnerability scanners. A passing result is not a security guarantee.
+
+## GitHub App credentials
+
+The future GitHub App uses an App private key, a webhook secret, and short-lived installation access tokens. Treat all of them as credentials.
+
+- Never commit a GitHub App private key, webhook secret, installation token, or populated local environment file.
+- Store the private key and webhook secret using a secret-management mechanism appropriate to the deployment platform.
+- Keep the App registration on the documented minimum repository permissions: Checks read/write, Contents read-only, and Pull requests read-only.
+- Verify every webhook with `X-Hub-Signature-256` before parsing or acting on its payload.
+- Installation tokens should be created only for the installation that delivered the event and should not be logged.
+
+The repository ignores common private-key and local-secret filenames, but ignore rules are not a substitute for secure credential storage.
