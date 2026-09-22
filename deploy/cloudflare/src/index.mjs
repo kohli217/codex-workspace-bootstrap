@@ -260,14 +260,24 @@ async function verifyWebhook(secret, body, signatureHeader) {
   return timingSafeEqual(expected, signatureHeader);
 }
 
-function brokerGrantInput(deliveryId, repository, installationId) {
-  return utf8(`${deliveryId}\n${repository}\n${installationId}`);
+function brokerGrantInput(deliveryId, target) {
+  return utf8([
+    deliveryId,
+    target.event ?? "",
+    target.repository ?? "",
+    String(target.installation_id ?? ""),
+    target.head_sha ?? "",
+    target.action ?? "",
+    String(target.pull_request_number ?? ""),
+    target.merge_commit_sha ?? "",
+    target.ref ?? "",
+  ].join("\n"));
 }
 
-async function brokerGrant(secret, deliveryId, repository, installationId) {
+async function brokerGrant(secret, deliveryId, target) {
   return hmacHex(
     secret,
-    brokerGrantInput(deliveryId, repository, installationId),
+    brokerGrantInput(deliveryId, target),
   );
 }
 
@@ -442,8 +452,7 @@ async function dispatchWorkflow(env, queued) {
   const grant = await brokerGrant(
     credentials.webhook_secret,
     queued.delivery_id,
-    queued.target.repository,
-    queued.target.installation_id,
+    queued.target,
   );
   const payload = base64urlEncode(utf8(JSON.stringify({
     delivery_id: queued.delivery_id,
@@ -572,18 +581,28 @@ async function handleTokenBroker(request, env) {
   } catch {
     return jsonResponse(400, { error: "invalid JSON" });
   }
-  const repository = body?.repository;
-  const installationId = body?.installation_id;
   const deliveryId = body?.delivery_id;
   const suppliedGrant = body?.broker_grant;
+  const target = body?.target;
+  if (typeof deliveryId !== "string" || !deliveryId || typeof suppliedGrant !== "string") {
+    return jsonResponse(400, { error: "invalid broker grant" });
+  }
+  if (!target || typeof target !== "object") {
+    return jsonResponse(400, { error: "invalid target" });
+  }
+
+  const repository = target.repository;
+  const installationId = target.installation_id;
+  const headSha = target.head_sha;
+  const event = target.event;
   if (typeof repository !== "string" || repository.split("/").length !== 2) {
     return jsonResponse(400, { error: "invalid repository" });
   }
   if (!Number.isInteger(installationId) || installationId <= 0) {
     return jsonResponse(400, { error: "invalid installation_id" });
   }
-  if (typeof deliveryId !== "string" || !deliveryId || typeof suppliedGrant !== "string") {
-    return jsonResponse(400, { error: "invalid broker grant" });
+  if (typeof headSha !== "string" || !headSha || !["push", "pull_request"].includes(event)) {
+    return jsonResponse(400, { error: "invalid target" });
   }
 
   try {
@@ -591,8 +610,7 @@ async function handleTokenBroker(request, env) {
     const expectedGrant = await brokerGrant(
       credentials.webhook_secret,
       deliveryId,
-      repository,
-      installationId,
+      target,
     );
     if (!timingSafeEqual(expectedGrant, suppliedGrant)) {
       return jsonResponse(403, { error: "invalid broker grant" });
