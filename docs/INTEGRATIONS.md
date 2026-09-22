@@ -247,7 +247,7 @@ GitHub webhook
   -> execute_github_scan_with_token(...)
 ```
 
-The Actions worker calls the same core runtime with a pre-scoped installation token. This keeps repository scanning in Python while the edge gateway remains a small JavaScript adapter. The broker validates GitHub's OIDC signature and exact workflow identity before minting a token restricted to one event repository with `contents:read` and `checks:write`.
+The Actions worker calls the same core runtime with a pre-scoped installation token. This keeps repository scanning in Python while the edge gateway remains a small JavaScript adapter. Cloudflare supplies its own `https://*.workers.dev/tokens/github` URL as the workflow's OIDC audience; the broker verifies that audience against the endpoint receiving the request, plus GitHub's signature and exact workflow identity, before minting a token restricted to one event repository with `contents:read` and `checks:write`.
 
 The App private key and webhook secret remain in Cloudflare KV and are never copied to the GitHub Actions runner. This zero-cost adapter is limited to public repositories: private-repository webhooks are rejected before queueing. Each queued scan also carries an HMAC broker grant bound to the full normalized target so a manually altered workflow input cannot request a token for another commit or repository.
 
