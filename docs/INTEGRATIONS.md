@@ -217,6 +217,8 @@ result = execute_github_scan(
 
 The runtime uses OpenSSL for RS256 signing and the Python standard library for HTTPS. The installation token is reduced to the single event repository with only `contents:read` and `checks:write`. This runtime is intended for queued/background processing after the webhook has already been acknowledged.
 
+When a queue supplies a GitHub delivery ID, the runtime writes it to the Check Run `external_id`. Before a retry runs preflight, it lists CWB Check Runs on the exact inspected commit; a completed matching `external_id` is returned as a deduplicated result. Incomplete matches do not suppress a retry.
+
 ## GitHub App Manifest contract
 
 The deployment can generate a GitHub App Manifest registration directly from the same registration contract:
