@@ -125,6 +125,20 @@ The webhook core:
 - rejects deleted-ref pushes because they have no commit to inspect;
 - performs no network requests and does not require GitHub credentials.
 
+## GitHub App registration contract
+
+The minimum repository permissions and webhook subscriptions are also represented in code:
+
+```python
+from codex_workspace_bootstrap.integrations.github_app import (
+    required_github_app_registration,
+)
+
+registration = required_github_app_registration()
+```
+
+The current contract is Checks write, Contents read, Pull requests read, with only `pull_request` and `push` webhook subscriptions. See [GITHUB_APP.md](GITHUB_APP.md) for the registration runbook.
+
 ## Intended GitHub App service
 
 A future GitHub App should remain a thin delivery layer:
