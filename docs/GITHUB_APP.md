@@ -84,7 +84,7 @@ create installation access token
         ↓
 checkout/read the exact target revision
         ↓
-build_preflight(...)
+build_preflight(..., include_local_toolchain=False)
         ↓
 build_github_check(...)
         ↓
@@ -92,6 +92,8 @@ POST GitHub Check Run
 ```
 
 Repository analysis and policy behavior must continue to come from the shared core rather than being reimplemented by the web service.
+
+The App service must use repository-only preflight mode. Local tool availability on the App host is deployment infrastructure, not evidence about the inspected repository.
 
 ## Manual boundary
 
