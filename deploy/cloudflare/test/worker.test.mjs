@@ -4,7 +4,7 @@ import test from "node:test";
 
 if (!globalThis.crypto) globalThis.crypto = webcrypto;
 
-import {
+import worker, {
   base64urlDecode,
   base64urlEncode,
   brokerGrant,
@@ -162,4 +162,63 @@ test("manifest state rejects malformed and far-future values", async () => {
 
   const future = await buildManifestState(secret, 1301);
   assert.equal(await verifyManifestState(secret, future, 1000), false);
+});
+
+
+test("legacy manifest callback recovers from stored credentials", async () => {
+  const now = Math.floor(Date.now() / 1000);
+  const setupToken = `v1.${now}.setup-secret`;
+  const stored = {
+    app_id: 123,
+    client_id: "Iv1.client",
+    pem: "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----",
+    webhook_secret: "webhook-secret",
+    slug: "cwb-preflight-dev",
+  };
+  const env = {
+    CWB_SETUP_TOKEN: setupToken,
+    CWB_STATE: {
+      async get(key) {
+        assert.equal(key, "github-app-credentials");
+        return JSON.stringify(stored);
+      },
+    },
+  };
+  const request = new Request(
+    "https://cwb.example.workers.dev/setup/github/callback?code=unused&state=legacy-state",
+    {
+      headers: {
+        Cookie: `cwb_setup=${setupToken}`,
+      },
+    },
+  );
+
+  const response = await worker.fetch(request, env);
+
+  assert.equal(response.status, 200);
+  const body = await response.text();
+  assert.match(body, /GitHub App created/);
+  assert.match(body, /Install this GitHub App/);
+});
+
+test("async route failures are converted to service errors", async () => {
+  const env = {
+    CWB_STATE: {
+      async get() {
+        return null;
+      },
+    },
+  };
+  const request = new Request(
+    "https://cwb.example.workers.dev/webhooks/github",
+    {
+      method: "POST",
+      body: "{}",
+    },
+  );
+
+  const response = await worker.fetch(request, env);
+
+  assert.equal(response.status, 500);
+  assert.deepEqual(await response.json(), { error: "service error" });
 });
