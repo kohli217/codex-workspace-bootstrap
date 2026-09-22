@@ -497,3 +497,45 @@ def test_public_pattern_marktoflow_pnpm_post_script_filter_uses_workspace(
 
     assert not any(item.kind == "missing-package-script" for item in findings)
 
+
+def test_public_pattern_react_auth_pnpm_recursive_skips_root_script_requirement(
+    tmp_path: Path,
+) -> None:
+    """Pattern observed in forwardsoftware/react-auth at a5fdca1."""
+    (tmp_path / "package.json").write_text(
+        json.dumps(
+            {
+                "packageManager": "pnpm@12.4.0",
+                "scripts": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    for directory, name in (
+        ("lib", "@forward-software/react-auth"),
+        ("packages/apple-signin", "@forward-software/react-auth-apple"),
+        ("packages/google-signin", "@forward-software/react-auth-google"),
+    ):
+        package = tmp_path / directory
+        package.mkdir(parents=True)
+        (package / "package.json").write_text(
+            json.dumps(
+                {
+                    "name": name,
+                    "scripts": {
+                        "test": "vitest",
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run all tests with `pnpm -r test`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
