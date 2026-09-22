@@ -276,4 +276,5 @@ def test_setup_bootstrap_keeps_secret_in_fragment_and_posts_body() -> None:
     assert "/setup/github/session" in page
     assert "application/x-www-form-urlencoded" in page
     assert "cwb_setup=" not in page
-    assert "token=" not in page
+    assert "/setup/github?token=" not in page
+    assert "location.search" not in page
