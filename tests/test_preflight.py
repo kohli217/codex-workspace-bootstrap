@@ -6,8 +6,10 @@ import pytest
 
 from codex_workspace_bootstrap.audit import Check
 from codex_workspace_bootstrap.preflight import (
+    PREFLIGHT_REPORT_SCHEMA_VERSION,
     build_preflight,
     detect_instruction_signals,
+    evaluate_preflight_policy,
     readiness_state,
     next_actions,
     render_markdown,
@@ -295,3 +297,76 @@ def test_build_preflight_keeps_nested_package_manager_conflict(
     ]
 
     assert len(nested_conflicts) == 1
+
+
+def test_preflight_report_declares_schema_version(tmp_path: Path) -> None:
+    report = build_preflight(tmp_path)
+
+    assert report["schema_version"] == PREFLIGHT_REPORT_SCHEMA_VERSION
+    assert PREFLIGHT_REPORT_SCHEMA_VERSION == 1
+
+
+@pytest.mark.parametrize(
+    ("report", "options", "expected_passed", "expected_failures"),
+    [
+        (
+            {"state": "BLOCKED", "instruction_summary": {"findings": 0}},
+            {"strict": True},
+            False,
+            ("blocking-findings",),
+        ),
+        (
+            {"state": "NEEDS ATTENTION", "instruction_summary": {"findings": 2}},
+            {"fail_on_integrity": True},
+            False,
+            ("instruction-integrity-findings",),
+        ),
+        (
+            {"state": "NEEDS ATTENTION", "instruction_summary": {"findings": 0}},
+            {"require_ready": True},
+            False,
+            ("repository-not-ready",),
+        ),
+        (
+            {"state": "READY", "instruction_summary": {"findings": 0}},
+            {"strict": True, "fail_on_integrity": True, "require_ready": True},
+            True,
+            (),
+        ),
+    ],
+)
+def test_evaluate_preflight_policy(
+    report: dict[str, object],
+    options: dict[str, bool],
+    expected_passed: bool,
+    expected_failures: tuple[str, ...],
+) -> None:
+    decision = evaluate_preflight_policy(report, **options)
+
+    assert decision.passed is expected_passed
+    assert decision.failures == expected_failures
+    assert decision.to_dict() == {
+        "passed": expected_passed,
+        "failures": list(expected_failures),
+    }
+
+
+def test_preflight_policy_reports_all_enabled_failures() -> None:
+    report = {
+        "state": "BLOCKED",
+        "instruction_summary": {"findings": 3},
+    }
+
+    decision = evaluate_preflight_policy(
+        report,
+        strict=True,
+        fail_on_integrity=True,
+        require_ready=True,
+    )
+
+    assert decision.passed is False
+    assert decision.failures == (
+        "blocking-findings",
+        "instruction-integrity-findings",
+        "repository-not-ready",
+    )
