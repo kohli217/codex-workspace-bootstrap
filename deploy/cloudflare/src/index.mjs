@@ -6,6 +6,7 @@ const GITHUB_REPO = "codex-workspace-bootstrap";
 const GITHUB_WORKFLOW = "github-app-worker.yml";
 const GITHUB_REF = "main";
 const STATE_KEY = "github-app-credentials";
+const MANIFEST_STATE_PREFIX = "github-app-manifest-state:";
 const SETUP_TTL_SECONDS = 3600;
 const SETUP_FUTURE_SKEW_SECONDS = 300;
 const SUPPORTED_PR_ACTIONS = new Set([
@@ -144,6 +145,27 @@ function manifestFor(origin, name = "CWB Preflight Dev") {
     request_oauth_on_install: false,
     setup_on_update: false,
   };
+}
+
+function manifestStateKey(state) {
+  return `${MANIFEST_STATE_PREFIX}${state}`;
+}
+
+async function storeManifestState(env, state) {
+  await env.CWB_STATE.put(
+    manifestStateKey(state),
+    "pending",
+    { expirationTtl: SETUP_TTL_SECONDS },
+  );
+}
+
+async function manifestStateIsPending(env, state) {
+  if (typeof state !== "string" || !state) return false;
+  return (await env.CWB_STATE.get(manifestStateKey(state))) === "pending";
+}
+
+async function consumeManifestState(env, state) {
+  await env.CWB_STATE.delete(manifestStateKey(state));
 }
 
 function manifestPage(origin, state) {
@@ -517,9 +539,8 @@ async function handleSetup(request, env) {
   if (!setupAuthorized(request, env)) return htmlResponse(200, bootstrapPage());
   const origin = new URL(request.url).origin;
   const state = randomToken();
-  return htmlResponse(200, manifestPage(origin, state), {
-    "Set-Cookie": `cwb_manifest_state=${state}; Path=/setup/github; Max-Age=3600; Secure; HttpOnly; SameSite=Lax`,
-  });
+  await storeManifestState(env, state);
+  return htmlResponse(200, manifestPage(origin, state));
 }
 
 async function handleSetupSession(request, env) {
@@ -536,16 +557,15 @@ async function handleSetupSession(request, env) {
 }
 
 async function handleSetupCallback(request, env) {
-  if (!setupAuthorized(request, env)) return jsonResponse(403, { error: "forbidden" });
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
-  const expectedState = parseCookies(request).get("cwb_manifest_state");
-  if (!code || !state || !expectedState || !timingSafeEqual(state, expectedState)) {
+  if (!code || !state || !(await manifestStateIsPending(env, state))) {
     return jsonResponse(400, { error: "invalid manifest callback" });
   }
   const credentials = await exchangeManifestCode(code);
   await storeCredentials(env, credentials);
+  await consumeManifestState(env, state);
   const slug = String(credentials.slug || "");
   const installation = slug
     ? `<p><a href="https://github.com/apps/${encodeURIComponent(slug)}/installations/new">Install this GitHub App</a> on one public test repository.</p>`
@@ -664,7 +684,9 @@ export {
   base64urlDecode,
   brokerGrant,
   manifestFor,
+  manifestStateIsPending,
   normalizeWebhook,
+  storeManifestState,
   pkcs1ToPkcs8,
   setupTokenIsValid,
   timingSafeEqual,
