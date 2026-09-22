@@ -16,6 +16,7 @@ from codex_workspace_bootstrap.integrations.github_runtime import (
     GitHubApiResponse,
     GitHubAppRuntimeError,
     execute_github_scan,
+    execute_github_scan_with_token,
     installation_token_from_response,
     openssl_rs256_sign,
     send_github_api_request,
@@ -510,3 +511,60 @@ def test_incomplete_matching_check_does_not_suppress_retry(
     assert result.deduplicated is False
     assert result.check_run_id == 2
     assert call_count == 3
+
+
+def test_execute_scan_with_pre_scoped_token_skips_app_jwt_exchange(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    target = GitHubWebhookTarget(
+        event="push",
+        repository="octo/demo",
+        head_sha=HEAD,
+        installation_id=1234,
+        ref="refs/heads/main",
+    )
+    requests: list[GitHubApiRequest] = []
+
+    def fake_checkout(plan, *, installation_token: str, destination: Path):
+        assert installation_token == "ghs_brokered"
+        destination.mkdir(parents=True)
+        return GitHubCheckoutResult(
+            root=destination,
+            commit_sha=HEAD,
+            fetched_ref=HEAD,
+        )
+
+    monkeypatch.setattr(
+        "codex_workspace_bootstrap.integrations.github_runtime.checkout_github_repository",
+        fake_checkout,
+    )
+    monkeypatch.setattr(
+        "codex_workspace_bootstrap.integrations.github_runtime.build_github_app_check",
+        lambda root: GitHubCheckResult(
+            name="CWB Preflight",
+            conclusion="success",
+            title="CWB preflight: READY",
+            summary="# report",
+            policy=PolicyDecision(True, ()),
+        ),
+    )
+
+    def fake_send(request: GitHubApiRequest) -> GitHubApiResponse:
+        requests.append(request)
+        return GitHubApiResponse(
+            status=201,
+            body={"id": 321, "html_url": "https://github.com/octo/demo/runs/321"},
+        )
+
+    result = execute_github_scan_with_token(
+        target,
+        installation_token="ghs_brokered",
+        workspace_parent=tmp_path,
+        send_request=fake_send,
+    )
+
+    assert result.check_run_id == 321
+    assert len(requests) == 1
+    assert requests[0].url.endswith("/repos/octo/demo/check-runs")
+    assert requests[0].headers["Authorization"] == "Bearer ghs_brokered"
