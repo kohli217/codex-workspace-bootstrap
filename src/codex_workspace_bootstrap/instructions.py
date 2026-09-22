@@ -308,6 +308,23 @@ def _agent_signals(root: Path) -> list[InstructionSignal]:
     return found
 
 
+def _safe_sibling_instruction_alias(path: Path, target_name: str) -> Path | None:
+    if not path.is_symlink():
+        return None
+    try:
+        lexical_target = path.readlink().as_posix()
+    except OSError:
+        return None
+
+    if lexical_target not in {target_name, f"./{target_name}"}:
+        return None
+
+    target = path.parent / target_name
+    if target.is_symlink() or not target.is_file():
+        return None
+    return target
+
+
 def _hierarchical_named_signals(
     root: Path,
     filename: str,
@@ -328,7 +345,21 @@ def _hierarchical_named_signals(
 
 
 def _claude_signals(root: Path) -> list[InstructionSignal]:
-    return _hierarchical_named_signals(root, "CLAUDE.md", "Claude Code")
+    found = _hierarchical_named_signals(root, "CLAUDE.md", "Claude Code")
+
+    for directory, _dirnames, filenames in _walk_repository(root):
+        if "CLAUDE.md" not in filenames:
+            continue
+        alias = directory / "CLAUDE.md"
+        if _safe_sibling_instruction_alias(alias, "AGENTS.md") is None:
+            continue
+
+        rel = alias.relative_to(root).as_posix()
+        scope_path = directory.relative_to(root).as_posix()
+        scope = "." if scope_path == "." else scope_path
+        found.append(InstructionSignal("Claude Code", rel, scope, "alias"))
+
+    return found
 
 
 def _gemini_context_filenames(root: Path) -> tuple[str, ...]:
@@ -512,7 +543,13 @@ def detect_instruction_signals(root: Path) -> list[InstructionSignal]:
 
 
 def _read_instruction(root: Path, signal: InstructionSignal) -> str:
-    return _safe_read(root / signal.path)
+    path = root / signal.path
+    if signal.tool == "Claude Code" and signal.kind == "alias":
+        target = _safe_sibling_instruction_alias(path, "AGENTS.md")
+        if target is None:
+            return ""
+        return _safe_read(target)
+    return _safe_read(path)
 
 
 def _command_regions(text: str) -> list[str]:
