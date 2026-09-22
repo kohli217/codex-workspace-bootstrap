@@ -48,6 +48,12 @@ The future GitHub App uses an App private key, a webhook secret, and short-lived
 - Pull request code is untrusted input. The GitHub App checkout path disables system/global Git configuration and Git hooks, does not initialize submodules, and never executes project validation commands from the checked-out repository.
 - A dynamic branch or pull-request ref is accepted only when it resolves to the SHA expected from the webhook event.
 
+The preferred zero-cost Cloudflare deployment stores Manifest-generated GitHub App credentials in Workers KV. Cloudflare encrypts all KV values at rest with AES-256 and protects transport with TLS. The App private key and webhook secret never enter the GitHub Actions runner.
+
+The Cloudflare installation-token broker accepts GitHub Actions OIDC only after verifying GitHub's signature, repository, main-branch ref, `workflow_dispatch` event, and exact `.github/workflows/github-app-worker.yml` workflow identity. Tokens returned to Actions are limited to the single webhook repository and only `contents:read` + `checks:write`.
+
+The Cloudflare workflow-dispatch credential must be a fine-grained personal access token restricted to `kohli217/codex-workspace-bootstrap` with Actions write access only. It is stored as a Worker secret and must never be committed or logged.
+
 The reference Cloud Run deployment further separates credentials by service identity: the public ingress can read the webhook/setup secrets and add new Manifest-generated secret versions, while the private worker can read only the App client ID and private key. Pub/Sub invokes the worker through Cloud Run IAM rather than a public worker endpoint.
 
 The Manifest setup endpoint requires a bootstrap token before it will render or accept a GitHub App registration callback. Setup tokens embed their issuance time and expire after one hour. The deployment prints the token in a URL fragment rather than a query string; browser fragments are not sent to Cloud Run. The bootstrap page POSTs the token in the request body, and only the verified server-side secret value is copied into a Secure/HttpOnly cookie. Response header values reject CR/LF characters.
