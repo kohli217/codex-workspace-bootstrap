@@ -16,6 +16,7 @@ from codex_workspace_bootstrap.preflight import (
 
 report = build_preflight(Path("."))
 assert report["schema_version"] == PREFLIGHT_REPORT_SCHEMA_VERSION
+assert report["local_toolchain_checked"] is True
 ```
 
 The report is deterministic for the repository/toolchain evidence inspected by the core preflight. The core preflight does not send repository contents to a remote AI service.
@@ -75,6 +76,22 @@ summary = render_markdown(report)
 ```
 
 A GitHub App can use the generated Markdown as the basis for a Check Run summary instead of inventing a second report format.
+
+## Remote / GitHub App preflight
+
+A remote scanner must not treat the scanner host's installed tools as repository evidence. Build the report in repository-only mode:
+
+```python
+report = build_preflight(
+    Path("."),
+    include_local_toolchain=False,
+)
+assert report["local_toolchain_checked"] is False
+```
+
+Repository-only mode still checks repository structure, project/package-manager evidence, AI instructions, Git tracking state, risky filenames, and instruction integrity. It skips availability/version probes for local tools such as Node.js, package managers, PowerShell, WSL, and Codex.
+
+The CLI equivalent is `cwb preflight . --repository-only`.
 
 ## GitHub Check adapter
 
@@ -150,7 +167,7 @@ verify signature + normalize event
     ↓
 obtain installation token + checkout/read repository
     ↓
-build_preflight(...)
+build_preflight(..., include_local_toolchain=False)
     ↓
 build_github_check(...)
     ↓
