@@ -33,7 +33,7 @@ def _base64url_decode(value: str) -> bytes:
         raise GitHubActionsWorkerError("scan payload is not valid base64url") from exc
 
 
-def decode_scan_payload(encoded: str) -> tuple[str, GitHubWebhookTarget]:
+def decode_scan_payload(encoded: str) -> tuple[str, str, GitHubWebhookTarget]:
     try:
         payload = json.loads(_base64url_decode(encoded).decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
@@ -42,9 +42,12 @@ def decode_scan_payload(encoded: str) -> tuple[str, GitHubWebhookTarget]:
         raise GitHubActionsWorkerError("scan payload must be a JSON object")
 
     delivery_id = payload.get("delivery_id")
+    broker_grant = payload.get("broker_grant")
     target = payload.get("target")
     if not isinstance(delivery_id, str) or not delivery_id.strip():
         raise GitHubActionsWorkerError("scan payload is missing delivery_id")
+    if not isinstance(broker_grant, str) or not broker_grant.strip():
+        raise GitHubActionsWorkerError("scan payload is missing broker_grant")
     if not isinstance(target, dict):
         raise GitHubActionsWorkerError("scan payload is missing target")
 
@@ -81,7 +84,7 @@ def decode_scan_payload(encoded: str) -> tuple[str, GitHubWebhookTarget]:
             raise GitHubActionsWorkerError(f"scan payload has invalid {name}")
         return value
 
-    return delivery_id, GitHubWebhookTarget(
+    return delivery_id, broker_grant, GitHubWebhookTarget(
         event=event,
         repository=repository,
         head_sha=head_sha,
@@ -161,6 +164,8 @@ def request_installation_token(
     *,
     endpoint: str,
     oidc_token: str,
+    delivery_id: str,
+    broker_grant: str,
     target: GitHubWebhookTarget,
 ) -> str:
     if target.installation_id is None:
@@ -172,6 +177,8 @@ def request_installation_token(
             {
                 "repository": target.repository,
                 "installation_id": target.installation_id,
+                "delivery_id": delivery_id,
+                "broker_grant": broker_grant,
             },
             separators=(",", ":"),
         ).encode("utf-8"),
@@ -207,12 +214,14 @@ def execute_actions_scan(
     encoded_payload: str,
     token_endpoint: str,
 ) -> GitHubScanResult:
-    delivery_id, target = decode_scan_payload(encoded_payload)
+    delivery_id, broker_grant, target = decode_scan_payload(encoded_payload)
     audience = _validated_token_endpoint(token_endpoint)
     oidc_token = request_actions_oidc_token(audience=audience)
     installation_token = request_installation_token(
         endpoint=audience,
         oidc_token=oidc_token,
+        delivery_id=delivery_id,
+        broker_grant=broker_grant,
         target=target,
     )
     return execute_github_scan_with_token(
