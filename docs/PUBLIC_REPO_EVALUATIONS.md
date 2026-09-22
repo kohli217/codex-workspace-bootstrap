@@ -383,6 +383,31 @@ Expected behavior of the current integrity model:
 - preserve a true missing-script warning when the selected workspace lacks the script even if root defines it;
 - leave repeated or complex selectors unresolved rather than guessing.
 
+## forwardsoftware/react-auth
+
+Snapshot: `a5fdca1ff9a750104804b16dfb6d828c9db991b1`
+
+Observed signals:
+
+- root `AGENTS.md`;
+- root `package.json` selects pnpm but has an empty `scripts` object;
+- root instructions use `pnpm -r test`;
+- `lib/package.json`, `packages/apple-signin/package.json`, and `packages/google-signin/package.json` each define `test`.
+
+Why this matters:
+
+- exercises pnpm recursive workspace fan-out where the root package itself does not own the script;
+- prevents CWB from reporting a false `missing-package-script` warning based only on root script evidence;
+- avoids pretending to emulate pnpm's complete recursive package-selection semantics.
+
+Expected behavior of the current integrity model:
+
+- recognize `pnpm -r` and `pnpm --recursive` before the script-argument `--` separator;
+- avoid root/nearest-package script validation for an unfiltered recursive command;
+- preserve exact workspace-filter validation when a recursive command is safely narrowed to one target;
+- treat recursive-looking tokens after `--` as script arguments;
+- keep package-manager detection unchanged.
+
 ## What these evaluations do not prove
 
 These evaluations do not prove:
@@ -422,5 +447,6 @@ The observed repository patterns are encoded as automated regression tests in `t
 - `test_public_pattern_deer_flow_cd_frontend_uses_frontend_package`
 - `test_public_pattern_coral_npm_post_script_prefix_uses_coral_ui`
 - `test_public_pattern_marktoflow_pnpm_post_script_filter_uses_workspace`
+- `test_public_pattern_react_auth_pnpm_recursive_skips_root_script_requirement`
 
 The fixtures intentionally model only the relevant public signals needed to exercise the lint rules. They are not copies of the upstream repositories and they do not imply compatibility certification.
