@@ -1,0 +1,6 @@
+{
+  "name": "cwb-github-free",
+  "main": "src/index.mjs",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": true
+}
