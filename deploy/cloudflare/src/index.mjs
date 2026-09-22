@@ -384,6 +384,12 @@ async function verifyActionsOidc(token, audience) {
   if (payload.repository !== `${GITHUB_OWNER}/${GITHUB_REPO}`) throw new Error("invalid OIDC repository");
   if (payload.ref !== "refs/heads/main") throw new Error("invalid OIDC ref");
   if (payload.event_name !== "workflow_dispatch") throw new Error("invalid OIDC event");
+  if (
+    payload.workflow_ref !==
+    `${GITHUB_OWNER}/${GITHUB_REPO}/.github/workflows/${GITHUB_WORKFLOW}@refs/heads/main`
+  ) {
+    throw new Error("invalid OIDC workflow");
+  }
   const now = Math.floor(Date.now() / 1000);
   if (!Number.isFinite(payload.exp) || payload.exp < now - 30) throw new Error("expired OIDC token");
   if (Number.isFinite(payload.nbf) && payload.nbf > now + 30) throw new Error("OIDC token is not active");
