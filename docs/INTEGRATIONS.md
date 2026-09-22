@@ -199,6 +199,24 @@ from codex_workspace_bootstrap.integrations.github_delivery import (
 
 The JWT builder accepts an injected RS256 signer. The REST request builders produce the exact method, URL, versioned GitHub headers, and JSON body for installation-token exchange and completed Check Run creation. Actual private-key loading and HTTP transport remain in the outer delivery shell.
 
+## GitHub App worker runtime
+
+The outer worker can now execute the delivery contracts without third-party Python runtime dependencies:
+
+```python
+from codex_workspace_bootstrap.integrations.github_runtime import (
+    execute_github_scan,
+)
+
+result = execute_github_scan(
+    target,
+    client_id=client_id,
+    private_key_path=private_key_path,
+)
+```
+
+The runtime uses OpenSSL for RS256 signing and the Python standard library for HTTPS. The installation token is reduced to the single event repository with only `contents:read` and `checks:write`. This runtime is intended for queued/background processing after the webhook has already been acknowledged.
+
 ## GitHub App registration contract
 
 The minimum repository permissions and webhook subscriptions are also represented in code:
