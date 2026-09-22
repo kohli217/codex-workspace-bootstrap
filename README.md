@@ -323,7 +323,7 @@ The intent is to complement those tools, not replace them.
 - Suspected secret files are not opened or printed by the filename-risk check.
 - Repository contents are not sent to a remote AI service by the core audit.
 - Instruction files are read locally for deterministic linting; extracted commands are never executed by the integrity lint.
-- Repository instruction/configuration and project-marker contents are not trusted through symbolic links. CWB may recognize the exact lexical alias `CLAUDE.md -> AGENTS.md` (or `./AGENTS.md`) only when the sibling `AGENTS.md` is a regular file; linting reads that regular file directly rather than following the link.
+- Repository instruction/configuration and project-marker contents are not trusted through symbolic links. CWB may recognize the exact lexical aliases `CLAUDE.md -> AGENTS.md` and `GEMINI.md -> AGENTS.md` (or `./AGENTS.md`) only when the sibling `AGENTS.md` is a regular file; linting reads that regular file directly rather than following either link. Gemini aliases are recognized only when `GEMINI.md` is an effective Gemini context filename.
 - `init-agents` and automatic fixes refuse symlinked `AGENTS.md` targets rather than writing through them.
 - Existing regular `AGENTS.md` files are protected unless overwrite is explicit.
 - A passing preflight is evidence about the checks performed, **not a security guarantee**.
