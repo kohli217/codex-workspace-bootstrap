@@ -32,7 +32,7 @@ Do not include real credentials, private repository contents, or unrelated sensi
 
 ## Scope
 
-The CLI performs local repository and toolchain inspection. The core audit path is designed not to transmit repository contents over the network. Repository instruction/configuration and project-marker contents are not trusted through symbolic links, and write operations refuse symlinked `AGENTS.md` targets. The detector may recognize the exact lexical alias `CLAUDE.md -> AGENTS.md` (or `./AGENTS.md`) only when the sibling `AGENTS.md` is a regular non-symlink file; it reads that regular file directly and never follows the alias for instruction content.
+The CLI performs local repository and toolchain inspection. The core audit path is designed not to transmit repository contents over the network. Repository instruction/configuration and project-marker contents are not trusted through symbolic links, and write operations refuse symlinked `AGENTS.md` targets. The detector may recognize the exact lexical aliases `CLAUDE.md -> AGENTS.md` and `GEMINI.md -> AGENTS.md` (or `./AGENTS.md`) only when the sibling `AGENTS.md` is a regular non-symlink file; it reads that regular file directly and never follows either alias for instruction content. A Gemini alias is recognized only when `GEMINI.md` is in the effective Gemini context filename list.
 
 Secret-risk detection is filename-based and is not a replacement for dedicated secret or vulnerability scanners. A passing result is not a security guarantee.
 
