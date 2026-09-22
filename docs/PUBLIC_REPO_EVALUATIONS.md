@@ -357,6 +357,32 @@ Expected behavior of the current integrity model:
 - leave repeated, missing, or unsafe prefix targets unresolved;
 - treat `--prefix` after npm's `--` separator as a script argument rather than directory routing.
 
+## marktoflow/marktoflow
+
+Snapshot: `707a57c9aa4f5af389cc873f5a4d9a2983d1f7fb`
+
+Observed signals:
+
+- root `AGENTS.md`;
+- root `package.json` selects pnpm and defines a root `test` script;
+- `packages/core/package.json` is named `@marktoflow/core` and defines `test`;
+- `packages/integrations/package.json` is named `@marktoflow/integrations` and defines `test`;
+- root instructions use post-script filters such as `pnpm test --filter=@marktoflow/core`.
+
+Why this matters:
+
+- exercises pnpm filtering when `--filter` appears after the script command;
+- prevents CWB from silently validating a workspace-targeted command against the root script set;
+- protects both exact package-name and exact `./path` target resolution while leaving complex selectors unresolved.
+
+Expected behavior of the current integrity model:
+
+- resolve exactly one `--filter <target>`, `-F <target>`, `--filter=<target>`, or `-F=<target>` before pnpm's `--` separator;
+- validate exact package-name targets against that workspace's regular `package.json`;
+- reuse safe exact-path handling for `./relative/path` selectors;
+- preserve a true missing-script warning when the selected workspace lacks the script even if root defines it;
+- leave repeated or complex selectors unresolved rather than guessing.
+
 ## What these evaluations do not prove
 
 These evaluations do not prove:
@@ -395,5 +421,6 @@ The observed repository patterns are encoded as automated regression tests in `t
 - `test_public_pattern_unraid_pnpm_exact_path_filter_uses_api_package`
 - `test_public_pattern_deer_flow_cd_frontend_uses_frontend_package`
 - `test_public_pattern_coral_npm_post_script_prefix_uses_coral_ui`
+- `test_public_pattern_marktoflow_pnpm_post_script_filter_uses_workspace`
 
 The fixtures intentionally model only the relevant public signals needed to exercise the lint rules. They are not copies of the upstream repositories and they do not imply compatibility certification.
