@@ -115,9 +115,9 @@ function bootstrapPage() {
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>CWB GitHub App Setup</title></head><body><h1>CWB GitHub App Setup</h1><p>Authorizing the one-time setup session...</p><noscript>JavaScript is required for the one-time setup link.</noscript><script>const token=new URLSearchParams(location.hash.slice(1)).get('token');if(!token){document.body.append(' Missing setup token.');}else{fetch('/setup/github/session',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({token}),credentials:'same-origin'}).then(r=>{if(!r.ok)throw new Error('authorization failed');history.replaceState(null,'','/setup/github');location.reload();}).catch(()=>document.body.append(' Setup authorization failed.'));}</script></body></html>`;
 }
 
-function manifestFor(origin) {
+function manifestFor(origin, name = "CWB Preflight Dev") {
   return {
-    name: "CWB Preflight Dev",
+    name,
     url: "https://github.com/kohli217/codex-workspace-bootstrap",
     description: "Repository preflight checks for AI coding readiness and instruction integrity.",
     hook_attributes: {
@@ -139,7 +139,9 @@ function manifestFor(origin) {
 
 function manifestPage(origin, state) {
   const action = `https://github.com/settings/apps/new?state=${encodeURIComponent(state)}`;
-  const manifest = JSON.stringify(manifestFor(origin))
+  const manifest = JSON.stringify(
+    manifestFor(origin, `CWB Preflight Dev ${state.slice(0, 8)}`),
+  )
     .replaceAll("&", "&amp;")
     .replaceAll('"', "&quot;")
     .replaceAll("<", "&lt;")
