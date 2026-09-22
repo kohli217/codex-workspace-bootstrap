@@ -36,7 +36,7 @@ chmod +x deploy/cloudrun/deploy.sh
 ./deploy/cloudrun/deploy.sh YOUR_GCP_PROJECT_ID
 ```
 
-The script:
+The script first fails fast when the Google Cloud CLI is missing, no account is active, the project cannot be accessed, or billing is known to be disabled. It then:
 
 1. enables the required Google Cloud APIs;
 2. creates dedicated ingress, worker, and Pub/Sub-invoker service accounts;
