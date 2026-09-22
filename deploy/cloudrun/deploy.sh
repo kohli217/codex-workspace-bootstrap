@@ -9,6 +9,37 @@ if [[ -z "${PROJECT_ID}" ]]; then
   exit 2
 fi
 
+export CLOUDSDK_CORE_DISABLE_PROMPTS=1
+
+if ! command -v gcloud >/dev/null 2>&1; then
+  echo "Google Cloud CLI (gcloud) is required." >&2
+  echo "Use Google Cloud Shell, or install and initialize the Google Cloud CLI first." >&2
+  exit 1
+fi
+
+ACTIVE_ACCOUNT="$(gcloud auth list --filter=status:ACTIVE --format='value(account)' | head -n 1)"
+if [[ -z "${ACTIVE_ACCOUNT}" ]]; then
+  echo "No active gcloud account was found. Run: gcloud auth login" >&2
+  exit 1
+fi
+
+if ! gcloud projects describe "${PROJECT_ID}" >/dev/null 2>&1; then
+  echo "Project '${PROJECT_ID}' does not exist or ${ACTIVE_ACCOUNT} cannot access it." >&2
+  exit 1
+fi
+
+BILLING_ENABLED="$(gcloud billing projects describe "${PROJECT_ID}" --format='value(billingEnabled)' 2>/dev/null || true)"
+if [[ "${BILLING_ENABLED}" == "False" ]]; then
+  echo "Billing is not enabled for project '${PROJECT_ID}'." >&2
+  echo "Enable billing for the project, then run this script again." >&2
+  exit 1
+fi
+if [[ "${BILLING_ENABLED}" != "True" ]]; then
+  echo "Warning: billing status could not be verified with the active account." >&2
+fi
+
+echo "Preflight: active account ${ACTIVE_ACCOUNT}; project ${PROJECT_ID} is accessible."
+
 INGRESS_SERVICE="${CWB_INGRESS_SERVICE:-cwb-github-ingress}"
 WORKER_SERVICE="${CWB_WORKER_SERVICE:-cwb-github-worker}"
 TOPIC="${CWB_PUBSUB_TOPIC:-cwb-github-scans}"
