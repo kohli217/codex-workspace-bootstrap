@@ -1,6 +1,6 @@
 # GitHub App registration
 
-This document defines the GitHub-side registration settings for the future `codex-workspace-bootstrap` GitHub App.
+This document defines the GitHub-side registration settings for the `codex-workspace-bootstrap` GitHub App.
 
 The application service should remain a thin adapter over the existing preflight, webhook, policy, and Check Run code. Do not add repository permissions that are not required by the documented flow.
 
@@ -88,7 +88,7 @@ Generate a private key only after the App has been created and the service has s
 
 ## Required service secrets
 
-The eventual service needs:
+A deployed App service needs:
 
 - GitHub App ID
 - GitHub App private key
