@@ -8,10 +8,12 @@ import {
   base64urlDecode,
   base64urlEncode,
   brokerGrant,
+  buildManifestState,
   manifestFor,
   normalizeWebhook,
   setupTokenIsValid,
   validateQueuedTokenEndpoint,
+  verifyManifestState,
 } from "../src/index.mjs";
 
 test("setup token expires after one hour", () => {
@@ -132,4 +134,32 @@ test("queued token endpoint is restricted to workers.dev broker path", () => {
   ]) {
     assert.throws(() => validateQueuedTokenEndpoint(value));
   }
+});
+
+
+test("manifest state is signed, time-bounded, and tamper-evident", async () => {
+  const secret = "v1.1000.setup-secret";
+  const state = await buildManifestState(secret, 1000);
+
+  assert.equal(await verifyManifestState(secret, state, 1000), true);
+  assert.equal(await verifyManifestState(secret, state, 4600), true);
+  assert.equal(await verifyManifestState(secret, state, 4601), false);
+
+  const parts = state.split(".");
+  const tampered = [parts[0], parts[1], "different-nonce", parts[3]].join(".");
+  assert.equal(await verifyManifestState(secret, tampered, 1000), false);
+  assert.equal(
+    await verifyManifestState("v1.1000.other-secret", state, 1000),
+    false,
+  );
+});
+
+test("manifest state rejects malformed and far-future values", async () => {
+  const secret = "v1.1000.setup-secret";
+
+  assert.equal(await verifyManifestState(secret, "", 1000), false);
+  assert.equal(await verifyManifestState(secret, "legacy-random-state", 1000), false);
+
+  const future = await buildManifestState(secret, 1301);
+  assert.equal(await verifyManifestState(secret, future, 1000), false);
 });
