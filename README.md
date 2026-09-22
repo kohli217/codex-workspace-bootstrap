@@ -260,7 +260,7 @@ The reusable Action is published on GitHub Marketplace.
 - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
   with:
     python-version: "3.13"
-- uses: kohli217/codex-workspace-bootstrap@v0.7.0
+- uses: kohli217/codex-workspace-bootstrap@v0.8.0
   with:
     path: .
     strict: "true"
@@ -353,7 +353,7 @@ py -m pip install codex-workspace-bootstrap
 Pinned GitHub release artifact:
 
 ```powershell
-py -m pip install "https://github.com/kohli217/codex-workspace-bootstrap/releases/download/v0.7.0/codex_workspace_bootstrap-0.7.0-py3-none-any.whl"
+py -m pip install "https://github.com/kohli217/codex-workspace-bootstrap/releases/download/v0.8.0/codex_workspace_bootstrap-0.8.0-py3-none-any.whl"
 ```
 
 ## Development
