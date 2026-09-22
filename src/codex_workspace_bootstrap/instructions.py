@@ -40,6 +40,13 @@ class InstructionFinding:
         }
 
 
+@dataclass(frozen=True)
+class _CommandContext:
+    command: str
+    cwd: str | None = None
+    has_explicit_cwd: bool = False
+
+
 EXACT_INSTRUCTION_FILES: tuple[tuple[str, str], ...] = (
     ("GitHub Copilot", ".github/copilot-instructions.md"),
     ("Cline", ".clinerules"),
@@ -600,12 +607,15 @@ def _command_regions(text: str) -> list[str]:
     return regions
 
 
-def _split_shell_chain(region: str) -> list[str]:
-    """Split common shell command chains while respecting simple quotes."""
-    parts: list[str] = []
+def _split_shell_chain_with_operators(
+    region: str,
+) -> list[tuple[str | None, str]]:
+    """Split a shell chain and retain the operator that precedes each segment."""
+    parts: list[tuple[str | None, str]] = []
     current: list[str] = []
     quote: str | None = None
     escaped = False
+    operator: str | None = None
     index = 0
 
     while index < len(region):
@@ -636,20 +646,19 @@ def _split_shell_chain(region: str) -> list[str]:
             index += 1
             continue
 
+        matched_operator: str | None = None
         if region.startswith("&&", index) or region.startswith("||", index):
-            value = "".join(current).strip()
-            if value:
-                parts.append(value)
-            current = []
-            index += 2
-            continue
+            matched_operator = region[index : index + 2]
+        elif char in {";", "|"}:
+            matched_operator = char
 
-        if char in {";", "|"}:
+        if matched_operator is not None:
             value = "".join(current).strip()
             if value:
-                parts.append(value)
+                parts.append((operator, value))
             current = []
-            index += 1
+            operator = matched_operator
+            index += len(matched_operator)
             continue
 
         current.append(char)
@@ -657,8 +666,79 @@ def _split_shell_chain(region: str) -> list[str]:
 
     value = "".join(current).strip()
     if value:
-        parts.append(value)
+        parts.append((operator, value))
     return parts
+
+
+def _split_shell_chain(region: str) -> list[str]:
+    """Split common shell command chains while respecting simple quotes."""
+    return [segment for _operator, segment in _split_shell_chain_with_operators(region)]
+
+
+def _safe_cd_target(segment: str) -> tuple[bool, str | None]:
+    try:
+        tokens = shlex.split(segment, posix=True)
+    except ValueError:
+        tokens = segment.split()
+
+    if not tokens or tokens[0] != "cd":
+        return False, None
+    if len(tokens) != 2:
+        return True, None
+
+    value = tokens[1].strip().replace("\\", "/")
+    if not value or value.startswith(("/", "~")) or re.match(r"^[A-Za-z]:/", value):
+        return True, None
+    if any(token in value for token in ("$", "%", "*", "?", "[", "]", "{", "}", "`")):
+        return True, None
+
+    parts = [part for part in value.split("/") if part not in {"", "."}]
+    if any(part == ".." for part in parts):
+        return True, None
+
+    normalized = "/".join(parts)
+    return True, normalized or "."
+
+
+def _extract_command_contexts(text: str) -> list[_CommandContext]:
+    found: list[_CommandContext] = []
+    seen: set[tuple[str, str | None, bool]] = set()
+
+    for region in _command_regions(text):
+        lines = region.splitlines() or [region]
+        for raw_line in lines:
+            line = raw_line.strip()
+            if not line:
+                continue
+
+            cwd: str | None = None
+            has_explicit_cwd = False
+            for operator, segment in _split_shell_chain_with_operators(line):
+                if operator in {"||", "|"}:
+                    cwd = None
+                    has_explicit_cwd = True
+
+                is_cd, target = _safe_cd_target(segment)
+                if is_cd:
+                    cwd = target
+                    has_explicit_cwd = True
+                    continue
+
+                for pattern in _COMMAND_PATTERNS:
+                    for match in pattern.finditer(segment):
+                        command = " ".join(match.group(0).strip().split())
+                        key = (command.lower(), cwd, has_explicit_cwd)
+                        if command and key not in seen:
+                            found.append(
+                                _CommandContext(
+                                    command,
+                                    cwd,
+                                    has_explicit_cwd,
+                                )
+                            )
+                            seen.add(key)
+
+    return found
 
 
 def extract_commands(text: str) -> list[str]:
@@ -1015,6 +1095,25 @@ def _script_names_for_command(root: Path, scope: str, command: str) -> set[str] 
     return _script_names(root, scope)
 
 
+def _script_names_for_context(
+    root: Path,
+    scope: str,
+    context: _CommandContext,
+) -> set[str] | None:
+    if not context.has_explicit_cwd:
+        return _script_names_for_command(root, scope, context.command)
+
+    if context.cwd is None or scope != ".":
+        return None
+
+    has_workspace_target, _workspace_target = _workspace_target_for_command(context.command)
+    has_directory_target, _directory_target = _directory_target_for_command(context.command)
+    if has_workspace_target or has_directory_target:
+        return None
+
+    return _directory_script_names(root, context.cwd)
+
+
 def _manager_for_command(command: str) -> str | None:
     match = _PACKAGE_COMMAND.match(command.strip())
     return match.group(1).lower() if match else None
@@ -1154,10 +1253,12 @@ def lint_instructions(
     root = root.resolve()
     signals = signals if signals is not None else detect_instruction_signals(root)
     per_file_commands: dict[str, list[str]] = {}
+    per_file_contexts: dict[str, list[_CommandContext]] = {}
 
     for signal in signals:
         text = _read_instruction(root, signal)
         per_file_commands[signal.path] = extract_commands(text) if text else []
+        per_file_contexts[signal.path] = _extract_command_contexts(text) if text else []
 
     findings: list[InstructionFinding] = []
     signal_by_path = {signal.path: signal for signal in signals}
@@ -1215,20 +1316,29 @@ def lint_instructions(
                     )
                 )
 
-        for command in commands:
+        contexts = per_file_contexts.get(path) or [
+            _CommandContext(command) for command in commands
+        ]
+        for context in contexts:
+            command = context.command
             parsed = _script_for_command(command)
             if not parsed:
                 continue
-            scripts = _script_names_for_command(root, signal.scope, command)
+            scripts = _script_names_for_context(root, signal.scope, context)
             if scripts is None:
                 continue
             _manager, script, explicit_run = parsed
             if script not in scripts and (script == "test" or explicit_run):
+                cwd_note = (
+                    f" after cd '{context.cwd}'"
+                    if context.has_explicit_cwd and context.cwd is not None
+                    else ""
+                )
                 findings.append(
                     InstructionFinding(
                         "missing-package-script",
                         "warning",
-                        f"{path} references '{command}', but the targeted or nearest package.json for scope '{signal.scope}' has no '{script}' script.",
+                        f"{path} references '{command}'{cwd_note}, but the targeted or nearest package.json for scope '{signal.scope}' has no '{script}' script.",
                         (path,),
                         (command,),
                         signal.scope,
