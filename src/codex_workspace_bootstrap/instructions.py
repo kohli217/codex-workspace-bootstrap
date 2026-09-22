@@ -82,7 +82,7 @@ _COMMAND_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"(?<![\w.-])pytest(?:\s+[^\n`]+)?", re.I),
     re.compile(r"\bpython\s+-m\s+unittest(?:\s+[^\n`]+)?", re.I),
     re.compile(r"\b(?:npm|pnpm|bun)\s+(?:run\s+)?[\w:./=@-]+(?:\s+[^\n`]+)?", re.I),
-    re.compile(r"\byarn\s+(?:run\s+)?[\w:.-]+(?:\s+[^\n`]+)?", re.I),
+    re.compile(r"\byarn\s+(?:run\s+)?[\w:./=@-]+(?:\s+[^\n`]+)?", re.I),
     re.compile(r"\bgo\s+test(?:\s+[^\n`]+)?", re.I),
     re.compile(r"\bcargo\s+test(?:\s+[^\n`]+)?", re.I),
     re.compile(r"(?<![\w.-])(?:make|just)\s+[\w:.-]+(?:\s+[^\n`]+)?", re.I),
