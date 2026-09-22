@@ -257,6 +257,31 @@ Expected behavior of the current integrity model:
 - reject parent traversal, absolute/other targets, missing targets, and symlinked/chained `AGENTS.md` targets;
 - continue ignoring all other symlinked instruction/configuration inputs.
 
+## kickflip-labs/cissp-study-hub
+
+Snapshot: `1f92eb8a507380fcda577263e2213e1f8d0a4b27`
+
+Observed signals:
+
+- root `AGENTS.md` is a regular file;
+- root `CLAUDE.md` and `GEMINI.md` are Git symlinks (mode `120000`);
+- both symlink blobs contain exactly `AGENTS.md`;
+- the repository documents both aliases as tool compatibility entry points.
+
+Why this matters:
+
+- exercises a real three-agent layout with one canonical instruction file;
+- verifies that the same strict lexical alias boundary can serve both Claude Code and Gemini CLI;
+- protects Gemini project configuration: a `GEMINI.md` alias is only active when that filename is part of the effective Gemini context list.
+
+Expected behavior of the current integrity model:
+
+- detect `AGENTS.md` for Codex/OpenAI agents;
+- recognize exact sibling `CLAUDE.md -> AGENTS.md` for Claude Code;
+- recognize exact sibling `GEMINI.md -> AGENTS.md` for Gemini CLI when `GEMINI.md` is effective context;
+- read only the regular `AGENTS.md` directly for alias linting;
+- ignore a `GEMINI.md` alias when project settings replace Gemini's context filename list.
+
 ## What these evaluations do not prove
 
 These evaluations do not prove:
@@ -291,5 +316,6 @@ The observed repository patterns are encoded as automated regression tests in `t
 - `test_public_pattern_warp_yarn_inline_cwd_uses_website_package`
 - `test_public_pattern_wordpress_npm_post_script_workspace_uses_workspace_script`
 - `test_public_pattern_vtex_claude_alias_reuses_regular_agents`
+- `test_public_pattern_cissp_shared_claude_and_gemini_aliases`
 
 The fixtures intentionally model only the relevant public signals needed to exercise the lint rules. They are not copies of the upstream repositories and they do not imply compatibility certification.
