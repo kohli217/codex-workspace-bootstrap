@@ -10,7 +10,7 @@ from .agents import generate_agents
 from .audit import audit_repository, summary
 from .doctor import doctor_findings
 from .fixes import apply_fix_plan, build_fix_plan
-from .preflight import build_preflight, render_markdown
+from .preflight import build_preflight, evaluate_preflight_policy, render_markdown
 from .sarif import checks_to_sarif, preflight_report_to_sarif
 
 
@@ -163,13 +163,13 @@ def _run_preflight(
             "Preflight SARIF report",
         )
 
-    if strict and report["state"] == "BLOCKED":
-        return 1
-    if fail_on_integrity and report["instruction_summary"]["findings"]:
-        return 1
-    if require_ready and report["state"] != "READY":
-        return 1
-    return 0
+    decision = evaluate_preflight_policy(
+        report,
+        strict=strict,
+        fail_on_integrity=fail_on_integrity,
+        require_ready=require_ready,
+    )
+    return 0 if decision.passed else 1
 
 
 def _run_fix(path: str, apply: bool) -> int:
