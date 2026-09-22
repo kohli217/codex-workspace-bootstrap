@@ -163,18 +163,20 @@ function Set-WranglerSecret {
     }
 }
 
-function Find-WorkersDevOnboardingUrl {
+function Find-WorkersDashboardUrl {
     param([string[]]$Lines)
 
     $text = $Lines -join [Environment]::NewLine
     $match = [regex]::Match(
         $text,
-        "https://dash\.cloudflare\.com/[A-Za-z0-9]+/workers/onboarding"
+        "https://dash\.cloudflare\.com/([A-Za-z0-9]+)/workers/onboarding"
     )
     if ($match.Success) {
-        return $match.Value
+        $accountId = $match.Groups[1].Value
+        return "https://dash.cloudflare.com/$accountId/workers-and-pages"
     }
-    return $null
+
+    return "https://dash.cloudflare.com/?to=/:account/workers-and-pages"
 }
 
 function Resolve-CwbKvNamespace {
@@ -243,9 +245,9 @@ if ($ToolchainOnly) {
         "ERROR You can register a workers.dev subdomain here:",
         "https://dash.cloudflare.com/0123456789abcdef0123456789abcdef/workers/onboarding"
     )
-    $resolvedOnboarding = Find-WorkersDevOnboardingUrl -Lines $sampleOnboarding
-    if ($resolvedOnboarding -ne "https://dash.cloudflare.com/0123456789abcdef0123456789abcdef/workers/onboarding") {
-        throw "workers.dev onboarding URL resolver smoke test failed."
+    $resolvedDashboard = Find-WorkersDashboardUrl -Lines $sampleOnboarding
+    if ($resolvedDashboard -ne "https://dash.cloudflare.com/0123456789abcdef0123456789abcdef/workers-and-pages") {
+        throw "workers.dev dashboard URL resolver smoke test failed."
     }
 
     Write-Host "CWB-local Windows Wrangler toolchain smoke test: PASS"
@@ -424,15 +426,16 @@ $deployResult = Invoke-WranglerCapture -Arguments @("deploy", "--config", $Confi
 $deployResult.StdoutLines | Out-Host
 if ($deployResult.ExitCode -ne 0) {
     $deployResult.StderrLines | Out-Host
-    $onboardingUrl = Find-WorkersDevOnboardingUrl -Lines @(
+    $combinedDeployLines = @(
         $deployResult.StdoutLines + $deployResult.StderrLines
     )
-    if ($onboardingUrl) {
+    if (($combinedDeployLines -join [Environment]::NewLine) -match "workers\.dev subdomain") {
+        $workersDashboardUrl = Find-WorkersDashboardUrl -Lines $combinedDeployLines
         Write-Host ""
         Write-Host "Cloudflare requires one-time workers.dev subdomain registration."
-        Write-Host "Opening the Cloudflare onboarding page in your browser..."
-        Start-Process $onboardingUrl
-        throw "Complete workers.dev subdomain registration in the browser, then rerun this deployment command."
+        Write-Host "Opening the current Workers & Pages dashboard in your browser..."
+        Start-Process $workersDashboardUrl
+        throw "In Workers & Pages, set Your subdomain -> Change, then rerun this deployment command."
     }
     throw "Cloudflare Worker deployment failed."
 }
