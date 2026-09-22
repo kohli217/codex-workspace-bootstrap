@@ -207,6 +207,31 @@ Expected behavior of the current integrity model:
 - avoid a false missing-script finding when the targeted package defines the script;
 - still report a missing script when the targeted package exists but lacks it.
 
+## WordPress/pattern-directory
+
+Snapshot: `4482f3863de14e1dbdfd8e290bd027ba322f8e79`
+
+Observed signals:
+
+- root `AGENTS.md`;
+- root `package.json` uses npm workspaces and does not define `test:unit`;
+- `public_html/wp-content/plugins/pattern-creator/package.json` is named `wporg-pattern-creator` and defines `test:unit`;
+- root instructions use `npm run test:unit --workspace=wporg-pattern-creator`.
+
+Why this matters:
+
+- exercises npm's common syntax where the workspace selector follows `run <script>`;
+- prevents CWB from validating a workspace-only script against the root package;
+- verifies that npm options after the script are parsed only until the `--` script-argument separator.
+
+Expected behavior of the current integrity model:
+
+- resolve an exact post-script `--workspace` / `-w` selector;
+- validate `test:unit` against the named workspace package;
+- avoid a false missing-script warning when the workspace defines the script;
+- preserve a true warning when the resolved workspace lacks the script;
+- treat workspace-looking text after npm's `--` separator as script arguments, not npm routing options.
+
 ## What these evaluations do not prove
 
 These evaluations do not prove:
@@ -239,5 +264,6 @@ The observed repository patterns are encoded as automated regression tests in `t
 - `test_public_pattern_d3plus_workspace_filter_uses_workspace_script`
 - `test_public_pattern_tracecat_directory_target_uses_frontend_package`
 - `test_public_pattern_warp_yarn_inline_cwd_uses_website_package`
+- `test_public_pattern_wordpress_npm_post_script_workspace_uses_workspace_script`
 
 The fixtures intentionally model only the relevant public signals needed to exercise the lint rules. They are not copies of the upstream repositories and they do not imply compatibility certification.
