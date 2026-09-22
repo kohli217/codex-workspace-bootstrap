@@ -121,7 +121,8 @@ Then:
 3. let the callback verify the signed one-hour Manifest state and store the generated credentials in Workers KV;
 4. use the **Install this GitHub App** link shown on the callback page;
 5. choose **Only select repositories** and install it on one **public** test repository;
-6. push a commit or open/update a pull request.
+6. after GitHub shows the installation settings page with the "installed" confirmation banner and the selected repository listed, installation is already complete; the **Save** button is only needed if you change the repository selection afterward;
+7. push a commit or open/update a pull request.
 
 If the App is later installed on a private repository, the free gateway returns an accepted-but-unsupported disposition and does not enqueue that repository into the public Actions worker.
 
