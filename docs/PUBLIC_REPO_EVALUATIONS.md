@@ -332,6 +332,31 @@ Expected behavior of the current integrity model:
 - leave traversal, expansion, glob, absolute, and nested-routing forms unresolved rather than guessing;
 - continue returning the bare package command from `extract_commands()`.
 
+## withcoral/coral
+
+Snapshot: `2c58881841bf62fc52a44bb5c2571760e65a58dd`
+
+Observed signals:
+
+- root `AGENTS.md`;
+- no root `package.json` at this snapshot;
+- `apps/coral-ui/package.json` defines `test`, `build`, `check`, `typecheck`, and `test:server`;
+- root instructions use post-script npm directory routing such as `npm test --prefix apps/coral-ui` and `npm run build --prefix apps/coral-ui`.
+
+Why this matters:
+
+- exercises npm's valid global `--prefix` option when it appears after the command/script name;
+- prevents CWB from dropping package-script validation merely because the directory option is post-script;
+- distinguishes npm routing options from script arguments after npm's `--` separator.
+
+Expected behavior of the current integrity model:
+
+- resolve exactly one `--prefix <dir>` or `--prefix=<dir>` before npm's `--` separator;
+- validate the referenced script against that target's regular `package.json`;
+- preserve existing pre-script `--prefix` behavior;
+- leave repeated, missing, or unsafe prefix targets unresolved;
+- treat `--prefix` after npm's `--` separator as a script argument rather than directory routing.
+
 ## What these evaluations do not prove
 
 These evaluations do not prove:
@@ -369,5 +394,6 @@ The observed repository patterns are encoded as automated regression tests in `t
 - `test_public_pattern_cissp_shared_claude_and_gemini_aliases`
 - `test_public_pattern_unraid_pnpm_exact_path_filter_uses_api_package`
 - `test_public_pattern_deer_flow_cd_frontend_uses_frontend_package`
+- `test_public_pattern_coral_npm_post_script_prefix_uses_coral_ui`
 
 The fixtures intentionally model only the relevant public signals needed to exercise the lint rules. They are not copies of the upstream repositories and they do not imply compatibility certification.
