@@ -165,6 +165,26 @@ if decision.disposition == "scan":
 
 It handles signature verification, JSON parsing, ping/ignored/scan routing, and forces repository-only preflight semantics. Installation-token exchange, authenticated checkout, and Check Run publication remain outside this pure core.
 
+## Secure GitHub checkout
+
+A GitHub App can build a deterministic checkout plan from the normalized webhook target and fetch the exact revision without executing repository commands:
+
+```python
+from codex_workspace_bootstrap.integrations.github_checkout import (
+    build_github_checkout_plan,
+    checkout_github_repository,
+)
+
+plan = build_github_checkout_plan(target)
+checkout = checkout_github_repository(
+    plan,
+    installation_token=installation_token,
+    destination=temporary_repository_path,
+)
+```
+
+Pull requests prefer GitHub's exact test merge SHA when present and safely fall back to the exact PR head. Pushes remain pinned to the webhook commit. Dynamic refs are accepted only when they resolve to the expected event SHA.
+
 ## GitHub delivery contract
 
 GitHub authentication/request construction is represented without coupling the core to a particular HTTP or cryptography library:
