@@ -89,7 +89,7 @@ ensure_secret_version "${CLIENT_ID_SECRET}" "UNCONFIGURED"
 ensure_secret_version "${PRIVATE_KEY_SECRET}" "UNCONFIGURED"
 ensure_secret_version "${WEBHOOK_SECRET}" "UNCONFIGURED"
 
-SETUP_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+SETUP_TOKEN="$(python3 -c 'import secrets,time; print(f"v1.{int(time.time())}.{secrets.token_urlsafe(32)}")')"
 printf '%s' "${SETUP_TOKEN}" | gcloud secrets versions add "${SETUP_TOKEN_SECRET}" --data-file=- >/dev/null
 
 echo "Configuring least-privilege IAM..."
@@ -131,6 +131,7 @@ gcloud run deploy "${WORKER_SERVICE}" \
   --memory 512Mi \
   --min-instances 0 \
   --max-instances 3 \
+  --concurrency 1 \
   --timeout 600 >/dev/null
 
 WORKER_URL="$(gcloud run services describe "${WORKER_SERVICE}" --region "${REGION}" --format='value(status.url)')"
