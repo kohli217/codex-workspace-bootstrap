@@ -50,7 +50,7 @@ The future GitHub App uses an App private key, a webhook secret, and short-lived
 
 The reference Cloud Run deployment further separates credentials by service identity: the public ingress can read the webhook/setup secrets and add new Manifest-generated secret versions, while the private worker can read only the App client ID and private key. Pub/Sub invokes the worker through Cloud Run IAM rather than a public worker endpoint.
 
-The Manifest setup endpoint requires a bootstrap token before it will render or accept a GitHub App registration callback. The deployment prints the token in a URL fragment rather than a query string; browser fragments are not sent to Cloud Run. The bootstrap page POSTs the token in the request body, and only the verified server-side secret value is copied into a Secure/HttpOnly cookie. Response header values reject CR/LF characters.
+The Manifest setup endpoint requires a bootstrap token before it will render or accept a GitHub App registration callback. Setup tokens embed their issuance time and expire after one hour. The deployment prints the token in a URL fragment rather than a query string; browser fragments are not sent to Cloud Run. The bootstrap page POSTs the token in the request body, and only the verified server-side secret value is copied into a Secure/HttpOnly cookie. Response header values reject CR/LF characters.
 
 The production image copies only the package metadata and `src/` tree, and `.dockerignore` excludes Git history, tests, local environments, reports, and common credential filenames from the Docker build context.
 
