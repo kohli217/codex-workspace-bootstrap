@@ -71,8 +71,9 @@ The only long-lived GitHub credential supplied manually is a fine-grained person
 Prerequisites:
 
 - a free Cloudflare account;
-- Node.js 18 or newer;
 - a fine-grained GitHub personal access token limited to this repository with **Actions: Read and write** and **Variables: Read and write**.
+
+You do **not** need to replace or reconfigure the PC's installed Node.js. On Windows, the deployment script downloads the current Node.js 22 LTS Windows x64 archive into `deploy/cloudflare/.tools/`, verifies it against Node.js's official `SHASUMS256.txt`, and uses that isolated runtime only for Wrangler. The npm cache is kept under the same repository-local tools directory.
 
 From PowerShell:
 
@@ -84,8 +85,8 @@ powershell -ExecutionPolicy Bypass -File .\deploy\cloudflare\deploy.ps1
 
 The script:
 
-1. checks Node/npm;
-2. opens Cloudflare login when needed;
+1. creates/reuses the verified CWB-local Node.js 22 toolchain on the same drive as the repository;
+2. runs pinned Wrangler `4.136.1` through that isolated Node runtime and opens Cloudflare login when needed;
 3. creates/reuses one Workers KV namespace;
 4. creates/reuses one Queue with 24-hour retention;
 5. writes the generated Wrangler configuration only to an ignored local file;
@@ -140,4 +141,6 @@ The following files are intentionally ignored by Git:
 - `deploy/cloudflare/wrangler.generated.json`
 - `deploy/cloudflare/.worker-url`
 
-They contain deployment metadata, not the GitHub App private key.
+The generated `deploy/cloudflare/.tools/` directory is also ignored. It contains only the CWB-local Node.js/Wrangler cache used to avoid changing the machine-wide Node installation.
+
+These local files contain deployment metadata or tooling, not the GitHub App private key.
