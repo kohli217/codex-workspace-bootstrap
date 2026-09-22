@@ -420,3 +420,38 @@ def test_public_pattern_deer_flow_cd_frontend_uses_frontend_package(
 
     assert not any(item.kind == "missing-package-script" for item in findings)
 
+
+def test_public_pattern_coral_npm_post_script_prefix_uses_coral_ui(
+    tmp_path: Path,
+) -> None:
+    """Pattern observed in withcoral/coral at 2c58881: npm prefix follows script."""
+    app = tmp_path / "apps" / "coral-ui"
+    app.mkdir(parents=True)
+    (app / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "coral-ui",
+                "scripts": {
+                    "build": "npm run proto:gen && react-router build",
+                    "typecheck": "npm run proto:gen && react-router typegen && tsc",
+                    "test": "npm run proto:gen && vitest run",
+                    "check": "oxfmt --check && oxlint --deny-warnings",
+                    "test:server": "node --test server.test.mjs",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Coral UI changes must pass "
+        "`npm run check --prefix apps/coral-ui`, "
+        "`npm run typecheck --prefix apps/coral-ui`, "
+        "`npm test --prefix apps/coral-ui`, and "
+        "`npm run build --prefix apps/coral-ui`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
