@@ -231,10 +231,12 @@ def test_run_queued_scan_passes_target_and_runtime_credentials(tmp_path: Path) -
         *,
         client_id: str,
         private_key_path: Path,
+        external_id: str | None = None,
     ) -> GitHubScanResult:
         seen["target"] = target
         seen["client_id"] = client_id
         seen["private_key_path"] = private_key_path
+        seen["external_id"] = external_id
         return GitHubScanResult(
             repository=target.repository,
             commit_sha=target.merge_commit_sha or target.head_sha,
@@ -252,6 +254,7 @@ def test_run_queued_scan_passes_target_and_runtime_credentials(tmp_path: Path) -
     assert seen["target"] == message.target
     assert seen["client_id"] == "Iv23liExample"
     assert seen["private_key_path"] == key
+    assert seen["external_id"] == "delivery-123"
     assert result.check_run_id == 987
 
 
