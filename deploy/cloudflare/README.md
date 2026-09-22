@@ -112,13 +112,13 @@ If deployment reaches this boundary, the script detects the condition and opens 
 
 Open the setup URL printed by the script within one hour.
 
-The URL keeps the bootstrap value in the browser fragment (`#token=...`), which is not sent in the HTTP request URL. The page sends it in a same-origin POST body and establishes a Secure/HttpOnly setup cookie.
+The URL keeps the bootstrap value in the browser fragment (`#token=...`), which is not sent in the HTTP request URL. The page sends it in a same-origin POST body and establishes a Secure/HttpOnly setup cookie. The GitHub Manifest `state` itself is separately HMAC-signed and expires after one hour, so the callback no longer depends on cookies surviving the round trip through GitHub.
 
 Then:
 
 1. review the preconfigured private development App;
 2. select **Create GitHub App**;
-3. let the callback store the generated credentials in Workers KV;
+3. let the callback verify the signed one-hour Manifest state and store the generated credentials in Workers KV;
 4. use the **Install this GitHub App** link shown on the callback page;
 5. choose **Only select repositories** and install it on one **public** test repository;
 6. push a commit or open/update a pull request.
@@ -153,3 +153,9 @@ The following files are intentionally ignored by Git:
 The generated `deploy/cloudflare/.tools/` directory is also ignored. It contains only the CWB-local Node.js/Wrangler cache used to avoid changing the machine-wide Node installation.
 
 These local files contain deployment metadata or tooling, not the GitHub App private key.
+
+## Recovering an interrupted Manifest callback
+
+Older deployments used a setup cookie plus a second state cookie for the GitHub Manifest callback. If such a callback reaches the Worker and shows `{"error":"forbidden"}`, do not create another GitHub App immediately.
+
+After updating the Worker, establish a fresh setup session by opening the newly printed setup URL, but do **not** press **Create CWB GitHub App** again. Return to the original callback tab and refresh it. The compatibility path accepts the already-issued Manifest code only while a valid one-hour setup session is present. New Manifest flows use the signed stateless state and do not need this recovery path.
