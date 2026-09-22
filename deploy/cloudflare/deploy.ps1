@@ -155,9 +155,12 @@ $config | ConvertTo-Json -Depth 12 | Set-Content -Path $ConfigPath -Encoding UTF
 $dispatchToken = $env:CWB_DISPATCH_TOKEN
 if (-not $dispatchToken) {
     Write-Host ""
-    Write-Host "A fine-grained GitHub token is required only to start the public CWB workflow."
-    Write-Host "Scope it to kohli217/codex-workspace-bootstrap only, with Actions: Read and write and Variables: Read and write."
-    $secure = Read-Host "Paste the fine-grained GitHub token" -AsSecureString
+    Write-Host "A fine-grained GitHub token is required for the free gateway."
+    Write-Host "Opening GitHub with the token name, owner, expiration, and permissions prefilled."
+    Write-Host "On Repository access, choose: Only select repositories -> codex-workspace-bootstrap"
+    $tokenUrl = "https://github.com/settings/personal-access-tokens/new?name=CWB%20Cloudflare%20Dispatch&description=CWB%20free%20gateway%20workflow%20dispatch&target_name=kohli217&expires_in=366&actions=write&variables=write"
+    Start-Process $tokenUrl
+    $secure = Read-Host "After GitHub generates the token, paste it here" -AsSecureString
     $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
     try {
         $dispatchToken = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
