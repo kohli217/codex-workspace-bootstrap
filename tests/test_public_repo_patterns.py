@@ -590,3 +590,60 @@ def test_public_pattern_private_hosting_npm_workspaces_skips_root_script_require
 
     assert not any(item.kind == "missing-package-script" for item in findings)
 
+
+def test_public_pattern_prompt_kitchen_npm_workspace_directory_selector(
+    tmp_path: Path,
+) -> None:
+    """Pattern observed in kryten87/PromptKitchen at e338c98."""
+    (tmp_path / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "prompt-kitchen",
+                "workspaces": [
+                    "packages/shared",
+                    "packages/backend",
+                    "packages/frontend",
+                    "packages/e2e",
+                ],
+                "scripts": {
+                    "test": "npm run test --workspaces",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    for directory, name, test_script in (
+        (
+            "packages/backend",
+            "@prompt-kitchen/backend",
+            "NODE_OPTIONS=--experimental-vm-modules jest",
+        ),
+        (
+            "packages/frontend",
+            "@prompt-kitchen/frontend",
+            "jest --config jest.config.cjs --no-cache --passWithNoTests",
+        ),
+    ):
+        package = tmp_path / directory
+        package.mkdir(parents=True)
+        (package / "package.json").write_text(
+            json.dumps(
+                {
+                    "name": name,
+                    "scripts": {
+                        "test": test_script,
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+    (tmp_path / "AGENTS.md").write_text(
+        "Backend: `npm --workspace=packages/backend test -- path/to/test.spec.ts`.\n"
+        "Frontend: `npm --workspace=packages/frontend test -- path/to/test.spec.tsx`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
