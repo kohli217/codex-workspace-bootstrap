@@ -1147,3 +1147,112 @@ def test_npm_script_argument_separator_stops_workspace_resolution(tmp_path: Path
 
     assert not any(item.kind == "missing-package-script" for item in findings)
 
+
+def test_safe_claude_agents_alias_is_detected_without_following_link(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"scripts": {"test": "vitest"}}),
+        encoding="utf-8",
+    )
+    agents = tmp_path / "AGENTS.md"
+    agents.write_text(
+        "Run `npm run lint`.\n",
+        encoding="utf-8",
+    )
+    claude = tmp_path / "CLAUDE.md"
+    claude.write_text("AGENTS.md", encoding="utf-8")
+
+    original_is_symlink = Path.is_symlink
+    original_readlink = Path.readlink
+
+    def fake_is_symlink(path: Path) -> bool:
+        if path == claude:
+            return True
+        return original_is_symlink(path)
+
+    def fake_readlink(path: Path) -> Path:
+        if path == claude:
+            return Path("AGENTS.md")
+        return original_readlink(path)
+
+    monkeypatch.setattr(Path, "is_symlink", fake_is_symlink)
+    monkeypatch.setattr(Path, "readlink", fake_readlink)
+
+    signals = detect_instruction_signals(tmp_path)
+    alias = next(
+        item
+        for item in signals
+        if item.tool == "Claude Code" and item.path == "CLAUDE.md"
+    )
+
+    assert alias.kind == "alias"
+    findings = lint_instructions(tmp_path, [alias])
+    assert any(item.kind == "missing-package-script" for item in findings)
+
+
+def test_claude_alias_rejects_parent_traversal(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    (tmp_path / "AGENTS.md").write_text("root\n", encoding="utf-8")
+    claude = tmp_path / "CLAUDE.md"
+    claude.write_text("../AGENTS.md", encoding="utf-8")
+
+    original_is_symlink = Path.is_symlink
+    original_readlink = Path.readlink
+
+    def fake_is_symlink(path: Path) -> bool:
+        if path == claude:
+            return True
+        return original_is_symlink(path)
+
+    def fake_readlink(path: Path) -> Path:
+        if path == claude:
+            return Path("../AGENTS.md")
+        return original_readlink(path)
+
+    monkeypatch.setattr(Path, "is_symlink", fake_is_symlink)
+    monkeypatch.setattr(Path, "readlink", fake_readlink)
+
+    signals = detect_instruction_signals(tmp_path)
+
+    assert not any(
+        item.tool == "Claude Code" and item.path == "CLAUDE.md"
+        for item in signals
+    )
+
+
+def test_claude_alias_rejects_symlinked_agents_target(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    agents = tmp_path / "AGENTS.md"
+    agents.write_text("root\n", encoding="utf-8")
+    claude = tmp_path / "CLAUDE.md"
+    claude.write_text("AGENTS.md", encoding="utf-8")
+
+    original_is_symlink = Path.is_symlink
+    original_readlink = Path.readlink
+
+    def fake_is_symlink(path: Path) -> bool:
+        if path in {claude, agents}:
+            return True
+        return original_is_symlink(path)
+
+    def fake_readlink(path: Path) -> Path:
+        if path == claude:
+            return Path("AGENTS.md")
+        return original_readlink(path)
+
+    monkeypatch.setattr(Path, "is_symlink", fake_is_symlink)
+    monkeypatch.setattr(Path, "readlink", fake_readlink)
+
+    signals = detect_instruction_signals(tmp_path)
+
+    assert not any(
+        item.tool == "Claude Code" and item.path == "CLAUDE.md"
+        for item in signals
+    )
+
