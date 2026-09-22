@@ -182,6 +182,31 @@ Expected behavior of the current integrity model:
 - avoid a false missing-script finding when the targeted package defines the script;
 - still report a missing script when the targeted package exists but lacks it.
 
+## broadinstitute/warp
+
+Snapshot: `8005650febe5d452ba8fbe48c40f14c953bccbcb`
+
+Observed signals:
+
+- root `AGENTS.md`;
+- no root `package.json` at this snapshot;
+- `website/package.json` defines `start` and `build`;
+- root instructions use inline Yarn cwd forms such as `yarn --cwd=website start` and `yarn --cwd=website build`.
+
+Why this matters:
+
+- exercises a real inline long-option form where the directory target is attached with `=`;
+- protects command extraction from truncating `--cwd=website` before script validation;
+- verifies that the already-safe directory-target resolver receives the full command and checks the targeted package.
+
+Expected behavior of the current integrity model:
+
+- extract the full Yarn command including the inline cwd value;
+- resolve `website` as a safe repository-relative directory target;
+- validate `start` / `build` against `website/package.json`;
+- avoid a false missing-script finding when the targeted package defines the script;
+- still report a missing script when the targeted package exists but lacks it.
+
 ## What these evaluations do not prove
 
 These evaluations do not prove:
@@ -212,5 +237,7 @@ The observed repository patterns are encoded as automated regression tests in `t
 - `test_public_pattern_vscode_brace_wrapped_apply_to_keeps_static_scope`
 - `test_public_pattern_fit_framework_gemini_reads_agents_md`
 - `test_public_pattern_d3plus_workspace_filter_uses_workspace_script`
+- `test_public_pattern_tracecat_directory_target_uses_frontend_package`
+- `test_public_pattern_warp_yarn_inline_cwd_uses_website_package`
 
 The fixtures intentionally model only the relevant public signals needed to exercise the lint rules. They are not copies of the upstream repositories and they do not imply compatibility certification.
