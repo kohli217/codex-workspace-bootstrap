@@ -387,3 +387,36 @@ def test_public_pattern_unraid_pnpm_exact_path_filter_uses_api_package(
 
     assert not any(item.kind == "missing-package-script" for item in findings)
 
+
+def test_public_pattern_deer_flow_cd_frontend_uses_frontend_package(
+    tmp_path: Path,
+) -> None:
+    """Pattern observed in bytedance/deer-flow at 5335228: root AGENTS changes cwd."""
+    frontend = tmp_path / "frontend"
+    frontend.mkdir()
+    (frontend / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "deer-flow-frontend",
+                "packageManager": "pnpm@10.26.2",
+                "scripts": {
+                    "check": "eslint . --ext .ts,.tsx && tsc --noEmit",
+                    "test": "rstest",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Frontend validation:\n"
+        "```bash\n"
+        "cd frontend && pnpm check\n"
+        "cd frontend && pnpm test\n"
+        "```\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
