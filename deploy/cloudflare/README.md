@@ -89,7 +89,7 @@ The script:
 3. creates/reuses one Workers KV namespace;
 4. creates/reuses one Queue with 24-hour retention;
 5. writes the generated Wrangler configuration only to an ignored local file;
-6. asks once for the narrow GitHub dispatch token;
+6. if needed, opens GitHub's fine-grained token form with the owner, expiry, and required permissions prefilled; you only select `codex-workspace-bootstrap` under **Only select repositories**, generate the token, and paste it once;
 7. generates a one-hour setup bootstrap secret locally;
 8. stores the setup/dispatch values as Worker secrets;
 9. deploys the Worker to `workers.dev`;
@@ -109,8 +109,9 @@ Then:
 1. review the preconfigured private development App;
 2. select **Create GitHub App**;
 3. let the callback store the generated credentials in Workers KV;
-4. install the App on one **public** test repository;
-5. push a commit or open/update a pull request.
+4. use the **Install this GitHub App** link shown on the callback page;
+5. choose **Only select repositories** and install it on one **public** test repository;
+6. push a commit or open/update a pull request.
 
 If the App is later installed on a private repository, the free gateway returns an accepted-but-unsupported disposition and does not enqueue that repository into the public Actions worker.
 
