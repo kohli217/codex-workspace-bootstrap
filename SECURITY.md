@@ -40,7 +40,7 @@ Secret-risk detection is filename-based and is not a replacement for dedicated s
 
 The future GitHub App uses an App private key, a webhook secret, and short-lived installation access tokens. Treat all of them as credentials.
 
-- Never commit a GitHub App private key, webhook secret, installation token, or populated local environment file.
+- Never commit a GitHub App private key, webhook secret, installation token, manifest-conversion response, or populated local environment file.
 - Store the private key and webhook secret using a secret-management mechanism appropriate to the deployment platform.
 - Keep the App registration on the documented minimum repository permissions: Checks read/write, Contents read-only, and Pull requests read-only.
 - Verify every webhook with `X-Hub-Signature-256` before parsing or acting on its payload.
