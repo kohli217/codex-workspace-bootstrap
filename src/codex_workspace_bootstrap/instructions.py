@@ -962,6 +962,13 @@ def _directory_target_for_command(command: str) -> tuple[bool, str | None]:
     index = 1
     while index < len(tokens):
         token = tokens[index]
+
+        # npm accepts global config options such as --prefix both before and
+        # after the command/script name. Only scan until npm's "--" separator;
+        # everything after it belongs to the script being invoked.
+        if manager == "npm" and token == "--":
+            break
+
         if token in supported_options:
             if index + 1 < len(tokens):
                 targets.append(tokens[index + 1])
@@ -978,6 +985,10 @@ def _directory_target_for_command(command: str) -> tuple[bool, str | None]:
                 matched_inline = True
                 break
         if matched_inline:
+            index += 1
+            continue
+
+        if manager == "npm":
             index += 1
             continue
 
