@@ -245,6 +245,8 @@ The Manifest callback stores the generated client ID, private key, and webhook s
 
 The deployment script creates dedicated service identities and an authenticated Pub/Sub push subscription. A failed worker response remains retryable through Pub/Sub instead of being lost in an in-memory background task.
 
+The one-time setup link carries its bootstrap secret in the browser URL fragment, not the HTTP query string. The fragment is converted into a same-origin POST body before the ingress establishes the Secure/HttpOnly setup session, keeping the bootstrap secret out of Cloud Run request URLs.
+
 ## End-to-end flow
 
 ```text
