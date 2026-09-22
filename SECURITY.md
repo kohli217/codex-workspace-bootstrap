@@ -38,7 +38,7 @@ Secret-risk detection is filename-based and is not a replacement for dedicated s
 
 ## GitHub App credentials
 
-The future GitHub App uses an App private key, a webhook secret, and short-lived installation access tokens. Treat all of them as credentials.
+The GitHub App uses an App private key, a webhook secret, and short-lived installation access tokens. Treat all of them as credentials.
 
 - Never commit a GitHub App private key, webhook secret, installation token, manifest-conversion response, or populated local environment file.
 - Store the private key and webhook secret using a secret-management mechanism appropriate to the deployment platform.
