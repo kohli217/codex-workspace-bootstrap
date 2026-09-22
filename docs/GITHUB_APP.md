@@ -295,6 +295,40 @@ Repository analysis and policy behavior must continue to come from the shared co
 
 The App service must use repository-only preflight mode. Local tool availability on the App host is deployment infrastructure, not evidence about the inspected repository.
 
+## Promoting a verified development App to public
+
+Promote the **existing** development App after a real installed-repository end-to-end run has reached a completed CWB Check Run. Do not create a second App or rotate the App private key/webhook secret solely for promotion.
+
+GitHub supports changing an existing App's name, description, permissions, webhook subscriptions, and visibility after registration. The promotion sequence is:
+
+1. Open **Settings → Developer settings → GitHub Apps → Edit** for the verified App.
+2. Under **Basic information**, replace the generated development name with a stable public-facing name. Keep the existing homepage URL, webhook URL, and callback URL unchanged, then save.
+3. Under **Permissions & events**, verify that repository permissions are still exactly:
+   - **Checks:** Read and write
+   - **Contents:** Read-only
+   - **Pull requests:** Read-only
+4. Under **Subscribe to events**, keep only:
+   - **Push**
+   - **Pull request**
+5. Open **Advanced**. In **Danger zone**, choose **Make public**.
+6. Open the App's **Public page**, choose **Install**, and use that page's installation link when sharing the App.
+
+GitHub Marketplace publication is optional; a public GitHub App can be shared directly through its installation link without a Marketplace listing.
+
+Important boundaries:
+
+- A public App can be installed by other GitHub users and organizations. Once it is installed on other accounts, GitHub does not allow it to be made private again until those external installations are removed.
+- Making the App public does **not** change the CWB free deployment's privacy boundary. The Cloudflare Free gateway still rejects private-repository events before queueing.
+- Making the App public does **not** increase repository permissions. Do not add contents write, pull-request write, organization, or account permissions for the current CWB flow.
+- Renaming or changing visibility does not require new Manifest-generated credentials; the deployed service continues to use the existing App identity and stored credentials.
+- Free-tier quotas remain the operational ceiling. This deployment must not opt into a paid Cloudflare Workers plan merely because more public repositories install the App.
+
+GitHub references:
+
+- [Modifying a GitHub App registration](https://docs.github.com/en/apps/maintaining-github-apps/modifying-a-github-app-registration)
+- [Making a GitHub App public or private](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/making-a-github-app-public-or-private)
+- [Sharing your GitHub App](https://docs.github.com/en/apps/sharing-github-apps/sharing-your-github-app)
+
 ## Manual boundary
 
 With the preferred free deployment and App Manifest flow, the authenticated GitHub action is reduced to creating the narrowly scoped workflow-dispatch token once, reviewing/naming the preconfigured development App, clicking **Create GitHub App**, and installing it on the selected test repository. The Manifest callback now carries an HMAC-signed one-hour `state`, avoiding reliance on callback cookies after the GitHub round trip. The manifest callback can receive GitHub's generated private key and webhook secret automatically.
