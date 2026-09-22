@@ -705,6 +705,37 @@ def _workspace_target_for_command(command: str) -> tuple[bool, str | None]:
     if manager == "yarn" and len(tokens) >= 3 and tokens[1] == "workspace":
         return True, tokens[2]
 
+    if manager == "npm":
+        targets: list[str] = []
+        index = 1
+        while index < len(tokens):
+            token = tokens[index]
+            if token == "--":
+                break
+            if token in {"--workspace", "-w"}:
+                if index + 1 < len(tokens):
+                    targets.append(tokens[index + 1])
+                else:
+                    targets.append("")
+                index += 2
+                continue
+            if token.startswith("--workspace="):
+                targets.append(token[len("--workspace="):])
+                index += 1
+                continue
+            if token.startswith("-w="):
+                targets.append(token[len("-w="):])
+                index += 1
+                continue
+            index += 1
+
+        if not targets:
+            return False, None
+        nonempty = [target for target in targets if target]
+        if len(nonempty) != 1 or len(targets) != 1:
+            return True, None
+        return True, nonempty[0]
+
     target_options = {"--filter", "-F", "--workspace", "-w"}
     target_long_options = {"--filter", "--workspace"}
     directory_options = {"--dir", "-C", "--prefix", "--cwd"}
