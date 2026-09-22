@@ -194,7 +194,7 @@ def _preview(paths: list[str], limit: int = 8) -> str:
     return f"{visible}{suffix}"
 
 
-def audit_repository(root: Path) -> list[Check]:
+def audit_repository(root: Path, *, include_local_toolchain: bool = True) -> list[Check]:
     root = root.resolve()
     checks: list[Check] = []
 
@@ -285,8 +285,9 @@ def audit_repository(root: Path) -> list[Check]:
         )
     )
 
-    for label, command in COMMON_TOOLS:
-        checks.append(_tool_check(label, command))
+    if include_local_toolchain:
+        for label, command in COMMON_TOOLS:
+            checks.append(_tool_check(label, command))
 
     if (root / "package.json").is_file() and not (root / "package.json").is_symlink():
         managers = detect_node_package_managers(root)
@@ -300,9 +301,10 @@ def audit_repository(root: Path) -> list[Check]:
                         + ", ".join(sorted(managers)),
                     )
                 )
-            for manager in sorted(managers):
-                command = NODE_PACKAGE_MANAGER_COMMANDS[manager]
-                checks.append(_tool_check(manager, command))
+            if include_local_toolchain:
+                for manager in sorted(managers):
+                    command = NODE_PACKAGE_MANAGER_COMMANDS[manager]
+                    checks.append(_tool_check(manager, command))
         else:
             checks.append(
                 Check(
