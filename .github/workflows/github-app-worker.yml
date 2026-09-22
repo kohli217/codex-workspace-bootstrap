@@ -7,6 +7,10 @@ on:
         description: Base64url-encoded normalized GitHub webhook target
         required: true
         type: string
+      token_endpoint:
+        description: Audience-bound Cloudflare installation-token broker URL
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -24,5 +28,5 @@ jobs:
       - name: Run queued GitHub App scan
         env:
           CWB_SCAN_PAYLOAD: ${{ inputs.payload }}
-          CWB_TOKEN_ENDPOINT: ${{ vars.CWB_TOKEN_ENDPOINT }}
+          CWB_TOKEN_ENDPOINT: ${{ inputs.token_endpoint }}
         run: python -m codex_workspace_bootstrap.integrations.github_actions_worker
