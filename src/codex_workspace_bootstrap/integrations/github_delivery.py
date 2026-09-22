@@ -12,6 +12,7 @@ from .github import GitHubCheckResult
 GITHUB_API_BASE_URL = "https://api.github.com"
 GITHUB_API_VERSION = "2026-03-10"
 GITHUB_ACCEPT = "application/vnd.github+json"
+GITHUB_USER_AGENT = "codex-workspace-bootstrap"
 
 
 class GitHubDeliveryContractError(ValueError):
@@ -102,6 +103,7 @@ def _headers(token: str) -> dict[str, str]:
     return {
         "Accept": GITHUB_ACCEPT,
         "Authorization": f"Bearer {token}",
+        "User-Agent": GITHUB_USER_AGENT,
         "X-GitHub-Api-Version": GITHUB_API_VERSION,
     }
 
