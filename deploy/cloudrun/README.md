@@ -14,6 +14,8 @@ The ingress verifies the GitHub webhook signature, normalizes only the required 
 
 The worker is not public. Pub/Sub invokes it with Cloud Run IAM authentication. A failed worker request returns a non-2xx response so Pub/Sub can redeliver it.
 
+Pub/Sub delivery is at-least-once. CWB carries GitHub's `X-GitHub-Delivery` value into the queue and stores it as the GitHub Check Run `external_id`. If the same queued delivery is retried after its Check Run completed, the worker reuses that result instead of scanning and posting a duplicate Check again.
+
 ## Why this deployment
 
 - Cloud Run can scale to zero when idle.
