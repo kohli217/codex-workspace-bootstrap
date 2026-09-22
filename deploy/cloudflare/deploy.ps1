@@ -1,6 +1,7 @@
 param(
     [string]$WorkerName = "cwb-github-free",
-    [string]$QueueName = "cwb-github-scans"
+    [string]$QueueName = "cwb-github-scans",
+    [switch]$ToolchainOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -84,6 +85,18 @@ $env:npm_config_cache = Join-Path $ToolsRoot "npm-cache"
 
 $nodeVersion = (& $script:CwbNode --version).Trim()
 Write-Host "Using CWB-local Node.js $nodeVersion"
+
+$wranglerOutput = (& $script:CwbNpx --yes "wrangler@$WranglerVersion" --version 2>&1)
+if ($LASTEXITCODE -ne 0) {
+    $wranglerOutput | Out-Host
+    throw "CWB-local Wrangler smoke test failed."
+}
+Write-Host "Using CWB-local Wrangler $($wranglerOutput -join ' ')"
+
+if ($ToolchainOnly) {
+    Write-Host "CWB-local Windows Wrangler toolchain smoke test: PASS"
+    exit 0
+}
 
 function Invoke-Wrangler {
     param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)
