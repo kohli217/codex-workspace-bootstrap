@@ -6,7 +6,6 @@ const GITHUB_REPO = "codex-workspace-bootstrap";
 const GITHUB_WORKFLOW = "github-app-worker.yml";
 const GITHUB_REF = "main";
 const STATE_KEY = "github-app-credentials";
-const MANIFEST_STATE_PREFIX = "github-app-manifest-state:";
 const SETUP_TTL_SECONDS = 3600;
 const SETUP_FUTURE_SKEW_SECONDS = 300;
 const SUPPORTED_PR_ACTIONS = new Set([
@@ -147,25 +146,40 @@ function manifestFor(origin, name = "CWB Preflight Dev") {
   };
 }
 
-function manifestStateKey(state) {
-  return `${MANIFEST_STATE_PREFIX}${state}`;
+async function buildManifestState(
+  secret,
+  now = Math.floor(Date.now() / 1000),
+) {
+  const nonce = randomToken();
+  const unsigned = `v1.${now}.${nonce}`;
+  const signature = await hmacHex(secret, utf8(unsigned));
+  return `${unsigned}.${signature}`;
 }
 
-async function storeManifestState(env, state) {
-  await env.CWB_STATE.put(
-    manifestStateKey(state),
-    "pending",
-    { expirationTtl: SETUP_TTL_SECONDS },
-  );
-}
-
-async function manifestStateIsPending(env, state) {
+async function verifyManifestState(
+  secret,
+  state,
+  now = Math.floor(Date.now() / 1000),
+) {
   if (typeof state !== "string" || !state) return false;
-  return (await env.CWB_STATE.get(manifestStateKey(state))) === "pending";
-}
+  const parts = state.split(".");
+  if (parts.length !== 4 || parts[0] !== "v1" || !parts[2] || !parts[3]) {
+    return false;
+  }
 
-async function consumeManifestState(env, state) {
-  await env.CWB_STATE.delete(manifestStateKey(state));
+  const issuedAt = Number(parts[1]);
+  if (!Number.isInteger(issuedAt) || issuedAt <= 0) return false;
+  const age = now - issuedAt;
+  if (
+    age < -SETUP_FUTURE_SKEW_SECONDS ||
+    age > SETUP_TTL_SECONDS
+  ) {
+    return false;
+  }
+
+  const unsigned = parts.slice(0, 3).join(".");
+  const expected = await hmacHex(secret, utf8(unsigned));
+  return timingSafeEqual(expected, parts[3]);
 }
 
 function manifestPage(origin, state) {
@@ -538,8 +552,7 @@ async function dispatchWorkflow(env, queued) {
 async function handleSetup(request, env) {
   if (!setupAuthorized(request, env)) return htmlResponse(200, bootstrapPage());
   const origin = new URL(request.url).origin;
-  const state = randomToken();
-  await storeManifestState(env, state);
+  const state = await buildManifestState(env.CWB_SETUP_TOKEN);
   return htmlResponse(200, manifestPage(origin, state));
 }
 
@@ -560,12 +573,23 @@ async function handleSetupCallback(request, env) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
-  if (!code || !state || !(await manifestStateIsPending(env, state))) {
+  if (!code || !state) {
     return jsonResponse(400, { error: "invalid manifest callback" });
   }
+
+  const signedStateValid = await verifyManifestState(
+    env.CWB_SETUP_TOKEN,
+    state,
+  );
+  const legacyRecoveryAuthorized =
+    !signedStateValid && setupAuthorized(request, env);
+
+  if (!signedStateValid && !legacyRecoveryAuthorized) {
+    return jsonResponse(403, { error: "forbidden" });
+  }
+
   const credentials = await exchangeManifestCode(code);
   await storeCredentials(env, credentials);
-  await consumeManifestState(env, state);
   const slug = String(credentials.slug || "");
   const installation = slug
     ? `<p><a href="https://github.com/apps/${encodeURIComponent(slug)}/installations/new">Install this GitHub App</a> on one public test repository.</p>`
@@ -683,14 +707,14 @@ export {
   base64urlEncode,
   base64urlDecode,
   brokerGrant,
+  buildManifestState,
   manifestFor,
-  manifestStateIsPending,
   normalizeWebhook,
-  storeManifestState,
   pkcs1ToPkcs8,
   setupTokenIsValid,
   timingSafeEqual,
   validateQueuedTokenEndpoint,
+  verifyManifestState,
 };
 
 export default {
