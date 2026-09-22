@@ -9,6 +9,7 @@ This roadmap records intended work; it is not a promise of delivery dates.
 - add more reproducible examples for mixed-tool and multi-agent repositories
 - expand validation-command recognition where repository evidence can support it safely
 - keep CLI, GitHub Action, release metadata, and documentation behavior aligned through regression tests
+- keep the machine-readable preflight contract stable for external adapters
 - continue supply-chain hardening without making solo-maintainer workflows impractical
 
 ## Recently completed
@@ -19,6 +20,7 @@ This roadmap records intended work; it is not a promise of delivery dates.
 - scope-aware instruction integrity checks for package-manager drift, missing scripts, and validation-command conflicts
 - safe fix preview with explicit `--apply`
 - JSON, Markdown, and SARIF reporting
+- versioned preflight report contract and shared policy evaluation for CLI, Action, and future adapters
 - reusable GitHub Action with Windows and Ubuntu self-tests, structured outputs, and an optional `require_ready` gate
 - PyPI Trusted Publishing through GitHub OIDC
 - CodeQL, Dependency Review, Dependabot, secret scanning, push protection, and protected `main`
@@ -38,6 +40,8 @@ This roadmap records intended work; it is not a promise of delivery dates.
 - additional repository-policy checks for maintainers
 - safer generation of CI configuration from detected repository evidence
 - broader SARIF interoperability and remediation metadata
+- a thin GitHub App adapter that maps the shared preflight report/policy to GitHub Check Runs
+- AI-agent skill adapters that run the same preflight contract before repository edits
 - optional assisted instruction drafting, only when explicitly requested and never by sending repository content remotely by default
 
 ## Non-goals
