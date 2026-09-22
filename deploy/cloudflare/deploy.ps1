@@ -135,14 +135,10 @@ if (-not $dispatchToken) {
     throw "GitHub dispatch token was empty."
 }
 
-$masterKey = New-RandomBase64Url -Bytes 32
 $issued = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
 $setupToken = "v1.$issued.$(New-RandomBase64Url -Bytes 32)"
 
-Write-Host "Uploading encrypted Worker secrets..."
-$masterKey | & npx --yes wrangler@4 secret put CWB_MASTER_KEY --config $ConfigPath | Out-Host
-if ($LASTEXITCODE -ne 0) { throw "Could not store CWB_MASTER_KEY." }
-
+Write-Host "Uploading Worker secrets..."
 $setupToken | & npx --yes wrangler@4 secret put CWB_SETUP_TOKEN --config $ConfigPath | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "Could not store CWB_SETUP_TOKEN." }
 
