@@ -63,3 +63,5 @@ The Manifest setup endpoint requires a bootstrap token before it will render or 
 The production image copies only the package metadata and `src/` tree, and `.dockerignore` excludes Git history, tests, local environments, reports, and common credential filenames from the Docker build context.
 
 The repository ignores common private-key and local-secret filenames, but ignore rules are not a substitute for secure credential storage.
+
+The Cloudflare GitHub App Manifest callback uses an HMAC-signed, one-hour `state` value derived from the one-hour setup secret. The callback verifies the signature and timestamp directly, so it does not depend on cross-site cookie delivery or eventually consistent KV reads after GitHub redirects back to the Worker. A compatibility-only recovery path for callbacks issued by older deployments still requires a currently valid setup session before the old one-time GitHub Manifest code can be exchanged.
