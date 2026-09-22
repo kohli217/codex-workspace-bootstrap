@@ -1343,3 +1343,71 @@ def test_gemini_alias_is_not_used_when_context_filename_excludes_gemini(
         for item in signals
     )
 
+
+def test_pnpm_exact_path_filter_uses_target_package_scripts(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"packageManager": "pnpm@10", "scripts": {}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    api = tmp_path / "api"
+    api.mkdir()
+    (api / "package.json").write_text(
+        json.dumps({"name": "@demo/api", "scripts": {"test": "vitest"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `pnpm --filter ./api test`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
+
+def test_pnpm_exact_path_filter_reports_missing_script_in_target(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"packageManager": "pnpm@10", "scripts": {"lint": "eslint root"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    api = tmp_path / "api"
+    api.mkdir()
+    (api / "package.json").write_text(
+        json.dumps({"name": "@demo/api", "scripts": {"test": "vitest"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `pnpm --filter ./api run lint`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    missing = [item for item in findings if item.kind == "missing-package-script"]
+    assert len(missing) == 1
+    assert "lint" in missing[0].message
+
+
+def test_pnpm_complex_path_filter_stays_unresolved(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"packageManager": "pnpm@10", "scripts": {}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    api = tmp_path / "api"
+    api.mkdir()
+    (api / "package.json").write_text(
+        json.dumps({"name": "@demo/api", "scripts": {}}),
+        encoding="utf-8",
+    )
+
+    for selector in ("./api...", "./packages/**", "./../outside"):
+        (tmp_path / "AGENTS.md").write_text(
+            f"Run `pnpm --filter '{selector}' run lint`.\n",
+            encoding="utf-8",
+        )
+        findings = lint_instructions(tmp_path)
+        assert not any(item.kind == "missing-package-script" for item in findings), selector
+
