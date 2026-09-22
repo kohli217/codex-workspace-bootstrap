@@ -89,6 +89,20 @@ jobs:
             }
           }
           if ($failed) { exit 1 }
+      - name: Guard isolated Windows Wrangler toolchain
+        shell: pwsh
+        run: |
+          $deploy = Get-Content "deploy/cloudflare/deploy.ps1" -Raw
+          $rotate = Get-Content "deploy/cloudflare/rotate-setup-token.ps1" -Raw
+          if ($deploy -notmatch "latest-v22\.x" -or $deploy -notmatch "SHASUMS256\.txt") {
+            throw "deploy.ps1 must download and checksum-verify the isolated Node.js 22 toolchain."
+          }
+          if ($deploy -notmatch 'WranglerVersion = "4\.136\.1"' -or $rotate -notmatch 'WranglerVersion = "4\.136\.1"') {
+            throw "Cloudflare deployment scripts must use the pinned Wrangler version."
+          }
+          if ($deploy -match "& npx\s" -or $rotate -match "& npx\s") {
+            throw "Cloudflare deployment scripts must not fall back to the machine-wide npx."
+          }
       - name: Build Cloud Run container
         run: docker build --tag cwb-cloud-run:test .
       - name: Verify ingress container health
