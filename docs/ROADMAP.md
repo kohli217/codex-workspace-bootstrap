@@ -29,6 +29,7 @@ This roadmap records intended work; it is not a promise of delivery dates.
 - deterministic GitHub App JWT / installation-token / Check Run delivery request contract using the current REST API version
 - hardened exact-revision Git checkout for push, pull request, and fork pull-request inspection without repository code execution
 - dependency-free GitHub App worker runtime for RS256 signing, least-privilege token exchange, secure checkout, preflight, and Check Run publication
+- GitHub App Manifest generation/callback contract so development registration reuses the code-level permission and webhook configuration
 - reusable GitHub Action with Windows and Ubuntu self-tests, structured outputs, and an optional `require_ready` gate
 - PyPI Trusted Publishing through GitHub OIDC
 - CodeQL, Dependency Review, Dependabot, secret scanning, push protection, and protected `main`
