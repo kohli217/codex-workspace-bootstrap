@@ -106,7 +106,7 @@ No GitHub App private key needs to be copied into PowerShell or ChatGPT.
 
 A Cloudflare account must register its account-level `workers.dev` subdomain once before the first Worker can be published there. Current Wrangler versions no longer provide a `wrangler subdomain` command; Cloudflare requires this one-time step in the dashboard.
 
-If deployment reaches this boundary, the script detects Cloudflare's onboarding URL, opens it in the default browser, and stops with a resumable message. Complete the free `workers.dev` subdomain registration in the browser, then rerun `deploy.ps1`. Existing KV namespaces, Queue resources, and uploaded Worker secrets are reused.
+If deployment reaches this boundary, the script detects the condition and opens the current **Workers & Pages** dashboard instead of Wrangler's now-stale `/workers/onboarding` URL. In Workers & Pages, use **Your subdomain → Change** to register the free `workers.dev` subdomain, then rerun `deploy.ps1`. Existing KV namespaces, Queue resources, and uploaded Worker secrets are reused.
 
 ## GitHub App registration
 
