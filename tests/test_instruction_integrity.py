@@ -1411,3 +1411,114 @@ def test_pnpm_complex_path_filter_stays_unresolved(tmp_path: Path) -> None:
         findings = lint_instructions(tmp_path)
         assert not any(item.kind == "missing-package-script" for item in findings), selector
 
+
+def test_extract_commands_stays_stable_for_cd_package_chain() -> None:
+    commands = extract_commands("Run `cd frontend && pnpm test`.")
+
+    assert commands == ["pnpm test"]
+
+
+def test_cd_context_uses_target_package_scripts(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"packageManager": "pnpm@10", "scripts": {"lint": "eslint ."}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    frontend = tmp_path / "frontend"
+    frontend.mkdir()
+    (frontend / "package.json").write_text(
+        json.dumps({"packageManager": "pnpm@10", "scripts": {"test": "vitest"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `cd frontend && pnpm test`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
+
+def test_cd_context_reports_missing_script_in_target(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"packageManager": "pnpm@10", "scripts": {"test": "vitest root"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    frontend = tmp_path / "frontend"
+    frontend.mkdir()
+    (frontend / "package.json").write_text(
+        json.dumps({"packageManager": "pnpm@10", "scripts": {"lint": "eslint ."}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `cd frontend && pnpm test`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    missing = [item for item in findings if item.kind == "missing-package-script"]
+    assert len(missing) == 1
+    assert "after cd 'frontend'" in missing[0].message
+
+
+def test_quoted_cd_context_uses_target_package_scripts(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"packageManager": "npm@11", "scripts": {}}),
+        encoding="utf-8",
+    )
+    frontend = tmp_path / "frontend app"
+    frontend.mkdir()
+    (frontend / "package.json").write_text(
+        json.dumps({"scripts": {"test": "vitest"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        'Run `cd "frontend app" && npm test`.\n',
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
+
+def test_unsafe_cd_context_does_not_fall_back_to_root_scripts(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"packageManager": "pnpm@10", "scripts": {}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `cd ../outside && pnpm test`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
+
+def test_cd_context_with_nested_package_routing_stays_unresolved(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"packageManager": "pnpm@10", "scripts": {}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    frontend = tmp_path / "frontend"
+    frontend.mkdir()
+    (frontend / "package.json").write_text(
+        json.dumps({"scripts": {}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `cd frontend && pnpm --filter ./app run test`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
