@@ -69,6 +69,26 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Validate Cloud Run deployment scripts
         run: bash -n deploy/cloudrun/*.sh
+      - name: Test free Cloudflare gateway
+        run: node --test deploy/cloudflare/test/*.test.mjs
+      - name: Validate free Windows deployment scripts
+        shell: pwsh
+        run: |
+          $failed = $false
+          foreach ($path in @("deploy/cloudflare/deploy.ps1", "deploy/cloudflare/rotate-setup-token.ps1")) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              $path,
+              [ref]$tokens,
+              [ref]$errors
+            ) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error $_.Message }
+              $failed = $true
+            }
+          }
+          if ($failed) { exit 1 }
       - name: Build Cloud Run container
         run: docker build --tag cwb-cloud-run:test .
       - name: Verify ingress container health
