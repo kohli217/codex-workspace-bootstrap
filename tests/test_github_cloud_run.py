@@ -14,6 +14,7 @@ from codex_workspace_bootstrap.integrations.github_cloud_run import (
     enqueue_github_webhook,
     parse_pubsub_push,
     publish_queued_scan,
+    render_setup_bootstrap_page,
     run_queued_scan,
     store_manifest_credentials,
     _safe_header_value,
@@ -264,3 +265,15 @@ def test_response_header_values_reject_line_breaks() -> None:
 
     with pytest.raises(CloudRunAppError, match="line break"):
         _safe_header_value("unsafe\r\nInjected: yes")
+
+
+
+def test_setup_bootstrap_keeps_secret_in_fragment_and_posts_body() -> None:
+    page = render_setup_bootstrap_page()
+
+    assert "location.hash" in page
+    assert "location.search" not in page
+    assert "/setup/github/session" in page
+    assert "application/x-www-form-urlencoded" in page
+    assert "cwb_setup=" not in page
+    assert "token=" not in page
