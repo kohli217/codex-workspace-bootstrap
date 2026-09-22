@@ -166,6 +166,7 @@ if (-not $urlMatch.Success) {
 }
 
 $workerUrl = $urlMatch.Value.TrimEnd("/")
+$workerUrl | Set-Content -Path (Join-Path $Root ".worker-url") -Encoding UTF8
 Write-Host ""
 Write-Host "CWB free GitHub App gateway is deployed."
 Write-Host "Worker: $workerUrl"
