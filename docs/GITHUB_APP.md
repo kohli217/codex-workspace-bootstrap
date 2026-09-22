@@ -227,6 +227,21 @@ The runtime uses Python's standard-library HTTPS client. It does not depend on P
 
 **Do not run this full worker inline before acknowledging the webhook.** GitHub expects webhook servers to return a 2xx response within 10 seconds. Production ingress should verify/rout the webhook, enqueue the normalized target, return 2xx, and let this worker perform checkout/scanning/API calls separately.
 
+## Cloud Run + Pub/Sub deployment
+
+A deployable production shell is available in [deploy/cloudrun](../deploy/cloudrun/README.md).
+
+It uses two Cloud Run services built from the same container:
+
+- a public `ingress` service that verifies GitHub signatures, handles the protected App Manifest setup flow, and publishes normalized scan targets;
+- a private `worker` service invoked only through authenticated Pub/Sub push delivery.
+
+The ingress does not receive the GitHub App private key. The worker does not receive the webhook secret or Manifest setup token.
+
+The Manifest callback stores the generated client ID, private key, and webhook secret directly into Secret Manager. The private key and client ID are mounted only into the worker, while the webhook secret is mounted only into the ingress.
+
+The deployment script creates dedicated service identities and an authenticated Pub/Sub push subscription. A failed worker response remains retryable through Pub/Sub instead of being lost in an in-memory background task.
+
 ## End-to-end flow
 
 ```text
