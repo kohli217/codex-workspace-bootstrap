@@ -1094,6 +1094,19 @@ def _exact_pnpm_path_filter_script_names(root: Path, target: str) -> set[str] | 
     return _directory_script_names(root, value)
 
 
+def _exact_npm_workspace_directory_script_names(
+    root: Path,
+    target: str,
+) -> set[str] | None:
+    value = target.strip().replace("\\", "/")
+    if not value:
+        return None
+    if any(token in value for token in ("*", "?", "[", "]", "{", "}")):
+        return None
+
+    return _directory_script_names(root, value)
+
+
 def _workspace_script_names(root: Path, target: str) -> set[str] | None:
     matches: list[set[str]] = []
     for directory, _dirnames, filenames in _walk_repository(root):
@@ -1150,9 +1163,21 @@ def _script_names_for_command(root: Path, scope: str, command: str) -> set[str] 
     if has_workspace_target:
         if workspace_target is None:
             return None
-        if _manager_for_command(command) == "pnpm" and workspace_target.startswith("./"):
+
+        manager = _manager_for_command(command)
+        if manager == "pnpm" and workspace_target.startswith("./"):
             return _exact_pnpm_path_filter_script_names(root, workspace_target)
-        return _workspace_script_names(root, workspace_target)
+
+        scripts = _workspace_script_names(root, workspace_target)
+        if scripts is not None:
+            return scripts
+
+        if manager == "npm":
+            return _exact_npm_workspace_directory_script_names(
+                root,
+                workspace_target,
+            )
+        return None
 
     if _is_pnpm_recursive_command(command):
         # Recursive pnpm commands fan out over workspace projects. Without an
