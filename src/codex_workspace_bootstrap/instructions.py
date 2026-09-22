@@ -1119,6 +1119,19 @@ def _workspace_script_names(root: Path, target: str) -> set[str] | None:
     return matches[0]
 
 
+def _is_pnpm_recursive_command(command: str) -> bool:
+    tokens = _package_command_tokens(command.strip())
+    if not tokens or tokens[0].lower() != "pnpm":
+        return False
+
+    for token in tokens[1:]:
+        if token == "--":
+            break
+        if token in {"-r", "--recursive"}:
+            return True
+    return False
+
+
 def _script_names_for_command(root: Path, scope: str, command: str) -> set[str] | None:
     has_workspace_target, workspace_target = _workspace_target_for_command(command)
     if has_workspace_target:
@@ -1127,6 +1140,12 @@ def _script_names_for_command(root: Path, scope: str, command: str) -> set[str] 
         if _manager_for_command(command) == "pnpm" and workspace_target.startswith("./"):
             return _exact_pnpm_path_filter_script_names(root, workspace_target)
         return _workspace_script_names(root, workspace_target)
+
+    if _is_pnpm_recursive_command(command):
+        # Recursive pnpm commands fan out over workspace projects. Without an
+        # exact filter, a single root/nearest package.json is not sufficient
+        # evidence for whether the recursive script is valid.
+        return None
 
     has_directory_target, directory_target = _directory_target_for_command(command)
     if has_directory_target:
@@ -1151,6 +1170,8 @@ def _script_names_for_context(
     has_workspace_target, _workspace_target = _workspace_target_for_command(context.command)
     has_directory_target, _directory_target = _directory_target_for_command(context.command)
     if has_workspace_target or has_directory_target:
+        return None
+    if _is_pnpm_recursive_command(context.command):
         return None
 
     return _directory_script_names(root, context.cwd)
