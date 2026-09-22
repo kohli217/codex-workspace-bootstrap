@@ -94,3 +94,33 @@ def test_public_pattern_vscode_brace_wrapped_apply_to_keeps_static_scope(tmp_pat
 
     assert signal.kind == "path-specific"
     assert signal.scope == "src/vs"
+
+
+def test_public_pattern_fit_framework_gemini_reads_agents_md(tmp_path: Path) -> None:
+    """Pattern observed in ModelEngine-Group/fit-framework at e2f285d: Gemini reads AGENTS.md."""
+    gemini = tmp_path / ".gemini"
+    gemini.mkdir()
+    (gemini / "settings.json").write_text(
+        json.dumps({"context": {"fileName": ["AGENTS.md"]}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Validate with `mvn clean install`.\n",
+        encoding="utf-8",
+    )
+
+    signals = detect_instruction_signals(tmp_path)
+
+    assert any(
+        item.tool == "Codex / OpenAI agents" and item.path == "AGENTS.md"
+        for item in signals
+    )
+    assert any(
+        item.tool == "Gemini CLI" and item.path == "AGENTS.md"
+        for item in signals
+    )
+    assert not any(
+        item.tool == "Gemini CLI" and item.path == "GEMINI.md"
+        for item in signals
+    )
+
