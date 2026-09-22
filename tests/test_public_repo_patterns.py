@@ -539,3 +539,54 @@ def test_public_pattern_react_auth_pnpm_recursive_skips_root_script_requirement(
 
     assert not any(item.kind == "missing-package-script" for item in findings)
 
+
+def test_public_pattern_private_hosting_npm_workspaces_skips_root_script_requirement(
+    tmp_path: Path,
+) -> None:
+    """Pattern observed in KutyAI/Private-Hosting-App at 9aa90fb."""
+    (tmp_path / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "mc-hosting-platform",
+                "workspaces": ["apps/*", "packages/*"],
+                "scripts": {
+                    "build": "npm run build --workspaces",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    packages = (
+        ("apps/backend-api", "@mc-host/backend-api", "jest --passWithNoTests"),
+        ("apps/desktop-ui", "@mc-host/desktop-ui", "vitest run"),
+        ("apps/host-agent", "@mc-host/host-agent", "jest --passWithNoTests"),
+        (
+            "apps/relay-service",
+            "@mc-host/relay-service",
+            'echo "No tests declared for relay-service"',
+        ),
+        ("packages/shared-types", "@mc-host/shared-types", "jest --passWithNoTests"),
+    )
+    for directory, name, test_script in packages:
+        package = tmp_path / directory
+        package.mkdir(parents=True)
+        (package / "package.json").write_text(
+            json.dumps(
+                {
+                    "name": name,
+                    "scripts": {
+                        "test": test_script,
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run all tests with `npm test --workspaces`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
