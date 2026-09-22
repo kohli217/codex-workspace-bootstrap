@@ -24,6 +24,7 @@ This roadmap records intended work; it is not a promise of delivery dates.
 - network-free GitHub Check adapter with schema validation and shared policy/result mapping
 - constant-time GitHub webhook signature verification plus PR/push event normalization
 - code-level minimum GitHub App permission/event contract plus a maintainer registration runbook
+- repository-only preflight mode so remote App scans do not inherit the scanner host's toolchain state
 - reusable GitHub Action with Windows and Ubuntu self-tests, structured outputs, and an optional `require_ready` gate
 - PyPI Trusted Publishing through GitHub OIDC
 - CodeQL, Dependency Review, Dependabot, secret scanning, push protection, and protected `main`
