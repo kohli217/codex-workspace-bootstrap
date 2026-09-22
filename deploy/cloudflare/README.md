@@ -64,7 +64,7 @@ When a scan starts:
 5. Cloudflare creates an installation token restricted to only the event repository and only `contents:read` + `checks:write`.
 6. The Actions runner uses that short-lived token for checkout and Check Run publication.
 
-The only long-lived GitHub credential supplied manually is a fine-grained personal access token used by Cloudflare solely to start this repository's worker workflow. Scope it to **only** `kohli217/codex-workspace-bootstrap` with **Actions: Read and write**.
+The only long-lived GitHub credential supplied manually is a fine-grained personal access token scoped to **only** `kohli217/codex-workspace-bootstrap` with **Actions: Read and write** and **Variables: Read and write**. The deployment script uses Variables write once to pin the trusted `CWB_TOKEN_ENDPOINT`; the deployed Worker uses the token only for `workflow_dispatch`.
 
 ## Windows deployment
 
@@ -72,7 +72,7 @@ Prerequisites:
 
 - a free Cloudflare account;
 - Node.js 18 or newer;
-- a fine-grained GitHub personal access token limited to this repository with **Actions: Read and write**.
+- a fine-grained GitHub personal access token limited to this repository with **Actions: Read and write** and **Variables: Read and write**.
 
 From PowerShell:
 
@@ -93,7 +93,8 @@ The script:
 7. generates a one-hour setup bootstrap secret locally;
 8. stores the setup/dispatch values as Worker secrets;
 9. deploys the Worker to `workers.dev`;
-10. prints the protected GitHub App setup URL.
+10. pins that exact `/tokens/github` endpoint into the repository's `CWB_TOKEN_ENDPOINT` Actions variable;
+11. prints the protected GitHub App setup URL.
 
 No GitHub App private key needs to be copied into PowerShell or ChatGPT.
 
