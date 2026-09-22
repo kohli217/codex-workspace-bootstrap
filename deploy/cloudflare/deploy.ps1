@@ -82,29 +82,77 @@ $nodeTools = Get-CwbNodeTools
 $script:CwbNode = $nodeTools.Node
 $script:CwbNpx = $nodeTools.Npx
 $env:npm_config_cache = Join-Path $ToolsRoot "npm-cache"
+$env:npm_config_update_notifier = "false"
+$env:NO_UPDATE_NOTIFIER = "1"
 
-$nodeVersion = (& $script:CwbNode --version).Trim()
-Write-Host "Using CWB-local Node.js $nodeVersion"
+function Invoke-WranglerCapture {
+    param([string[]]$Arguments)
 
-$wranglerOutput = (& $script:CwbNpx --yes "wrangler@$WranglerVersion" --version 2>&1)
-if ($LASTEXITCODE -ne 0) {
-    $wranglerOutput | Out-Host
-    throw "CWB-local Wrangler smoke test failed."
-}
-Write-Host "Using CWB-local Wrangler $($wranglerOutput -join ' ')"
+    # Windows PowerShell 5.1 converts native stderr merged with 2>&1 into
+    # NativeCommandError records. With ErrorActionPreference=Stop, harmless
+    # npm notices can therefore terminate the deployment. Keep native stderr
+    # non-terminating inside this narrow wrapper and judge success by exit code.
+    $previousPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        $output = @(
+            & $script:CwbNpx --yes "wrangler@$WranglerVersion" @Arguments 2>&1
+        )
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousPreference
+    }
 
-if ($ToolchainOnly) {
-    Write-Host "CWB-local Windows Wrangler toolchain smoke test: PASS"
-    exit 0
+    return [PSCustomObject]@{
+        ExitCode = $exitCode
+        Lines = @($output | ForEach-Object { $_.ToString() })
+    }
 }
 
 function Invoke-Wrangler {
     param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)
 
-    & $script:CwbNpx --yes "wrangler@$WranglerVersion" @Arguments
-    if ($LASTEXITCODE -ne 0) {
+    $result = Invoke-WranglerCapture -Arguments $Arguments
+    $result.Lines | Out-Host
+    if ($result.ExitCode -ne 0) {
         throw "Wrangler command failed: $($Arguments -join ' ')"
     }
+}
+
+function Set-WranglerSecret {
+    param(
+        [string]$Name,
+        [string]$Value
+    )
+
+    $previousPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        $Value | & $script:CwbNpx --yes "wrangler@$WranglerVersion" secret put $Name --config $ConfigPath | Out-Host
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousPreference
+    }
+    if ($exitCode -ne 0) {
+        throw "Could not store Wrangler secret $Name."
+    }
+}
+
+$nodeVersion = (& $script:CwbNode --version).Trim()
+Write-Host "Using CWB-local Node.js $nodeVersion"
+
+$wranglerVersionResult = Invoke-WranglerCapture -Arguments @("--version")
+if ($wranglerVersionResult.ExitCode -ne 0) {
+    $wranglerVersionResult.Lines | Out-Host
+    throw "CWB-local Wrangler smoke test failed."
+}
+Write-Host "Using CWB-local Wrangler $($wranglerVersionResult.Lines -join ' ')"
+
+if ($ToolchainOnly) {
+    Write-Host "CWB-local Windows Wrangler toolchain smoke test: PASS"
+    exit 0
 }
 
 function New-RandomBase64Url {
@@ -153,15 +201,17 @@ function Set-GitHubRepositoryVariable {
 }
 
 Write-Host "Checking Cloudflare authentication..."
-$whoami = & $script:CwbNpx --yes "wrangler@$WranglerVersion" whoami --json 2>$null
-if ($LASTEXITCODE -ne 0) {
+$whoamiResult = Invoke-WranglerCapture -Arguments @("whoami", "--json")
+if ($whoamiResult.ExitCode -ne 0) {
     Write-Host "Cloudflare login is required. A browser window will open."
     Invoke-Wrangler login
-    $whoami = & $script:CwbNpx --yes "wrangler@$WranglerVersion" whoami --json
-    if ($LASTEXITCODE -ne 0) {
+    $whoamiResult = Invoke-WranglerCapture -Arguments @("whoami", "--json")
+    if ($whoamiResult.ExitCode -ne 0) {
+        $whoamiResult.Lines | Out-Host
         throw "Cloudflare authentication did not complete."
     }
 }
+$whoami = $whoamiResult.Lines
 
 $bootstrap = @{
     name = $WorkerName
@@ -173,18 +223,22 @@ $bootstrap | ConvertTo-Json -Depth 8 | Set-Content -Path $ConfigPath -Encoding U
 
 Write-Host "Ensuring Workers KV namespace..."
 $namespaceTitle = "$WorkerName-CWB_STATE"
-$kvListRaw = & $script:CwbNpx --yes "wrangler@$WranglerVersion" kv namespace list --config $ConfigPath
-if ($LASTEXITCODE -ne 0) {
+$kvListResult = Invoke-WranglerCapture -Arguments @("kv", "namespace", "list", "--config", $ConfigPath)
+if ($kvListResult.ExitCode -ne 0) {
+    $kvListResult.Lines | Out-Host
     throw "Could not list Cloudflare KV namespaces."
 }
+$kvListRaw = $kvListResult.Lines
 $kvList = ($kvListRaw -join [Environment]::NewLine) | ConvertFrom-Json
 $kv = $kvList | Where-Object { $_.title -eq $namespaceTitle } | Select-Object -First 1
 if (-not $kv) {
     Invoke-Wrangler kv namespace create CWB_STATE --config $ConfigPath
-    $kvListRaw = & $script:CwbNpx --yes "wrangler@$WranglerVersion" kv namespace list --config $ConfigPath
-    if ($LASTEXITCODE -ne 0) {
+    $kvListResult = Invoke-WranglerCapture -Arguments @("kv", "namespace", "list", "--config", $ConfigPath)
+    if ($kvListResult.ExitCode -ne 0) {
+        $kvListResult.Lines | Out-Host
         throw "Could not re-read Cloudflare KV namespaces."
     }
+    $kvListRaw = $kvListResult.Lines
     $kvList = ($kvListRaw -join [Environment]::NewLine) | ConvertFrom-Json
     $kv = $kvList | Where-Object {
         $_.title -eq $namespaceTitle
@@ -195,10 +249,12 @@ if (-not $kv -or -not $kv.id) {
 }
 
 Write-Host "Ensuring Cloudflare Queue..."
-$queueList = (& $script:CwbNpx --yes "wrangler@$WranglerVersion" queues list --config $ConfigPath 2>&1) -join [Environment]::NewLine
-if ($LASTEXITCODE -ne 0) {
+$queueListResult = Invoke-WranglerCapture -Arguments @("queues", "list", "--config", $ConfigPath)
+if ($queueListResult.ExitCode -ne 0) {
+    $queueListResult.Lines | Out-Host
     throw "Could not list Cloudflare Queues."
 }
+$queueList = $queueListResult.Lines -join [Environment]::NewLine
 if ($queueList -notmatch [regex]::Escape($QueueName)) {
     Invoke-Wrangler queues create $QueueName --message-retention-period-secs 86400 --config $ConfigPath
 }
@@ -259,19 +315,16 @@ $issued = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
 $setupToken = "v1.$issued.$(New-RandomBase64Url -Bytes 32)"
 
 Write-Host "Uploading Worker secrets..."
-$setupToken | & $script:CwbNpx --yes "wrangler@$WranglerVersion" secret put CWB_SETUP_TOKEN --config $ConfigPath | Out-Host
-if ($LASTEXITCODE -ne 0) { throw "Could not store CWB_SETUP_TOKEN." }
-
-$dispatchToken | & $script:CwbNpx --yes "wrangler@$WranglerVersion" secret put CWB_DISPATCH_TOKEN --config $ConfigPath | Out-Host
-if ($LASTEXITCODE -ne 0) { throw "Could not store CWB_DISPATCH_TOKEN." }
+Set-WranglerSecret -Name "CWB_SETUP_TOKEN" -Value $setupToken
+Set-WranglerSecret -Name "CWB_DISPATCH_TOKEN" -Value $dispatchToken
 Write-Host "Deploying free Cloudflare Worker..."
-$deployOutput = (& $script:CwbNpx --yes "wrangler@$WranglerVersion" deploy --config $ConfigPath 2>&1)
-$deployOutput | Out-Host
-if ($LASTEXITCODE -ne 0) {
+$deployResult = Invoke-WranglerCapture -Arguments @("deploy", "--config", $ConfigPath)
+$deployResult.Lines | Out-Host
+if ($deployResult.ExitCode -ne 0) {
     throw "Cloudflare Worker deployment failed."
 }
 
-$deployText = $deployOutput -join [Environment]::NewLine
+$deployText = $deployResult.Lines -join [Environment]::NewLine
 $urlMatch = [regex]::Match(
     $deployText,
     "https://[A-Za-z0-9-]+\.[A-Za-z0-9.-]+\.workers\.dev"
