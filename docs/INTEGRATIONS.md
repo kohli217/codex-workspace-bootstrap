@@ -76,9 +76,31 @@ summary = render_markdown(report)
 
 A GitHub App can use the generated Markdown as the basis for a Check Run summary instead of inventing a second report format.
 
-## Intended GitHub App adapter
+## GitHub Check adapter
 
-A future GitHub App should remain a thin delivery adapter:
+The package includes a network-free adapter that converts a supported preflight report into GitHub Check Run fields:
+
+```python
+from codex_workspace_bootstrap.integrations.github import build_github_check
+
+check = build_github_check(
+    report,
+    strict=True,
+    fail_on_integrity=True,
+    require_ready=False,
+)
+
+fields = check.to_check_run_fields()
+# A GitHub App adds its commit head_sha when creating the Check Run.
+```
+
+The adapter rejects unsupported `schema_version` values instead of silently interpreting them. Policy failures map to a `failure` conclusion, READY maps to `success`, and policy-allowed non-READY states map to `neutral`.
+
+It performs no network requests and does not require GitHub credentials.
+
+## Intended GitHub App service
+
+A future GitHub App should remain a thin delivery layer:
 
 ```text
 GitHub webhook
@@ -87,14 +109,12 @@ checkout/read repository
     ↓
 build_preflight(...)
     ↓
-evaluate_preflight_policy(...)
+build_github_check(...)
     ↓
-render_markdown(...)
-    ↓
-GitHub Check Run
+GitHub Check Run API
 ```
 
-The App should not duplicate repository detection, instruction linting, readiness-state logic, or policy gating.
+The App should not duplicate repository detection, instruction linting, readiness-state logic, policy gating, or Check result mapping.
 
 ## Intended AI-skill adapter
 
