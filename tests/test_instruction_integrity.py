@@ -1950,3 +1950,133 @@ def test_cd_context_npm_workspaces_does_not_use_cwd_package_only(
 
     assert not any(item.kind == "missing-package-script" for item in findings)
 
+
+def test_npm_workspace_directory_selector_uses_target_package_scripts(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps(
+            {
+                "workspaces": ["packages/backend"],
+                "scripts": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+    backend = tmp_path / "packages" / "backend"
+    backend.mkdir(parents=True)
+    (backend / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "@demo/backend",
+                "scripts": {"test": "vitest"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `npm --workspace=packages/backend test`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
+
+def test_npm_workspace_directory_selector_reports_missing_target_script(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps(
+            {
+                "workspaces": ["packages/backend"],
+                "scripts": {"test": "vitest root"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    backend = tmp_path / "packages" / "backend"
+    backend.mkdir(parents=True)
+    (backend / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "@demo/backend",
+                "scripts": {"build": "tsc"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `npm --workspace packages/backend test`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    missing = [item for item in findings if item.kind == "missing-package-script"]
+    assert len(missing) == 1
+    assert "test" in missing[0].message
+
+
+def test_npm_workspace_package_name_resolution_still_wins_over_directory_fallback(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"workspaces": ["packages/*"], "scripts": {}}),
+        encoding="utf-8",
+    )
+    named = tmp_path / "packages" / "core"
+    named.mkdir(parents=True)
+    (named / "package.json").write_text(
+        json.dumps({"name": "@demo/core", "scripts": {"test": "vitest"}}),
+        encoding="utf-8",
+    )
+    misleading = tmp_path / "@demo" / "core"
+    misleading.mkdir(parents=True)
+    (misleading / "package.json").write_text(
+        json.dumps({"name": "not-the-workspace", "scripts": {}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `npm test --workspace=@demo/core`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
+
+def test_npm_unsafe_workspace_directory_selector_stays_unresolved(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"workspaces": ["packages/*"], "scripts": {}}),
+        encoding="utf-8",
+    )
+
+    for selector in ("../outside", "/tmp/outside", "packages/*"):
+        (tmp_path / "AGENTS.md").write_text(
+            f"Run `npm test --workspace={selector}`.\n",
+            encoding="utf-8",
+        )
+        findings = lint_instructions(tmp_path)
+        assert not any(item.kind == "missing-package-script" for item in findings), selector
+
+
+def test_npm_workspace_directory_selector_after_double_dash_is_script_argument(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"scripts": {}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `npm test -- --workspace=packages/backend`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    missing = [item for item in findings if item.kind == "missing-package-script"]
+    assert len(missing) == 1
+
