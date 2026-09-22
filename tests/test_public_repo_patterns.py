@@ -455,3 +455,45 @@ def test_public_pattern_coral_npm_post_script_prefix_uses_coral_ui(
 
     assert not any(item.kind == "missing-package-script" for item in findings)
 
+
+def test_public_pattern_marktoflow_pnpm_post_script_filter_uses_workspace(
+    tmp_path: Path,
+) -> None:
+    """Pattern observed in marktoflow/marktoflow at 707a57c."""
+    (tmp_path / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "marktoflow",
+                "packageManager": "pnpm@9.15.0",
+                "scripts": {
+                    "test": "turbo run test",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    for name in ("core", "integrations"):
+        package = tmp_path / "packages" / name
+        package.mkdir(parents=True)
+        (package / "package.json").write_text(
+            json.dumps(
+                {
+                    "name": f"@marktoflow/{name}",
+                    "scripts": {
+                        "test": "vitest run",
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+    (tmp_path / "AGENTS.md").write_text(
+        "Core only: `pnpm test --filter=@marktoflow/core`.\n"
+        "Integrations only: `pnpm test --filter=@marktoflow/integrations`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
