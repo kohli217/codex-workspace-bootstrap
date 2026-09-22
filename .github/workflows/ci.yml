@@ -38,6 +38,8 @@ jobs:
         run: pytest -q
       - name: Run reproducible first-run demo
         run: python examples/first-run-demo/run_demo.py
+      - name: Run reproducible scoped monorepo demo
+        run: python examples/scoped-monorepo-demo/run_demo.py
       - name: Run self-preflight
         run: python -m codex_workspace_bootstrap preflight . --markdown preflight.md --fail-on-integrity
       - name: Preview safe fixes
