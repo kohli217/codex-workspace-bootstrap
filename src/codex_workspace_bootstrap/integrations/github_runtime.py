@@ -206,42 +206,18 @@ def _existing_completed_check_run(
     return None
 
 
-def execute_github_scan(
+def execute_github_scan_with_token(
     target: GitHubWebhookTarget,
     *,
-    client_id: str,
-    private_key_path: Path,
+    installation_token: str,
     workspace_parent: Path | None = None,
-    now: int | None = None,
     external_id: str | None = None,
     send_request: Callable[[GitHubApiRequest], GitHubApiResponse] = send_github_api_request,
 ) -> GitHubScanResult:
-    """Run one already-verified webhook scan as a queue/worker operation."""
+    """Run one verified webhook scan with an already-scoped installation token."""
 
-    installation_id = target.installation_id
-    if installation_id is None:
-        raise GitHubAppRuntimeError(
-            "GitHub App webhook target is missing installation_id"
-        )
-
-    unix_time = int(time.time()) if now is None else now
-    app_jwt = build_github_app_jwt(
-        client_id=client_id,
-        now=unix_time,
-        signer=lambda value: openssl_rs256_sign(
-            private_key_path,
-            value,
-        ),
-    )
-
-    token_response = send_request(
-        build_installation_token_request(
-            installation_id=installation_id,
-            app_jwt=app_jwt,
-            repository=target.repository,
-        )
-    )
-    installation_token = installation_token_from_response(token_response)
+    if not installation_token.strip():
+        raise GitHubAppRuntimeError("installation_token must not be empty")
 
     plan = build_github_checkout_plan(target)
 
@@ -308,3 +284,49 @@ def execute_github_scan(
             check_run_id=check_run_id,
             check_run_url=check_run_url,
         )
+
+
+def execute_github_scan(
+    target: GitHubWebhookTarget,
+    *,
+    client_id: str,
+    private_key_path: Path,
+    workspace_parent: Path | None = None,
+    now: int | None = None,
+    external_id: str | None = None,
+    send_request: Callable[[GitHubApiRequest], GitHubApiResponse] = send_github_api_request,
+) -> GitHubScanResult:
+    """Run one already-verified webhook scan as a queue/worker operation."""
+
+    installation_id = target.installation_id
+    if installation_id is None:
+        raise GitHubAppRuntimeError(
+            "GitHub App webhook target is missing installation_id"
+        )
+
+    unix_time = int(time.time()) if now is None else now
+    app_jwt = build_github_app_jwt(
+        client_id=client_id,
+        now=unix_time,
+        signer=lambda value: openssl_rs256_sign(
+            private_key_path,
+            value,
+        ),
+    )
+
+    token_response = send_request(
+        build_installation_token_request(
+            installation_id=installation_id,
+            app_jwt=app_jwt,
+            repository=target.repository,
+        )
+    )
+    installation_token = installation_token_from_response(token_response)
+
+    return execute_github_scan_with_token(
+        target,
+        installation_token=installation_token,
+        workspace_parent=workspace_parent,
+        external_id=external_id,
+        send_request=send_request,
+    )
