@@ -11,6 +11,7 @@ import {
   manifestFor,
   normalizeWebhook,
   setupTokenIsValid,
+  validateQueuedTokenEndpoint,
 } from "../src/index.mjs";
 
 test("setup token expires after one hour", () => {
@@ -112,4 +113,23 @@ test("broker grant is deterministic and delivery-bound", async () => {
   assert.equal(first, same);
   assert.notEqual(first, changed);
   assert.match(first, /^[0-9a-f]{64}$/);
+});
+
+
+test("queued token endpoint is restricted to workers.dev broker path", () => {
+  assert.equal(
+    validateQueuedTokenEndpoint(
+      "https://cwb-github-free.kohli217.workers.dev/tokens/github",
+    ),
+    "https://cwb-github-free.kohli217.workers.dev/tokens/github",
+  );
+
+  for (const value of [
+    "http://cwb-github-free.kohli217.workers.dev/tokens/github",
+    "https://example.com/tokens/github",
+    "https://cwb-github-free.kohli217.workers.dev/other",
+    "https://cwb-github-free.kohli217.workers.dev/tokens/github?next=evil",
+  ]) {
+    assert.throws(() => validateQueuedTokenEndpoint(value));
+  }
 });
