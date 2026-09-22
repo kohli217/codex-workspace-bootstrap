@@ -246,9 +246,11 @@ GitHub webhook
 
 This design avoids a Google Cloud billing account. The ingress, durable queue, state storage, and broker use Cloudflare's Free plan, while the scan runs on standard GitHub-hosted Actions runners in this public repository.
 
+The zero-cost path is **public-repository-only**. The Cloudflare gateway rejects private-repository events before queueing so private repository metadata and code are never exposed to the public Actions worker.
+
 The Cloudflare Worker receives the App Manifest callback and stores the generated client ID, private key, and webhook secret in Workers KV. Cloudflare encrypts KV values at rest. The GitHub Actions runner never receives the App private key or webhook secret.
 
-For each scan, GitHub Actions obtains an OIDC token and calls the Worker token broker. The broker accepts only OIDC tokens for `kohli217/codex-workspace-bootstrap`, `refs/heads/main`, the `workflow_dispatch` event, and the exact `.github/workflows/github-app-worker.yml` workflow. It then returns a short-lived installation token scoped to the single event repository with only `contents:read` and `checks:write`.
+For each scan, GitHub Actions obtains an OIDC token and calls the Worker token broker. The broker accepts only OIDC tokens for `kohli217/codex-workspace-bootstrap`, `refs/heads/main`, the `workflow_dispatch` event, and the exact `.github/workflows/github-app-worker.yml` workflow. The request must also carry an HMAC broker grant created from the verified webhook and bound to the exact normalized scan target, including its commit SHA. Only then does the broker return a short-lived installation token scoped to the single event repository with only `contents:read` and `checks:write`.
 
 Cloudflare Queue remains in front of GitHub Actions because GitHub does not automatically redeliver failed webhook deliveries. If workflow dispatch is temporarily unavailable, the queue consumer retries instead of dropping the event.
 
