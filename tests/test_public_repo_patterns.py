@@ -124,3 +124,41 @@ def test_public_pattern_fit_framework_gemini_reads_agents_md(tmp_path: Path) -> 
         for item in signals
     )
 
+
+def test_public_pattern_d3plus_workspace_filter_uses_workspace_script(tmp_path: Path) -> None:
+    """Pattern observed in d3plus/d3plus at 2818442: root AGENTS targets @d3plus/core."""
+    (tmp_path / "package.json").write_text(
+        json.dumps(
+            {
+                "packageManager": "pnpm@11.10.0",
+                "scripts": {
+                    "test": "pnpm -r --if-present run test",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    core = tmp_path / "packages" / "core"
+    core.mkdir(parents=True)
+    (core / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "@d3plus/core",
+                "scripts": {
+                    "dev": "node ../../scripts/dev.js",
+                    "test": "mocha",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `pnpm --filter @d3plus/core run dev` for the core dev server.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
