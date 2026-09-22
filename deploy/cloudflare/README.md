@@ -2,6 +2,8 @@
 
 This is the preferred zero-cost development deployment for CWB.
 
+**This free path is intentionally limited to public repositories.** Private-repository webhook events are rejected by the Cloudflare gateway before they are queued, so private repository names, commit SHAs, or code are never handed to a public GitHub Actions run.
+
 It uses only services that have a usable free tier without enabling a paid Google Cloud project:
 
 ```text
@@ -58,8 +60,9 @@ When a scan starts:
    - branch `refs/heads/main`;
    - event `workflow_dispatch`;
    - exact workflow `.github/workflows/github-app-worker.yml`.
-4. Cloudflare creates an installation token restricted to only the event repository and only `contents:read` + `checks:write`.
-5. The Actions runner uses that short-lived token for checkout and Check Run publication.
+4. The queued webhook target carries an HMAC broker grant derived from the App webhook secret. The grant binds the delivery ID, event, repository, installation ID, exact commit SHA, pull-request metadata, merge SHA, and ref. A manually altered workflow input therefore cannot mint a token for a different scan target.
+5. Cloudflare creates an installation token restricted to only the event repository and only `contents:read` + `checks:write`.
+6. The Actions runner uses that short-lived token for checkout and Check Run publication.
 
 The only long-lived GitHub credential supplied manually is a fine-grained personal access token used by Cloudflare solely to start this repository's worker workflow. Scope it to **only** `kohli217/codex-workspace-bootstrap` with **Actions: Read and write**.
 
@@ -105,8 +108,10 @@ Then:
 1. review the preconfigured private development App;
 2. select **Create GitHub App**;
 3. let the callback store the generated credentials in Workers KV;
-4. install the App on one test repository;
+4. install the App on one **public** test repository;
 5. push a commit or open/update a pull request.
+
+If the App is later installed on a private repository, the free gateway returns an accepted-but-unsupported disposition and does not enqueue that repository into the public Actions worker.
 
 The App itself keeps the minimum registration permissions:
 
