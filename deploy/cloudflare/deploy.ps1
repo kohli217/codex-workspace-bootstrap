@@ -60,7 +60,7 @@ $kvListRaw = & npx --yes wrangler@4 kv namespace list --config $ConfigPath
 if ($LASTEXITCODE -ne 0) {
     throw "Could not list Cloudflare KV namespaces."
 }
-$kvList = $kvListRaw | ConvertFrom-Json
+$kvList = ($kvListRaw -join [Environment]::NewLine) | ConvertFrom-Json
 $kv = $kvList | Where-Object { $_.title -eq $namespaceTitle } | Select-Object -First 1
 if (-not $kv) {
     Invoke-Wrangler kv namespace create CWB_STATE --config $ConfigPath
@@ -68,9 +68,9 @@ if (-not $kv) {
     if ($LASTEXITCODE -ne 0) {
         throw "Could not re-read Cloudflare KV namespaces."
     }
-    $kvList = $kvListRaw | ConvertFrom-Json
+    $kvList = ($kvListRaw -join [Environment]::NewLine) | ConvertFrom-Json
     $kv = $kvList | Where-Object {
-        $_.title -eq $namespaceTitle -or $_.title -like "*CWB_STATE"
+        $_.title -eq $namespaceTitle
     } | Select-Object -First 1
 }
 if (-not $kv -or -not $kv.id) {
