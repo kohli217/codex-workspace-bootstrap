@@ -274,6 +274,26 @@ See [docs/GITHUB_ACTION.md](docs/GITHUB_ACTION.md).
 
 Read-only evaluations against real public repositories are documented in [docs/PUBLIC_REPO_EVALUATIONS.md](docs/PUBLIC_REPO_EVALUATIONS.md). They are reproducible technical evaluations, not claims of third-party adoption.
 
+## GitHub App
+
+For public OSS repositories, CWB can also run as a self-hosted GitHub App. A verified `push` or `pull_request` event triggers repository-only preflight against the exact event revision and publishes a **CWB Preflight** Check Run on that commit.
+
+The preferred zero-cost development deployment uses:
+
+```text
+GitHub App
+  -> Cloudflare Worker + Queue (Free)
+  -> GitHub Actions in this public repository
+  -> short-lived repository-scoped installation token
+  -> CWB Preflight Check
+```
+
+This path does not require a Google Cloud billing account. It is intentionally **public-repository-only**: private-repository events are rejected before they are queued into the public Actions worker.
+
+The App keeps the minimum repository permissions documented by the project: Checks read/write, Contents read-only, and Pull requests read-only.
+
+See [docs/GITHUB_APP.md](docs/GITHUB_APP.md) for the integration contract and [deploy/cloudflare/README.md](deploy/cloudflare/README.md) for the completely free development deployment.
+
 ## Integration boundary
 
 The CLI, reusable GitHub Action, GitHub App, and future AI-agent skills share one preflight engine and one policy evaluator. Machine-readable reports declare a schema version so integrations can detect incompatible changes instead of silently drifting.
