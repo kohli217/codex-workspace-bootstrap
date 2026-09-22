@@ -162,3 +162,29 @@ def test_public_pattern_d3plus_workspace_filter_uses_workspace_script(tmp_path: 
 
     assert not any(item.kind == "missing-package-script" for item in findings)
 
+
+def test_public_pattern_tracecat_directory_target_uses_frontend_package(tmp_path: Path) -> None:
+    """Pattern observed in TracecatHQ/tracecat at 45eb759: root AGENTS targets frontend."""
+    frontend = tmp_path / "frontend"
+    frontend.mkdir()
+    (frontend / "package.json").write_text(
+        json.dumps(
+            {
+                "packageManager": "pnpm@10.30.3",
+                "scripts": {
+                    "test": "jest",
+                    "lint": "pnpm exec biome lint .",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Validate frontend changes with `pnpm -C frontend test`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
