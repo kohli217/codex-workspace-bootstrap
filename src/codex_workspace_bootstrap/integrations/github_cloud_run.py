@@ -470,19 +470,23 @@ class CloudRunHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
-        if parsed.path == "/healthz":
-            self._send_json(
-                200,
-                {"ok": True, "mode": os.environ.get("CWB_GITHUB_APP_MODE", "")},
-            )
-            return
-        if parsed.path == "/setup/github":
-            self._handle_setup(parsed)
-            return
-        if parsed.path == "/setup/github/callback":
-            self._handle_setup_callback(parsed)
-            return
-        self._send_json(404, {"error": "not found"})
+        try:
+            if parsed.path == "/healthz":
+                self._send_json(
+                    200,
+                    {"ok": True, "mode": os.environ.get("CWB_GITHUB_APP_MODE", "")},
+                )
+                return
+            if parsed.path == "/setup/github":
+                self._handle_setup(parsed)
+                return
+            if parsed.path == "/setup/github/callback":
+                self._handle_setup_callback(parsed)
+                return
+            self._send_json(404, {"error": "not found"})
+        except (CloudRunAppError, KeyError, ValueError) as exc:
+            print(f"setup request failed: {type(exc).__name__}: {exc}", file=sys.stderr)
+            self._send_json(500, {"error": "service configuration error"})
 
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
