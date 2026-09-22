@@ -307,6 +307,31 @@ Expected behavior of the current integrity model:
 - reject parent traversal and leave glob/dependency/negated selectors unresolved;
 - preserve a missing-script warning when the exact path target exists but lacks the referenced script.
 
+## bytedance/deer-flow
+
+Snapshot: `53352287a7197cc609379536e9d2ee5580740add`
+
+Observed signals:
+
+- root `AGENTS.md`;
+- no root `package.json` at this snapshot;
+- `frontend/package.json` selects pnpm and defines `check` and `test`;
+- root instructions use `cd frontend && pnpm check` and `cd frontend && pnpm test`.
+
+Why this matters:
+
+- exercises a common shell form where package validation runs after an explicit directory change;
+- protects CWB from discarding the cwd context and validating against unrelated root evidence;
+- keeps public `extract_commands()` output stable while allowing linting to retain additional lexical command context internally.
+
+Expected behavior of the current integrity model:
+
+- preserve a safe exact repository-relative `cd` target across `&&` command segments;
+- validate plain package scripts against that directory's regular `package.json`;
+- support quoted relative directory names;
+- leave traversal, expansion, glob, absolute, and nested-routing forms unresolved rather than guessing;
+- continue returning the bare package command from `extract_commands()`.
+
 ## What these evaluations do not prove
 
 These evaluations do not prove:
@@ -343,5 +368,6 @@ The observed repository patterns are encoded as automated regression tests in `t
 - `test_public_pattern_vtex_claude_alias_reuses_regular_agents`
 - `test_public_pattern_cissp_shared_claude_and_gemini_aliases`
 - `test_public_pattern_unraid_pnpm_exact_path_filter_uses_api_package`
+- `test_public_pattern_deer_flow_cd_frontend_uses_frontend_package`
 
 The fixtures intentionally model only the relevant public signals needed to exercise the lint rules. They are not copies of the upstream repositories and they do not imply compatibility certification.
