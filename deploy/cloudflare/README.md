@@ -89,7 +89,7 @@ The script:
 
 1. creates/reuses the verified CWB-local Node.js 22 toolchain on the same drive as the repository;
 2. runs pinned Wrangler `4.136.1` through that isolated Node runtime and opens Cloudflare login when needed;
-3. creates/reuses one Workers KV namespace;
+3. creates/reuses one Workers KV namespace; if an earlier interrupted deployment already created the legacy `CWB_STATE` namespace, it is reused rather than duplicated or deleted;
 4. creates/reuses one Queue with 24-hour retention;
 5. writes the generated Wrangler configuration only to an ignored local file;
 6. if needed, opens GitHub's fine-grained token form with the owner, expiry, and required permissions prefilled; you only select `codex-workspace-bootstrap` under **Only select repositories**, generate the token, and paste it once;
