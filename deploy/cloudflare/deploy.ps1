@@ -163,6 +163,20 @@ function Set-WranglerSecret {
     }
 }
 
+function Find-WorkersDevOnboardingUrl {
+    param([string[]]$Lines)
+
+    $text = $Lines -join [Environment]::NewLine
+    $match = [regex]::Match(
+        $text,
+        "https://dash\.cloudflare\.com/[A-Za-z0-9]+/workers/onboarding"
+    )
+    if ($match.Success) {
+        return $match.Value
+    }
+    return $null
+}
+
 function Resolve-CwbKvNamespace {
     param(
         [object[]]$Namespaces,
@@ -223,6 +237,15 @@ if ($ToolchainOnly) {
     $resolvedLegacy = Resolve-CwbKvNamespace -Namespaces @($legacyNamespace) -PreferredTitle $preferredTitle
     if (-not $resolvedLegacy -or $resolvedLegacy.id -ne "legacy-id") {
         throw "Workers KV namespace resolver did not reuse the legacy CWB_STATE title."
+    }
+
+    $sampleOnboarding = @(
+        "ERROR You can register a workers.dev subdomain here:",
+        "https://dash.cloudflare.com/0123456789abcdef0123456789abcdef/workers/onboarding"
+    )
+    $resolvedOnboarding = Find-WorkersDevOnboardingUrl -Lines $sampleOnboarding
+    if ($resolvedOnboarding -ne "https://dash.cloudflare.com/0123456789abcdef0123456789abcdef/workers/onboarding") {
+        throw "workers.dev onboarding URL resolver smoke test failed."
     }
 
     Write-Host "CWB-local Windows Wrangler toolchain smoke test: PASS"
@@ -401,6 +424,16 @@ $deployResult = Invoke-WranglerCapture -Arguments @("deploy", "--config", $Confi
 $deployResult.StdoutLines | Out-Host
 if ($deployResult.ExitCode -ne 0) {
     $deployResult.StderrLines | Out-Host
+    $onboardingUrl = Find-WorkersDevOnboardingUrl -Lines @(
+        $deployResult.StdoutLines + $deployResult.StderrLines
+    )
+    if ($onboardingUrl) {
+        Write-Host ""
+        Write-Host "Cloudflare requires one-time workers.dev subdomain registration."
+        Write-Host "Opening the Cloudflare onboarding page in your browser..."
+        Start-Process $onboardingUrl
+        throw "Complete workers.dev subdomain registration in the browser, then rerun this deployment command."
+    }
     throw "Cloudflare Worker deployment failed."
 }
 
