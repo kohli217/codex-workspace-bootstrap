@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented here.
 
+## [0.9.0] - 2026-09-22
+
+### Added
+- Real-world regression fixtures for targeted-workspace, targeted-directory, inline-option, and shared multi-agent instruction layouts observed in d3plus/d3plus, TracecatHQ/tracecat, broadinstitute/warp, WordPress/pattern-directory, vtex/address-form, and kickflip-labs/cissp-study-hub.
+- Safe canonical-instruction aliases for Claude Code and Gemini CLI when an exact sibling `CLAUDE.md -> AGENTS.md` or `GEMINI.md -> AGENTS.md` link targets a regular `AGENTS.md`; Gemini aliases continue to honor project `context.fileName` settings.
+
+### Fixed
+- Monorepo package-script validation now resolves exact pnpm filters, npm workspace selectors, and Yarn workspace targets instead of incorrectly validating workspace-only scripts against the root package.
+- Directory-targeted commands now validate scripts against the explicitly selected package for pnpm `-C` / `--dir`, npm `--prefix`, and Yarn/Bun `--cwd`, while unsafe or ambiguous directory targets do not fall back to unrelated root scripts.
+- Yarn command extraction preserves inline options such as `yarn --cwd=website build`.
+- npm workspace selectors placed after `run <script>` are resolved in `--workspace` / `-w` forms up to npm's `--` script-argument separator.
+
+### Security
+- Safe Claude/Gemini aliases are recognized from lexical link metadata only; CWB revalidates the alias and reads the regular sibling `AGENTS.md` directly rather than trusting instruction content through a symbolic link.
+- Absolute/other alias targets, parent traversal, missing targets, and chained/symlinked `AGENTS.md` targets remain rejected, and write operations continue to refuse symlinked `AGENTS.md` targets.
+
+### Documentation
+- Expanded the reproducible public-repository evaluation set to document the exact monorepo and shared-instruction patterns protected by v0.9.0.
+
 ## [0.8.0] - 2026-09-22
 
 ### Added
