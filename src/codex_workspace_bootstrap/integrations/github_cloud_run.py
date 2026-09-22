@@ -306,6 +306,7 @@ def run_queued_scan(
         message.target,
         client_id=client_id,
         private_key_path=private_key_path,
+        external_id=message.delivery_id,
     )
 
 
@@ -714,6 +715,7 @@ class CloudRunHandler(BaseHTTPRequestHandler):
                 "commit_sha": result.commit_sha,
                 "conclusion": result.conclusion,
                 "check_run_id": result.check_run_id,
+                "deduplicated": result.deduplicated,
             },
         )
 
