@@ -98,6 +98,33 @@ The adapter rejects unsupported `schema_version` values instead of silently inte
 
 It performs no network requests and does not require GitHub credentials.
 
+## GitHub webhook core
+
+The package also includes a network-free webhook core for the App delivery layer:
+
+```python
+from codex_workspace_bootstrap.integrations.github_webhook import (
+    normalize_github_webhook,
+    should_run_github_preflight,
+    verify_github_webhook_signature,
+)
+
+if not verify_github_webhook_signature(secret, raw_body, signature_header):
+    raise PermissionError("invalid webhook signature")
+
+target = normalize_github_webhook(event_name, payload)
+if should_run_github_preflight(target):
+    print(target.repository, target.head_sha)
+```
+
+The webhook core:
+
+- verifies `X-Hub-Signature-256` with HMAC-SHA256 and constant-time comparison;
+- normalizes supported `pull_request` and `push` payloads to repository + commit SHA;
+- ignores pull-request actions that do not require a new scan;
+- rejects deleted-ref pushes because they have no commit to inspect;
+- performs no network requests and does not require GitHub credentials.
+
 ## Intended GitHub App service
 
 A future GitHub App should remain a thin delivery layer:
@@ -105,7 +132,9 @@ A future GitHub App should remain a thin delivery layer:
 ```text
 GitHub webhook
     ↓
-checkout/read repository
+verify signature + normalize event
+    ↓
+obtain installation token + checkout/read repository
     ↓
 build_preflight(...)
     ↓
@@ -114,7 +143,7 @@ build_github_check(...)
 GitHub Check Run API
 ```
 
-The App should not duplicate repository detection, instruction linting, readiness-state logic, policy gating, or Check result mapping.
+The App should not duplicate repository detection, instruction linting, readiness-state logic, policy gating, Check result mapping, or webhook routing rules.
 
 ## Intended AI-skill adapter
 
