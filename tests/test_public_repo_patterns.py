@@ -303,3 +303,42 @@ def test_public_pattern_vtex_claude_alias_reuses_regular_agents(
     assert ("Codex / OpenAI agents", "AGENTS.md", "repository") in pairs
     assert ("Claude Code", "CLAUDE.md", "alias") in pairs
 
+
+def test_public_pattern_cissp_shared_claude_and_gemini_aliases(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    """Pattern observed in kickflip-labs/cissp-study-hub at 1f92eb8."""
+    agents = tmp_path / "AGENTS.md"
+    agents.write_text(
+        "Shared repository guidance.\n",
+        encoding="utf-8",
+    )
+    claude = tmp_path / "CLAUDE.md"
+    gemini = tmp_path / "GEMINI.md"
+    claude.write_text("AGENTS.md", encoding="utf-8")
+    gemini.write_text("AGENTS.md", encoding="utf-8")
+
+    original_is_symlink = Path.is_symlink
+    original_readlink = Path.readlink
+
+    def fake_is_symlink(path: Path) -> bool:
+        if path in {claude, gemini}:
+            return True
+        return original_is_symlink(path)
+
+    def fake_readlink(path: Path) -> Path:
+        if path in {claude, gemini}:
+            return Path("AGENTS.md")
+        return original_readlink(path)
+
+    monkeypatch.setattr(Path, "is_symlink", fake_is_symlink)
+    monkeypatch.setattr(Path, "readlink", fake_readlink)
+
+    signals = detect_instruction_signals(tmp_path)
+    pairs = {(item.tool, item.path, item.kind) for item in signals}
+
+    assert ("Codex / OpenAI agents", "AGENTS.md", "repository") in pairs
+    assert ("Claude Code", "CLAUDE.md", "alias") in pairs
+    assert ("Gemini CLI", "GEMINI.md", "alias") in pairs
+
