@@ -32,7 +32,7 @@ On the current Workers Free plan:
 
 - Workers include 100,000 requests per day.
 - Queues include 10,000 operations per day and 24-hour message retention.
-- Workers KV includes 100,000 reads, 1,000 writes, and 1 GB stored data per day/account allowance.
+- Workers KV includes 100,000 reads and 1,000 writes per day plus 1 GB of stored data on the Free plan.
 - standard GitHub-hosted Actions runners are free for public repositories.
 
 When a Cloudflare Free-plan limit is exhausted, further free-plan operations fail until the quota resets rather than this deployment automatically upgrading the account. Do not opt into Workers Paid if the goal is a strict zero-cost deployment.
