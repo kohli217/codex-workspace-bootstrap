@@ -16,6 +16,7 @@ from codex_workspace_bootstrap.integrations.github_cloud_run import (
     publish_queued_scan,
     render_setup_bootstrap_page,
     run_queued_scan,
+    setup_token_is_valid,
     store_manifest_credentials,
     _safe_header_value,
 )
@@ -278,3 +279,19 @@ def test_setup_bootstrap_keeps_secret_in_fragment_and_posts_body() -> None:
     assert "cwb_setup=" not in page
     assert "/setup/github?token=" not in page
     assert "location.search" not in page
+
+
+def test_setup_token_is_exact_and_expires_after_one_hour() -> None:
+    token = "v1.1000.random-secret"
+
+    assert setup_token_is_valid(token, token, now=1000)
+    assert setup_token_is_valid(token, token, now=4600)
+    assert not setup_token_is_valid(token, token, now=4601)
+    assert not setup_token_is_valid(token, "v1.1000.other", now=1000)
+
+
+def test_setup_token_rejects_legacy_malformed_and_far_future_values() -> None:
+    assert not setup_token_is_valid("legacy-token", "legacy-token", now=1000)
+    assert not setup_token_is_valid("v1.bad.secret", "v1.bad.secret", now=1000)
+    future = "v1.1301.secret"
+    assert not setup_token_is_valid(future, future, now=1000)
