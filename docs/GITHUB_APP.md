@@ -4,6 +4,35 @@ This document defines the GitHub-side registration settings for the future `code
 
 The application service should remain a thin adapter over the existing preflight, webhook, policy, and Check Run code. Do not add repository permissions that are not required by the documented flow.
 
+## Preferred development registration: App Manifest
+
+For the development App, prefer GitHub's App Manifest flow instead of manually re-entering permissions and events. GitHub's manifest flow lets the registration page inherit CWB's code-level settings and generates the App private key and webhook secret after creation.
+
+```python
+from codex_workspace_bootstrap.integrations.github_manifest import (
+    build_manifest_registration,
+    render_manifest_registration_form,
+)
+
+registration = build_manifest_registration(
+    base_url="https://YOUR-DEPLOYED-SERVICE",
+)
+
+html_form = render_manifest_registration_form(registration)
+```
+
+The form POSTs the JSON manifest to GitHub's personal App registration endpoint. GitHub redirects back to `/setup/github/callback` with a temporary `code` and the initiating `state`.
+
+The callback must:
+
+1. verify the returned `state` against the initiating value;
+2. exchange `code` through `POST /app-manifests/{code}/conversions`;
+3. immediately store the returned private key and webhook secret in the deployment secret store;
+4. avoid logging or returning either secret;
+5. finish the manifest handshake within GitHub's one-hour limit.
+
+The generated development manifest defaults to `public=false`. Marketplace/public-App registration should be a separate promotion step after end-to-end validation.
+
 ## Minimum repository permissions
 
 Configure these under **Repository permissions**:
@@ -224,6 +253,6 @@ The App service must use repository-only preflight mode. Local tool availability
 
 ## Manual boundary
 
-Creating the GitHub App registration, generating its private key, choosing a webhook secret, and initially installing the App require an authenticated GitHub account action. Those credentials must not be pasted into an issue, pull request, committed file, or public chat.
+With the preferred App Manifest flow, the authenticated GitHub action is reduced to reviewing/naming the preconfigured development App, clicking **Create GitHub App**, and then installing it on the selected test repository. The manifest callback can receive GitHub's generated private key and webhook secret automatically.
 
-After those values exist, the remaining service/authentication wiring can be implemented and tested against the development installation.
+Those credentials must never be pasted into an issue, pull request, committed file, or public chat. The deployed callback must put them directly into its deployment secret store before any real webhook processing begins.
