@@ -37,6 +37,15 @@ function jsonResponse(status, value, headers = {}) {
   });
 }
 
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 function htmlResponse(status, value, headers = {}) {
   return new Response(value, {
     status,
@@ -516,9 +525,13 @@ async function handleSetupCallback(request, env) {
   }
   const credentials = await exchangeManifestCode(code);
   await storeCredentials(env, credentials);
+  const slug = String(credentials.slug || "");
+  const installation = slug
+    ? `<p><a href="https://github.com/apps/${encodeURIComponent(slug)}/installations/new">Install this GitHub App</a> on one public test repository.</p>`
+    : "<p>Open the GitHub App settings and install it on one public test repository.</p>";
   return htmlResponse(
     200,
-    `<!doctype html><html><head><meta charset="utf-8"><title>CWB GitHub App Created</title></head><body><h1>GitHub App created</h1><p>Credentials were encrypted and stored in Cloudflare KV.</p><p>App: ${String(credentials.slug || "")}</p><p>Install the App on one test repository, then push a commit or open a pull request.</p></body></html>`,
+    `<!doctype html><html><head><meta charset="utf-8"><title>CWB GitHub App Created</title></head><body><h1>GitHub App created</h1><p>Credentials were encrypted and stored in Cloudflare KV.</p><p>App: ${escapeHtml(slug)}</p>${installation}<p>After installation, push a commit or open/update a pull request.</p></body></html>`,
     {
       "Set-Cookie": "cwb_setup=; Path=/setup/github; Max-Age=0; Secure; HttpOnly; SameSite=Lax",
     },
