@@ -20,6 +20,7 @@ from .github_delivery import (
     GitHubApiRequest,
     build_check_run_request,
     build_github_app_jwt,
+    build_list_check_runs_request,
     build_installation_token_request,
 )
 from .github_webhook import GitHubWebhookTarget
@@ -45,6 +46,7 @@ class GitHubScanResult:
     conclusion: str
     check_run_id: int | None = None
     check_run_url: str | None = None
+    deduplicated: bool = False
 
 
 def openssl_rs256_sign(
@@ -164,6 +166,46 @@ def _check_run_metadata(
     return check_id, html_url
 
 
+def _existing_completed_check_run(
+    response: GitHubApiResponse,
+    *,
+    external_id: str,
+) -> tuple[int | None, str | None, str] | None:
+    """Find one completed Check Run created for the same delivery id."""
+
+    if response.status != 200:
+        raise GitHubAppRuntimeError(
+            f"Check Run list request returned HTTP {response.status}"
+        )
+
+    check_runs = response.body.get("check_runs")
+    if not isinstance(check_runs, list):
+        raise GitHubAppRuntimeError(
+            "Check Run list response did not contain check_runs"
+        )
+
+    for item in check_runs:
+        if not isinstance(item, dict) or item.get("external_id") != external_id:
+            continue
+
+        conclusion = item.get("conclusion")
+        if not isinstance(conclusion, str) or not conclusion.strip():
+            # An incomplete Check Run is not proof that this delivery finished.
+            continue
+
+        check_id = item.get("id")
+        if isinstance(check_id, bool) or not isinstance(check_id, int):
+            check_id = None
+
+        html_url = item.get("html_url")
+        if not isinstance(html_url, str) or not html_url.strip():
+            html_url = None
+
+        return check_id, html_url, conclusion
+
+    return None
+
+
 def execute_github_scan(
     target: GitHubWebhookTarget,
     *,
@@ -171,6 +213,7 @@ def execute_github_scan(
     private_key_path: Path,
     workspace_parent: Path | None = None,
     now: int | None = None,
+    external_id: str | None = None,
     send_request: Callable[[GitHubApiRequest], GitHubApiResponse] = send_github_api_request,
 ) -> GitHubScanResult:
     """Run one already-verified webhook scan as a queue/worker operation."""
@@ -222,6 +265,30 @@ def execute_github_scan(
             destination=Path(temporary) / "repository",
         )
 
+        if external_id is not None:
+            if not external_id.strip():
+                raise GitHubAppRuntimeError("external_id must not be empty")
+            existing = _existing_completed_check_run(
+                send_request(
+                    build_list_check_runs_request(
+                        repository=target.repository,
+                        ref=checkout.commit_sha,
+                        installation_token=installation_token,
+                    )
+                ),
+                external_id=external_id,
+            )
+            if existing is not None:
+                check_run_id, check_run_url, conclusion = existing
+                return GitHubScanResult(
+                    repository=target.repository,
+                    commit_sha=checkout.commit_sha,
+                    conclusion=conclusion,
+                    check_run_id=check_run_id,
+                    check_run_url=check_run_url,
+                    deduplicated=True,
+                )
+
         check = build_github_app_check(checkout.root)
         check_response = send_request(
             build_check_run_request(
@@ -229,6 +296,7 @@ def execute_github_scan(
                 head_sha=checkout.commit_sha,
                 installation_token=installation_token,
                 check=check,
+                external_id=external_id,
             )
         )
         check_run_id, check_run_url = _check_run_metadata(check_response)
