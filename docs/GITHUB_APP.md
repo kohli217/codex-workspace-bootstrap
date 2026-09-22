@@ -220,8 +220,11 @@ The worker:
 1. signs the GitHub App JWT with OpenSSL/RS256;
 2. requests an installation token scoped to only the event repository and only `contents:read` + `checks:write`;
 3. performs the hardened exact-revision checkout;
-4. runs repository-only CWB preflight;
-5. creates the completed GitHub Check Run for the exact inspected commit.
+4. for queued deliveries, checks whether the same GitHub delivery ID already has a completed CWB Check Run on that exact commit;
+5. runs repository-only CWB preflight only when the delivery is new;
+6. creates the completed GitHub Check Run for the exact inspected commit, storing the delivery ID as `external_id`.
+
+This makes normal Pub/Sub/GitHub redelivery idempotent: an already-completed delivery is reused instead of producing another scan and Check Run. It is intentionally a completed-result deduplication guard, not a distributed lock for two copies that begin at exactly the same time.
 
 The runtime uses Python's standard-library HTTPS client. It does not depend on PyJWT, cryptography, requests, or a web framework. Installation token parsing intentionally does not assume a fixed token length or legacy token format.
 
