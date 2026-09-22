@@ -322,3 +322,27 @@ def test_git_tracked_files_uses_surrogateescape_for_path_bytes(
     assert tracked is not None
     assert "normal.txt" in tracked
     assert any(name.endswith(".env") for name in tracked)
+
+
+def test_repository_only_audit_skips_local_toolchain_checks(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    (tmp_path / "package.json").write_text(
+        '{"packageManager":"pnpm@10","scripts":{"test":"vitest"}}',
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+
+    def fail_tool_check(label: str, command: tuple[str, ...]) -> Check:
+        raise AssertionError(f"local tool check should not run: {label} {command}")
+
+    monkeypatch.setattr("codex_workspace_bootstrap.audit._tool_check", fail_tool_check)
+
+    checks = audit_repository(tmp_path, include_local_toolchain=False)
+    names = {check.name for check in checks}
+
+    assert names.isdisjoint({"git", "python", "node", "powershell", "wsl", "codex"})
+    assert names.isdisjoint({"npm", "pnpm", "yarn", "bun"})
+    assert "project-manifest" in names
+    assert "secret-risk-files" in names
