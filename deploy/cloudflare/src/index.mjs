@@ -242,8 +242,7 @@ async function storeCredentials(env, credentials) {
   await env.CWB_STATE.put(STATE_KEY, JSON.stringify(credentials));
 }
 
-async function verifyWebhook(secret, body, signatureHeader) {
-  if (!signatureHeader || !signatureHeader.startsWith("sha256=")) return false;
+async function hmacHex(secret, value) {
   const key = await crypto.subtle.importKey(
     "raw",
     utf8(secret),
@@ -251,9 +250,25 @@ async function verifyWebhook(secret, body, signatureHeader) {
     false,
     ["sign"],
   );
-  const digest = new Uint8Array(await crypto.subtle.sign("HMAC", key, body));
-  const expected = `sha256=${Array.from(digest, (value) => value.toString(16).padStart(2, "0")).join("")}`;
+  const digest = new Uint8Array(await crypto.subtle.sign("HMAC", key, value));
+  return Array.from(digest, (item) => item.toString(16).padStart(2, "0")).join("");
+}
+
+async function verifyWebhook(secret, body, signatureHeader) {
+  if (!signatureHeader || !signatureHeader.startsWith("sha256=")) return false;
+  const expected = `sha256=${await hmacHex(secret, body)}`;
   return timingSafeEqual(expected, signatureHeader);
+}
+
+function brokerGrantInput(deliveryId, repository, installationId) {
+  return utf8(`${deliveryId}\n${repository}\n${installationId}`);
+}
+
+async function brokerGrant(secret, deliveryId, repository, installationId) {
+  return hmacHex(
+    secret,
+    brokerGrantInput(deliveryId, repository, installationId),
+  );
 }
 
 function requiredText(value, name) {
@@ -269,6 +284,9 @@ function positiveInteger(value, name) {
 function normalizeWebhook(eventName, payload) {
   if (eventName === "ping") return { disposition: "ping" };
   const repository = requiredText(payload?.repository?.full_name, "repository.full_name");
+  if (payload?.repository?.private !== false) {
+    return { disposition: "private-unsupported" };
+  }
   const installationId = positiveInteger(payload?.installation?.id, "installation.id");
 
   if (eventName === "pull_request") {
@@ -339,8 +357,7 @@ async function exchangeManifestCode(code) {
   };
 }
 
-async function createInstallationToken(env, installationId, repository) {
-  const credentials = await loadCredentials(env);
+async function createInstallationToken(credentials, installationId, repository) {
   const appJwt = await buildAppJwt(credentials.client_id, credentials.pem);
   const [, repoName] = repository.split("/");
   if (!repoName) throw new Error("repository must use owner/name form");
@@ -421,8 +438,16 @@ async function verifyActionsOidc(token, audience) {
 }
 
 async function dispatchWorkflow(env, queued) {
+  const credentials = await loadCredentials(env);
+  const grant = await brokerGrant(
+    credentials.webhook_secret,
+    queued.delivery_id,
+    queued.target.repository,
+    queued.target.installation_id,
+  );
   const payload = base64urlEncode(utf8(JSON.stringify({
     delivery_id: queued.delivery_id,
+    broker_grant: grant,
     target: queued.target,
   })));
   const response = await fetch(
@@ -549,15 +574,33 @@ async function handleTokenBroker(request, env) {
   }
   const repository = body?.repository;
   const installationId = body?.installation_id;
+  const deliveryId = body?.delivery_id;
+  const suppliedGrant = body?.broker_grant;
   if (typeof repository !== "string" || repository.split("/").length !== 2) {
     return jsonResponse(400, { error: "invalid repository" });
   }
   if (!Number.isInteger(installationId) || installationId <= 0) {
     return jsonResponse(400, { error: "invalid installation_id" });
   }
+  if (typeof deliveryId !== "string" || !deliveryId || typeof suppliedGrant !== "string") {
+    return jsonResponse(400, { error: "invalid broker grant" });
+  }
 
   try {
-    return jsonResponse(200, await createInstallationToken(env, installationId, repository));
+    const credentials = await loadCredentials(env);
+    const expectedGrant = await brokerGrant(
+      credentials.webhook_secret,
+      deliveryId,
+      repository,
+      installationId,
+    );
+    if (!timingSafeEqual(expectedGrant, suppliedGrant)) {
+      return jsonResponse(403, { error: "invalid broker grant" });
+    }
+    return jsonResponse(
+      200,
+      await createInstallationToken(credentials, installationId, repository),
+    );
   } catch {
     return jsonResponse(502, { error: "GitHub installation token request failed" });
   }
@@ -566,6 +609,7 @@ async function handleTokenBroker(request, env) {
 export {
   base64urlEncode,
   base64urlDecode,
+  brokerGrant,
   manifestFor,
   normalizeWebhook,
   pkcs1ToPkcs8,
