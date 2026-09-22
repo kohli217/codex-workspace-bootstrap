@@ -55,23 +55,24 @@ When a scan starts:
 
 1. GitHub Actions requests an OIDC token using `id-token: write`.
 2. Cloudflare verifies the token signature against GitHub's OIDC keys.
-3. Cloudflare requires:
+3. Cloudflare passes its own `/tokens/github` URL into the dedicated workflow dispatch. GitHub Actions requests its OIDC token with that exact URL as the audience, and Cloudflare rejects any OIDC token whose audience does not equal the Worker endpoint that received it.
+4. Cloudflare additionally requires:
    - repository `kohli217/codex-workspace-bootstrap`;
    - branch `refs/heads/main`;
    - event `workflow_dispatch`;
    - exact workflow `.github/workflows/github-app-worker.yml`.
-4. The queued webhook target carries an HMAC broker grant derived from the App webhook secret. The grant binds the delivery ID, event, repository, installation ID, exact commit SHA, pull-request metadata, merge SHA, and ref. A manually altered workflow input therefore cannot mint a token for a different scan target.
-5. Cloudflare creates an installation token restricted to only the event repository and only `contents:read` + `checks:write`.
-6. The Actions runner uses that short-lived token for checkout and Check Run publication.
+5. The queued webhook target carries an HMAC broker grant derived from the App webhook secret. The grant binds the delivery ID, event, repository, installation ID, exact commit SHA, pull-request metadata, merge SHA, and ref. A manually altered workflow input therefore cannot mint a token for a different scan target.
+6. Cloudflare creates an installation token restricted to only the event repository and only `contents:read` + `checks:write`.
+7. The Actions runner uses that short-lived token for checkout and Check Run publication.
 
-The only long-lived GitHub credential supplied manually is a fine-grained personal access token scoped to **only** `kohli217/codex-workspace-bootstrap` with **Actions: Read and write** and **Variables: Read and write**. It is uploaded once as the Cloudflare secret `CWB_DISPATCH_TOKEN`. On later reruns, the deployment detects and reuses that secret without asking for the token again. After a successful deploy, the Worker uses the same stored credential to pin the trusted `CWB_TOKEN_ENDPOINT` repository variable; normal runtime use is limited to `workflow_dispatch`.
+The only long-lived GitHub credential supplied manually is a fine-grained personal access token scoped to **only** `kohli217/codex-workspace-bootstrap` with **Actions: Read and write**. It is uploaded once as the Cloudflare secret `CWB_DISPATCH_TOKEN`. On later reruns, the deployment detects and reuses that secret without asking for the token again. Runtime use is limited to starting the dedicated `workflow_dispatch` worker.
 
 ## Windows deployment
 
 Prerequisites:
 
 - a free Cloudflare account;
-- a fine-grained GitHub personal access token limited to this repository with **Actions: Read and write** and **Variables: Read and write**.
+- a fine-grained GitHub personal access token limited to this repository with **Actions: Read and write**.
 
 You do **not** need to replace or reconfigure the PC's installed Node.js. On Windows, the deployment script downloads the current Node.js 22 LTS Windows x64 archive into `deploy/cloudflare/.tools/`, verifies it against Node.js's official `SHASUMS256.txt`, and uses that isolated runtime only for Wrangler. The npm cache is kept under the same repository-local tools directory.
 
@@ -96,9 +97,8 @@ The script:
 7. generates a one-hour setup bootstrap secret locally;
 8. stores the setup/dispatch values as Worker secrets;
 9. deploys the Worker to `workers.dev`;
-10. asks the deployed Worker to pin that exact `/tokens/github` endpoint into the repository's `CWB_TOKEN_ENDPOINT` Actions variable using the already-stored Cloudflare secret;
-11. on a brand-new Cloudflare Workers account, detects the one-time `workers.dev` onboarding requirement and opens the exact Cloudflare onboarding page automatically;
-12. prints the protected GitHub App setup URL after deployment succeeds.
+10. on a brand-new Cloudflare Workers account, detects the one-time `workers.dev` onboarding requirement and opens the exact Cloudflare onboarding page automatically;
+11. prints the protected GitHub App setup URL after deployment succeeds.
 
 No GitHub App private key needs to be copied into PowerShell or ChatGPT.
 
