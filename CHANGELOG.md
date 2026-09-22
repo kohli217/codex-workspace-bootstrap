@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented here.
 
+## [0.8.0] - 2026-09-22
+
+### Added
+- A complete GitHub App integration contract: Check rendering, constant-time signed-webhook verification, push/pull-request normalization, repository-only preflight, and a network-free service core.
+- Deterministic GitHub App JWT, installation-token, and Check Run delivery contracts plus hardened exact-revision checkout for pushes, pull requests, and fork pull requests without executing repository code.
+- A least-privilege GitHub App worker runtime with repository-scoped installation tokens and completed-delivery idempotency using GitHub delivery IDs and Check Run `external_id`.
+- GitHub App Manifest registration plus a Cloud Run + Pub/Sub reference deployment with separated ingress/worker identities and durable redelivery.
+- A completely free Cloudflare Worker + Queue + public GitHub Actions deployment using GitHub Actions OIDC for installation-token brokering, with private-repository events rejected before queueing.
+- A reproducible scoped-monorepo demo and an additional fixed public-repository Gemini CLI `context.fileName` regression fixture.
+
+### Fixed
+- GitHub REST requests now include the required User-Agent.
+- The Windows Cloudflare deploy isolates a verified Node.js 22/Wrangler toolchain from machine-wide Node, handles harmless PowerShell native stderr correctly, reuses interrupted KV/Queue/secret state, and guides current workers.dev onboarding.
+- The free deployment reuses the persisted GitHub dispatch credential and no longer depends on repository Actions Variables permissions.
+- GitHub App Manifest callbacks use signed stateless state, recover safely from async callback failures, and reuse already-stored credentials instead of duplicating Apps.
+- The live GitHub App Actions worker exposes the src-layout package correctly and authenticates exact Git fetches with GitHub's installation-token HTTP Basic contract.
+
+### Security
+- GitHub App setup bootstrap tokens expire after one hour; Manifest callback state is HMAC-signed and time-limited.
+- App permissions remain least-privilege: Checks read/write, Contents read-only, and Pull requests read-only; runtime installation tokens are narrowed further to the single event repository with only `contents:read` and `checks:write`.
+- The free public-OSS path rejects private-repository webhook events before they reach the public Actions worker.
+- Checkout disables interactive credentials, system/global Git config, hooks, submodules, and repository command execution.
+
+### Documentation
+- The GitHub App is documented as a shipped integration, including the zero-cost public-repository deployment, live installed-App E2E milestone, and a promotion runbook for reusing the verified development App as a public App.
+- Added a real-world scoped monorepo example covering nearest package-manager evidence.
+
 ## [0.7.0] - 2026-09-22
 
 ### Added
