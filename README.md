@@ -12,7 +12,7 @@
 
 Windows-first. Local by default. CI-friendly. Designed for repositories used with Codex, Copilot, Cline, Claude Code, Gemini CLI, Continue, Cursor, and similar coding agents.
 
-[日本語ガイド](docs/README.ja.md) · [Examples](docs/EXAMPLES.md) · [GitHub Action](docs/GITHUB_ACTION.md) · [GitHub App](docs/GITHUB_APP.md) · [Cloud Run deployment](deploy/cloudrun/README.md) · [Integration contract](docs/INTEGRATIONS.md) · [Roadmap](docs/ROADMAP.md) · [Releases](https://github.com/kohli217/codex-workspace-bootstrap/releases)
+[日本語ガイド](docs/README.ja.md) · [Examples](docs/EXAMPLES.md) · [GitHub Action](docs/GITHUB_ACTION.md) · [GitHub App](docs/GITHUB_APP.md) · [Free GitHub App deployment](deploy/cloudflare/README.md) · [Cloud Run alternative](deploy/cloudrun/README.md) · [Integration contract](docs/INTEGRATIONS.md) · [Roadmap](docs/ROADMAP.md) · [Releases](https://github.com/kohli217/codex-workspace-bootstrap/releases)
 
 > Community-maintained project. Not an official OpenAI product and not affiliated with OpenAI.
 
