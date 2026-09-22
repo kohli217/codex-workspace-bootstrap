@@ -46,6 +46,11 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Return a non-zero exit code unless the preflight state is READY",
     )
+    preflight.add_argument(
+        "--repository-only",
+        action="store_true",
+        help="Skip local toolchain availability checks and evaluate repository evidence only",
+    )
 
     fix = sub.add_parser("fix", help="Preview safe repository-readiness fixes")
     fix.add_argument("path", nargs="?", default=".")
@@ -91,13 +96,17 @@ def _run_preflight(
     strict: bool,
     fail_on_integrity: bool,
     require_ready: bool,
+    repository_only: bool,
 ) -> int:
     root = Path(path).expanduser().resolve()
     if not root.exists() or not root.is_dir():
         print(f"error: repository path does not exist or is not a directory: {root}", file=sys.stderr)
         return 2
 
-    report = build_preflight(root)
+    report = build_preflight(
+        root,
+        include_local_toolchain=not repository_only,
+    )
 
     print("AI Repository Preflight")
     print(f"Repository: {root}")
@@ -301,6 +310,7 @@ def main(argv: list[str] | None = None) -> int:
             args.strict,
             args.fail_on_integrity,
             args.require_ready,
+            args.repository_only,
         )
     if args.command == "fix":
         return _run_fix(args.path, args.apply)
