@@ -217,3 +217,53 @@ def test_public_pattern_warp_yarn_inline_cwd_uses_website_package(tmp_path: Path
     assert "yarn --cwd=website build" in commands
     assert not any(item.kind == "missing-package-script" for item in findings)
 
+
+def test_public_pattern_wordpress_npm_post_script_workspace_uses_workspace_script(
+    tmp_path: Path,
+) -> None:
+    """Pattern observed in WordPress/pattern-directory at 4482f38."""
+    (tmp_path / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "wporg-pattern-directory-project",
+                "private": True,
+                "scripts": {
+                    "test:php": "wp-env run phpunit",
+                },
+                "workspaces": [
+                    "public_html/wp-content/plugins/pattern-creator",
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "package-lock.json").write_text("{}\n", encoding="utf-8")
+    creator = (
+        tmp_path
+        / "public_html"
+        / "wp-content"
+        / "plugins"
+        / "pattern-creator"
+    )
+    creator.mkdir(parents=True)
+    (creator / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "wporg-pattern-creator",
+                "scripts": {
+                    "test:unit": "wp-scripts test-unit-js",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run JS tests with "
+        "`npm run test:unit --workspace=wporg-pattern-creator`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
