@@ -26,6 +26,8 @@ if (-not (Test-Path $npxPath)) {
     throw "CWB-local npx.cmd was not found. Run deploy.ps1 again."
 }
 $env:npm_config_cache = Join-Path $ToolsRoot "npm-cache"
+$env:npm_config_update_notifier = "false"
+$env:NO_UPDATE_NOTIFIER = "1"
 
 $nodeScript = "const crypto=require('crypto'); console.log(crypto.randomBytes(32).toString('base64url'))"
 $random = (& $nodeFile.FullName -e $nodeScript).Trim()
@@ -35,8 +37,16 @@ if ($LASTEXITCODE -ne 0 -or -not $random) {
 $issued = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
 $setupToken = "v1.$issued.$random"
 
-$setupToken | & $npxPath --yes "wrangler@$WranglerVersion" secret put CWB_SETUP_TOKEN --config $ConfigPath | Out-Host
-if ($LASTEXITCODE -ne 0) {
+$previousPreference = $ErrorActionPreference
+try {
+    $ErrorActionPreference = "Continue"
+    $setupToken | & $npxPath --yes "wrangler@$WranglerVersion" secret put CWB_SETUP_TOKEN --config $ConfigPath | Out-Host
+    $secretExitCode = $LASTEXITCODE
+}
+finally {
+    $ErrorActionPreference = $previousPreference
+}
+if ($secretExitCode -ne 0) {
     throw "Could not rotate CWB_SETUP_TOKEN."
 }
 
