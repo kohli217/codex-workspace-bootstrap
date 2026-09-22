@@ -168,7 +168,7 @@ check_request = build_check_run_request(
 
 The injected `rs256_signer` must sign the provided JWT signing input using RSA PKCS#1 v1.5 with SHA-256. GitHub requires RS256 for App JWTs. The contract sets `iat` 60 seconds in the past, keeps `exp` within 10 minutes, and uses the App client ID as `iss`.
 
-The request builders currently target GitHub REST API version `2026-03-10`.
+The request builders currently target GitHub REST API version `2026-03-10` and send `User-Agent: codex-workspace-bootstrap`, which is required for GitHub REST API requests.
 
 ## End-to-end flow
 
