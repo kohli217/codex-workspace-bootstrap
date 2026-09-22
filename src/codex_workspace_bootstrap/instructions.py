@@ -684,12 +684,98 @@ def _repo_package_managers(root: Path, scope: str) -> set[str]:
     return set()
 
 
-def _script_names(root: Path, scope: str) -> set[str]:
+def _script_names(root: Path, scope: str) -> set[str] | None:
     for directory in _directory_chain_to_root(root, scope):
-        _managers, scripts = _package_evidence_at(directory)
-        if scripts or (directory / "package.json").is_file():
+        package_path = directory / "package.json"
+        if package_path.is_file() and not package_path.is_symlink():
+            _managers, scripts = _package_evidence_at(directory)
             return scripts
-    return set()
+    return None
+
+
+def _workspace_target_for_command(command: str) -> tuple[bool, str | None]:
+    tokens = _package_command_tokens(command.strip())
+    if not tokens:
+        return False, None
+
+    manager = tokens[0].lower()
+    if manager not in {"npm", "pnpm", "yarn", "bun"}:
+        return False, None
+
+    if manager == "yarn" and len(tokens) >= 3 and tokens[1] == "workspace":
+        return True, tokens[2]
+
+    target_options = {"--filter", "-F", "--workspace", "-w"}
+    long_options = {"--filter", "--workspace"}
+    targets: list[str] = []
+
+    index = 1
+    while index < len(tokens):
+        token = tokens[index]
+        if token in target_options:
+            if index + 1 < len(tokens):
+                targets.append(tokens[index + 1])
+            else:
+                targets.append("")
+            index += 2
+            continue
+
+        matched_inline = False
+        for option in long_options:
+            prefix = f"{option}="
+            if token.startswith(prefix):
+                targets.append(token[len(prefix):])
+                matched_inline = True
+                break
+        if matched_inline:
+            index += 1
+            continue
+
+        if not token.startswith("-"):
+            break
+        index += 1
+
+    if not targets:
+        return False, None
+
+    nonempty = [target for target in targets if target]
+    if len(nonempty) != 1 or len(targets) != 1:
+        return True, None
+    return True, nonempty[0]
+
+
+def _workspace_script_names(root: Path, target: str) -> set[str] | None:
+    matches: list[set[str]] = []
+    for directory, _dirnames, filenames in _walk_repository(root):
+        if "package.json" not in filenames:
+            continue
+        package_path = directory / "package.json"
+        package = _package_json(package_path)
+        if package.get("name") != target:
+            continue
+        raw_scripts = package.get("scripts")
+        if isinstance(raw_scripts, dict):
+            scripts = {
+                str(name)
+                for name, value in raw_scripts.items()
+                if isinstance(name, str) and isinstance(value, str)
+            }
+        else:
+            scripts = set()
+        matches.append(scripts)
+
+    if len(matches) != 1:
+        return None
+    return matches[0]
+
+
+def _script_names_for_command(root: Path, scope: str, command: str) -> set[str] | None:
+    has_workspace_target, target = _workspace_target_for_command(command)
+    if has_workspace_target:
+        if target is None:
+            return None
+        return _workspace_script_names(root, target)
+    return _script_names(root, scope)
 
 
 def _manager_for_command(command: str) -> str | None:
@@ -876,7 +962,6 @@ def lint_instructions(
             instruction_managers[path] = managers
 
         repo_managers = _repo_package_managers(root, signal.scope)
-        scripts = _script_names(root, signal.scope)
 
         if len(repo_managers) == 1:
             expected = next(iter(repo_managers))
@@ -893,23 +978,25 @@ def lint_instructions(
                     )
                 )
 
-        if scripts:
-            for command in commands:
-                parsed = _script_for_command(command)
-                if not parsed:
-                    continue
-                _manager, script, explicit_run = parsed
-                if script not in scripts and (script == "test" or explicit_run):
-                    findings.append(
-                        InstructionFinding(
-                            "missing-package-script",
-                            "warning",
-                            f"{path} references '{command}', but the nearest package.json for scope '{signal.scope}' has no '{script}' script.",
-                            (path,),
-                            (command,),
-                            signal.scope,
-                        )
+        for command in commands:
+            parsed = _script_for_command(command)
+            if not parsed:
+                continue
+            scripts = _script_names_for_command(root, signal.scope, command)
+            if scripts is None:
+                continue
+            _manager, script, explicit_run = parsed
+            if script not in scripts and (script == "test" or explicit_run):
+                findings.append(
+                    InstructionFinding(
+                        "missing-package-script",
+                        "warning",
+                        f"{path} references '{command}', but the targeted or nearest package.json for scope '{signal.scope}' has no '{script}' script.",
+                        (path,),
+                        (command,),
+                        signal.scope,
                     )
+                )
 
     for scope, per_file in _same_scope_groups(signals, instruction_managers).items():
         manager_sets = {manager for managers in per_file.values() for manager in managers}
