@@ -289,6 +289,22 @@ async function storeCredentials(env, credentials) {
   await env.CWB_STATE.put(STATE_KEY, JSON.stringify(credentials));
 }
 
+async function tryLoadCredentials(env) {
+  try {
+    return await loadCredentials(env);
+  } catch {
+    return null;
+  }
+}
+
+function githubAppCreatedPage(credentials) {
+  const slug = String(credentials.slug || "");
+  const installation = slug
+    ? `<p><a href="https://github.com/apps/${encodeURIComponent(slug)}/installations/new">Install this GitHub App</a> on one public test repository.</p>`
+    : "<p>Open the GitHub App settings and install it on one public test repository.</p>";
+  return `<!doctype html><html><head><meta charset="utf-8"><title>CWB GitHub App Created</title></head><body><h1>GitHub App created</h1><p>Credentials are stored in Cloudflare KV.</p><p>App: ${escapeHtml(slug)}</p>${installation}<p>After installation, push a commit or open/update a pull request.</p></body></html>`;
+}
+
 async function hmacHex(secret, value) {
   const key = await crypto.subtle.importKey(
     "raw",
@@ -588,15 +604,36 @@ async function handleSetupCallback(request, env) {
     return jsonResponse(403, { error: "forbidden" });
   }
 
-  const credentials = await exchangeManifestCode(code);
+  const existingCredentials = await tryLoadCredentials(env);
+  if (existingCredentials) {
+    return htmlResponse(
+      200,
+      githubAppCreatedPage(existingCredentials),
+      {
+        "Set-Cookie": "cwb_setup=; Path=/setup/github; Max-Age=0; Secure; HttpOnly; SameSite=Lax",
+      },
+    );
+  }
+
+  let credentials;
+  try {
+    credentials = await exchangeManifestCode(code);
+  } catch (error) {
+    const message =
+      typeof error?.message === "string" ? error.message : "manifest conversion failed";
+    const statusMatch = message.match(/HTTP (\d{3})/);
+    const githubStatus = statusMatch ? Number(statusMatch[1]) : null;
+    console.error("CWB manifest conversion failed", githubStatus ?? "unknown");
+    return jsonResponse(502, {
+      error: "manifest conversion failed",
+      github_status: githubStatus,
+    });
+  }
+
   await storeCredentials(env, credentials);
-  const slug = String(credentials.slug || "");
-  const installation = slug
-    ? `<p><a href="https://github.com/apps/${encodeURIComponent(slug)}/installations/new">Install this GitHub App</a> on one public test repository.</p>`
-    : "<p>Open the GitHub App settings and install it on one public test repository.</p>";
   return htmlResponse(
     200,
-    `<!doctype html><html><head><meta charset="utf-8"><title>CWB GitHub App Created</title></head><body><h1>GitHub App created</h1><p>Credentials were encrypted and stored in Cloudflare KV.</p><p>App: ${escapeHtml(slug)}</p>${installation}<p>After installation, push a commit or open/update a pull request.</p></body></html>`,
+    githubAppCreatedPage(credentials),
     {
       "Set-Cookie": "cwb_setup=; Path=/setup/github; Max-Age=0; Secure; HttpOnly; SameSite=Lax",
     },
@@ -712,6 +749,7 @@ export {
   normalizeWebhook,
   pkcs1ToPkcs8,
   setupTokenIsValid,
+  githubAppCreatedPage,
   timingSafeEqual,
   validateQueuedTokenEndpoint,
   verifyManifestState,
@@ -725,19 +763,19 @@ export default {
         return jsonResponse(200, { ok: true, deployment: "cloudflare-free" });
       }
       if (request.method === "GET" && url.pathname === "/setup/github") {
-        return handleSetup(request, env);
+        return await handleSetup(request, env);
       }
       if (request.method === "POST" && url.pathname === "/setup/github/session") {
-        return handleSetupSession(request, env);
+        return await handleSetupSession(request, env);
       }
       if (request.method === "GET" && url.pathname === "/setup/github/callback") {
-        return handleSetupCallback(request, env);
+        return await handleSetupCallback(request, env);
       }
       if (request.method === "POST" && url.pathname === "/webhooks/github") {
-        return handleWebhook(request, env);
+        return await handleWebhook(request, env);
       }
       if (request.method === "POST" && url.pathname === "/tokens/github") {
-        return handleTokenBroker(request, env);
+        return await handleTokenBroker(request, env);
       }
       return jsonResponse(404, { error: "not found" });
     } catch (error) {
