@@ -344,21 +344,37 @@ def _hierarchical_named_signals(
     return found
 
 
-def _claude_signals(root: Path) -> list[InstructionSignal]:
-    found = _hierarchical_named_signals(root, "CLAUDE.md", "Claude Code")
-
+def _safe_alias_signals(
+    root: Path,
+    alias_name: str,
+    target_name: str,
+    tool: str,
+) -> list[InstructionSignal]:
+    found: list[InstructionSignal] = []
     for directory, _dirnames, filenames in _walk_repository(root):
-        if "CLAUDE.md" not in filenames:
+        if alias_name not in filenames:
             continue
-        alias = directory / "CLAUDE.md"
-        if _safe_sibling_instruction_alias(alias, "AGENTS.md") is None:
+        alias = directory / alias_name
+        if _safe_sibling_instruction_alias(alias, target_name) is None:
             continue
 
         rel = alias.relative_to(root).as_posix()
         scope_path = directory.relative_to(root).as_posix()
         scope = "." if scope_path == "." else scope_path
-        found.append(InstructionSignal("Claude Code", rel, scope, "alias"))
+        found.append(InstructionSignal(tool, rel, scope, "alias"))
+    return found
 
+
+def _claude_signals(root: Path) -> list[InstructionSignal]:
+    found = _hierarchical_named_signals(root, "CLAUDE.md", "Claude Code")
+    found.extend(
+        _safe_alias_signals(
+            root,
+            "CLAUDE.md",
+            "AGENTS.md",
+            "Claude Code",
+        )
+    )
     return found
 
 
@@ -406,8 +422,19 @@ def _gemini_context_filenames(root: Path) -> tuple[str, ...]:
 
 def _gemini_signals(root: Path) -> list[InstructionSignal]:
     found: list[InstructionSignal] = []
-    for filename in _gemini_context_filenames(root):
+    filenames = _gemini_context_filenames(root)
+    for filename in filenames:
         found.extend(_hierarchical_named_signals(root, filename, "Gemini CLI"))
+
+    if "GEMINI.md" in filenames:
+        found.extend(
+            _safe_alias_signals(
+                root,
+                "GEMINI.md",
+                "AGENTS.md",
+                "Gemini CLI",
+            )
+        )
     return found
 
 
@@ -544,8 +571,15 @@ def detect_instruction_signals(root: Path) -> list[InstructionSignal]:
 
 def _read_instruction(root: Path, signal: InstructionSignal) -> str:
     path = root / signal.path
-    if signal.tool == "Claude Code" and signal.kind == "alias":
-        target = _safe_sibling_instruction_alias(path, "AGENTS.md")
+    if signal.kind == "alias":
+        alias_targets = {
+            ("Claude Code", "CLAUDE.md"): "AGENTS.md",
+            ("Gemini CLI", "GEMINI.md"): "AGENTS.md",
+        }
+        target_name = alias_targets.get((signal.tool, path.name))
+        if target_name is None:
+            return ""
+        target = _safe_sibling_instruction_alias(path, target_name)
         if target is None:
             return ""
         return _safe_read(target)
