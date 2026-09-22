@@ -231,6 +231,20 @@ from codex_workspace_bootstrap.integrations.github_manifest import (
 
 The manifest uses the deployed HTTPS base URL for the webhook and registration callback, preserves the minimum CWB permissions/events, defaults the development App to private, and produces a CSRF state value. Conversion-response credentials are represented by a redacted object whose public metadata excludes the private key and webhook secret.
 
+## Cloud Run ingress + durable queue
+
+The reference deployment in [deploy/cloudrun](../deploy/cloudrun/README.md) keeps webhook acknowledgement and repository scanning on separate services:
+
+```text
+GitHub webhook
+  -> public Cloud Run ingress
+  -> Pub/Sub durable queue
+  -> IAM-protected Cloud Run worker
+  -> existing worker runtime
+```
+
+The ingress uses the existing signed-webhook service core and publishes only the normalized target plus GitHub delivery ID. The worker decodes that queue message and invokes the existing least-privilege scan runtime.
+
 ## GitHub App registration contract
 
 The minimum repository permissions and webhook subscriptions are also represented in code:
