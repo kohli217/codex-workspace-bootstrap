@@ -276,7 +276,7 @@ Read-only evaluations against real public repositories are documented in [docs/P
 
 ## Integration boundary
 
-The CLI, reusable GitHub Action, future GitHub App, and future AI-agent skills are intended to share one preflight engine and one policy evaluator. Machine-readable reports declare a schema version so integrations can detect incompatible changes instead of silently drifting.
+The CLI, reusable GitHub Action, GitHub App, and future AI-agent skills share one preflight engine and one policy evaluator. Machine-readable reports declare a schema version so integrations can detect incompatible changes instead of silently drifting.
 
 See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md). The minimum GitHub App permissions and webhook subscriptions are defined in [docs/GITHUB_APP.md](docs/GITHUB_APP.md) and mirrored by code-level regression tests.
 
