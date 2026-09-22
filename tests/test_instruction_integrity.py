@@ -735,6 +735,12 @@ def test_pnpm_filter_command_validates_real_script_name(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    web = tmp_path / "packages" / "web"
+    web.mkdir(parents=True)
+    (web / "package.json").write_text(
+        json.dumps({"name": "web", "scripts": {"test": "vitest"}}),
+        encoding="utf-8",
+    )
     (tmp_path / "AGENTS.md").write_text(
         "Run §pnpm --filter web run lint§.\n".replace("§", "`"),
         encoding="utf-8",
@@ -779,6 +785,12 @@ def test_npm_workspace_flag_validates_real_script_name(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     (tmp_path / "package-lock.json").write_text("{}", encoding="utf-8")
+    app = tmp_path / "packages" / "app"
+    app.mkdir(parents=True)
+    (app / "package.json").write_text(
+        json.dumps({"name": "app", "scripts": {"test": "vitest"}}),
+        encoding="utf-8",
+    )
     (tmp_path / "AGENTS.md").write_text(
         "Run §npm --workspace app run lint§.\n".replace("§", "`"),
         encoding="utf-8",
