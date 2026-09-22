@@ -184,3 +184,38 @@ apps/web/GEMINI.md
 ```
 
 Gemini CLI project `.gemini/settings.json` `context.fileName` overrides are also respected when present.
+
+## Reproducible scoped monorepo example
+
+A common monorepo pattern is to use one package manager at the root and another inside a nested application. CWB resolves nested AI instructions against the nearest package-manager evidence instead of applying the root package manager everywhere.
+
+The repository includes a disposable demo where:
+
+- the root uses npm and a root `AGENTS.md`;
+- `apps/web` uses pnpm and its own `AGENTS.md`;
+- the BEFORE case incorrectly tells the web app to run `npm test`;
+- the AFTER case changes only that nested instruction to `pnpm test`.
+
+Run it from the repository root:
+
+```powershell
+py examples/scoped-monorepo-demo/run_demo.py
+```
+
+Expected outcome:
+
+```text
+=== BEFORE ===
+State: NEEDS ATTENTION
+Findings:
+  - package-manager-mismatch (scope: apps/web): ...
+
+=== AFTER ===
+State: READY
+Findings: none
+
+Demo verification: PASS
+```
+
+The demo uses temporary Git repositories and is exercised in CI, so the documented result must continue to match real CWB behavior. See `examples/scoped-monorepo-demo/` for the complete setup.
+
