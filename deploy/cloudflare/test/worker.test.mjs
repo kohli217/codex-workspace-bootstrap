@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
+import { webcrypto } from "node:crypto";
 import test from "node:test";
+
+if (!globalThis.crypto) globalThis.crypto = webcrypto;
 
 import {
   base64urlDecode,
   base64urlEncode,
+  brokerGrant,
   manifestFor,
   normalizeWebhook,
   setupTokenIsValid,
@@ -40,7 +44,7 @@ test("push event normalizes to a queue target", () => {
   const decision = normalizeWebhook("push", {
     after: "a".repeat(40),
     ref: "refs/heads/main",
-    repository: { full_name: "octo/demo" },
+    repository: { full_name: "octo/demo", private: false },
     installation: { id: 1234 },
   });
   assert.equal(decision.disposition, "scan");
@@ -53,7 +57,7 @@ test("unsupported pull request action is ignored", () => {
   const decision = normalizeWebhook("pull_request", {
     action: "closed",
     number: 42,
-    repository: { full_name: "octo/demo" },
+    repository: { full_name: "octo/demo", private: false },
     installation: { id: 1234 },
     pull_request: { head: { sha: "a".repeat(40) } },
   });
@@ -64,4 +68,41 @@ test("base64url helper round trips UTF-8 bytes", () => {
   const source = new TextEncoder().encode("CWB free deployment");
   const encoded = base64urlEncode(source);
   assert.deepEqual(base64urlDecode(encoded), source);
+});
+
+
+test("private repository webhook is rejected before queueing", () => {
+  const decision = normalizeWebhook("push", {
+    after: "a".repeat(40),
+    ref: "refs/heads/main",
+    repository: { full_name: "octo/private-demo", private: true },
+    installation: { id: 1234 },
+  });
+  assert.equal(decision.disposition, "private-unsupported");
+  assert.equal(decision.target, undefined);
+});
+
+test("broker grant is deterministic and delivery-bound", async () => {
+  const first = await brokerGrant(
+    "webhook-secret",
+    "delivery-123",
+    "octo/demo",
+    1234,
+  );
+  const same = await brokerGrant(
+    "webhook-secret",
+    "delivery-123",
+    "octo/demo",
+    1234,
+  );
+  const changed = await brokerGrant(
+    "webhook-secret",
+    "delivery-456",
+    "octo/demo",
+    1234,
+  );
+
+  assert.equal(first, same);
+  assert.notEqual(first, changed);
+  assert.match(first, /^[0-9a-f]{64}$/);
 });
