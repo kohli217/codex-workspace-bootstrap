@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented here.
 
+## [0.10.0] - 2026-09-22
+
+### Fixed
+- pnpm exact repository-relative path filters such as `pnpm --filter ./api test` now validate against the targeted package instead of dropping script validation.
+- Package commands following a safe repository-relative `cd <dir> && ...` chain retain their lexical working-directory context for script validation without changing the public command-extraction API.
+- npm `--prefix` and pnpm `--filter` routing are recognized when those options appear after the script name as well as before it, while script arguments after `--` remain untouched.
+- Unfiltered pnpm `-r` / `--recursive` and npm `--workspaces` / `-ws` fan-out commands no longer produce root-package missing-script false positives.
+- npm exact `--workspace` / `-w` selectors can resolve safe repository-relative workspace directories when the selector differs from the package name.
+
+### Safety
+- Exact path routing continues to reject absolute paths, parent traversal, glob/ambiguous selectors, unsafe cwd forms, and missing targets rather than guessing.
+- Recursive/workspace fan-out handling deliberately avoids emulating complete package-manager selection semantics; commands extracted from instructions remain non-executable lint evidence only.
+
+### Documentation
+- Added fixed public regression fixtures for `unraid/api`, `bytedance/deer-flow`, `withcoral/coral`, `marktoflow/marktoflow`, `forwardsoftware/react-auth`, `KutyAI/Private-Hosting-App`, and `kryten87/PromptKitchen`.
+
 ## [0.9.0] - 2026-09-22
 
 ### Added
