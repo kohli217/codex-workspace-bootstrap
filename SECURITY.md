@@ -46,6 +46,7 @@ The future GitHub App uses an App private key, a webhook secret, and short-lived
 - Verify every webhook with `X-Hub-Signature-256` before parsing or acting on its payload.
 - Installation tokens should be created only for the installation that delivered the event and should not be logged. The worker further restricts each token to the single event repository and only the `contents:read` and `checks:write` permissions needed after webhook receipt.
 - Pull request code is untrusted input. The GitHub App checkout path disables system/global Git configuration and Git hooks, does not initialize submodules, and never executes project validation commands from the checked-out repository.
+- HTTP Git access follows GitHub's installation-token contract: the token is supplied as the password for the `x-access-token` username via an environment-backed Basic-auth extraheader. The token is never embedded in the remote URL or command-line arguments.
 - A dynamic branch or pull-request ref is accepted only when it resolves to the SHA expected from the webhook event.
 
 The preferred zero-cost Cloudflare deployment stores Manifest-generated GitHub App credentials in Workers KV. Cloudflare encrypts all KV values at rest with AES-256 and protects transport with TLS. The App private key and webhook secret never enter the GitHub Actions runner.
