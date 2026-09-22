@@ -476,7 +476,6 @@ async function dispatchWorkflow(env, queued) {
         ref: GITHUB_REF,
         inputs: {
           payload,
-          token_endpoint: queued.token_endpoint,
         },
       }),
     },
@@ -553,11 +552,9 @@ async function handleWebhook(request, env) {
     return jsonResponse(400, { error: "invalid webhook payload" });
   }
   if (decision.disposition === "scan") {
-    const origin = new URL(request.url).origin;
     await env.SCAN_QUEUE.send({
       delivery_id: deliveryId,
       target: decision.target,
-      token_endpoint: `${origin}/tokens/github`,
     });
   }
   return jsonResponse(202, {
