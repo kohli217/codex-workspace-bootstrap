@@ -142,10 +142,18 @@ def test_installation_token_broker_request_is_scoped_to_target(monkeypatch) -> N
     assert request.get_method() == "POST"
     assert request.get_header("Authorization") == "Bearer oidc-token"
     assert json.loads(request.data) == {
-        "repository": "octo/demo",
-        "installation_id": 1234,
         "delivery_id": "delivery-123",
         "broker_grant": "signed-webhook-grant",
+        "target": {
+            "event": "push",
+            "repository": "octo/demo",
+            "head_sha": "a" * 40,
+            "installation_id": 1234,
+            "action": None,
+            "pull_request_number": None,
+            "merge_commit_sha": None,
+            "ref": None,
+        },
     }
 
 
