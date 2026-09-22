@@ -71,12 +71,42 @@ Never commit the private key, webhook secret, installation token, or a populated
 
 The repository already ignores `*.pem`, `*.key`, `.env`, and `.env.*` (except the template file).
 
+## Service-core API
+
+The network-free service core joins webhook verification/routing with repository-only preflight and Check rendering:
+
+```python
+from codex_workspace_bootstrap.integrations.github_app_service import (
+    build_github_app_check,
+    prepare_github_app_event,
+)
+
+decision = prepare_github_app_event(
+    event_name=event_name,
+    raw_body=raw_body,
+    signature_header=signature_header,
+    webhook_secret=webhook_secret,
+)
+
+if decision.disposition == "ping":
+    # Respond successfully to GitHub's webhook ping.
+    ...
+elif decision.disposition == "ignored":
+    # Valid event, but no scan is needed.
+    ...
+else:
+    # After authenticated checkout of decision.target.head_sha:
+    check = build_github_app_check(repository_root)
+```
+
+This API performs no HTTP requests and does not exchange GitHub credentials. The outer delivery service remains responsible for installation authentication, checkout, and posting the Check Run.
+
 ## End-to-end flow
 
 ```text
 GitHub push / pull_request
         ↓
-verify X-Hub-Signature-256
+prepare_github_app_event(...)
         ↓
 normalize repository + head SHA + installation ID
         ↓
