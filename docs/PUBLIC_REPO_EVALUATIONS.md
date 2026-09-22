@@ -434,6 +434,32 @@ Expected behavior of the current integrity model:
 - avoid cwd-only package validation for a cwd-prefixed multi-workspace command;
 - keep package-manager detection unchanged.
 
+## kryten87/PromptKitchen
+
+Snapshot: `e338c98df48b8bb0ba40192c1d716c0d1b3d890f`
+
+Observed signals:
+
+- root `AGENTS.md`;
+- root `package.json` declares `packages/backend` and `packages/frontend` as npm workspaces;
+- `packages/backend/package.json` is named `@prompt-kitchen/backend` and defines `test`;
+- `packages/frontend/package.json` is named `@prompt-kitchen/frontend` and defines `test`;
+- root instructions select those workspaces by directory, for example `npm --workspace=packages/backend test -- ...`.
+
+Why this matters:
+
+- exercises npm's exact workspace-directory selector rather than package-name selection;
+- prevents CWB from dropping script validation when the selector path differs from the package name;
+- preserves package-name resolution as the first choice before safe directory fallback.
+
+Expected behavior of the current integrity model:
+
+- resolve exact npm `--workspace` / `-w` targets by package name when uniquely matched;
+- otherwise safely treat an exact repository-relative selector as a directory target;
+- require a regular non-symlink `package.json` in that directory;
+- reject absolute paths, parent traversal, glob selectors, and missing targets;
+- preserve script arguments after npm's `--` separator.
+
 ## What these evaluations do not prove
 
 These evaluations do not prove:
@@ -475,5 +501,6 @@ The observed repository patterns are encoded as automated regression tests in `t
 - `test_public_pattern_marktoflow_pnpm_post_script_filter_uses_workspace`
 - `test_public_pattern_react_auth_pnpm_recursive_skips_root_script_requirement`
 - `test_public_pattern_private_hosting_npm_workspaces_skips_root_script_requirement`
+- `test_public_pattern_prompt_kitchen_npm_workspace_directory_selector`
 
 The fixtures intentionally model only the relevant public signals needed to exercise the lint rules. They are not copies of the upstream repositories and they do not imply compatibility certification.
