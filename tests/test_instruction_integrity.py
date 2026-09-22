@@ -1605,3 +1605,132 @@ def test_npm_repeated_prefix_stays_unresolved(tmp_path: Path) -> None:
 
     assert not any(item.kind == "missing-package-script" for item in findings)
 
+
+def test_pnpm_post_script_filter_uses_target_workspace_scripts(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"packageManager": "pnpm@9", "scripts": {"test": "turbo test"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    core = tmp_path / "packages" / "core"
+    core.mkdir(parents=True)
+    (core / "package.json").write_text(
+        json.dumps({"name": "@demo/core", "scripts": {"test": "vitest"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `pnpm test --filter=@demo/core`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
+
+def test_pnpm_post_script_filter_reports_missing_workspace_script(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"packageManager": "pnpm@9", "scripts": {"test": "turbo test"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    core = tmp_path / "packages" / "core"
+    core.mkdir(parents=True)
+    (core / "package.json").write_text(
+        json.dumps({"name": "@demo/core", "scripts": {"build": "tsc"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `pnpm test --filter @demo/core`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    missing = [item for item in findings if item.kind == "missing-package-script"]
+    assert len(missing) == 1
+    assert "test" in missing[0].message
+
+
+def test_pnpm_post_script_short_filter_uses_target_workspace(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"packageManager": "pnpm@9", "scripts": {}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    core = tmp_path / "packages" / "core"
+    core.mkdir(parents=True)
+    (core / "package.json").write_text(
+        json.dumps({"name": "@demo/core", "scripts": {"test": "vitest"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `pnpm test -F=@demo/core`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
+
+def test_pnpm_post_script_path_filter_uses_target_directory(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"packageManager": "pnpm@9", "scripts": {}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    core = tmp_path / "packages" / "core"
+    core.mkdir(parents=True)
+    (core / "package.json").write_text(
+        json.dumps({"name": "@demo/core", "scripts": {"test": "vitest"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `pnpm test --filter ./packages/core`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
+
+def test_pnpm_filter_after_double_dash_is_script_argument(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"packageManager": "pnpm@9", "scripts": {"test": "vitest"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `pnpm test -- --filter @demo/core`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
+
+def test_pnpm_repeated_post_script_filters_stay_unresolved(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"packageManager": "pnpm@9", "scripts": {}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    for name in ("core", "web"):
+        package = tmp_path / "packages" / name
+        package.mkdir(parents=True)
+        (package / "package.json").write_text(
+            json.dumps({"name": f"@demo/{name}", "scripts": {}}),
+            encoding="utf-8",
+        )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `pnpm test --filter @demo/core --filter @demo/web`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
