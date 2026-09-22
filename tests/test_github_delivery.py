@@ -14,6 +14,7 @@ from codex_workspace_bootstrap.integrations.github_delivery import (
     build_github_app_jwt,
     build_github_app_jwt_signing_input,
     build_installation_token_request,
+    build_list_check_runs_request,
 )
 from codex_workspace_bootstrap.preflight import PREFLIGHT_REPORT_SCHEMA_VERSION
 
@@ -130,6 +131,49 @@ def test_installation_token_request_can_be_scoped_to_one_repository() -> None:
     }
 
 
+def test_check_run_request_can_include_delivery_external_id() -> None:
+    check = build_github_check(_report())
+
+    request = build_check_run_request(
+        repository="octo/demo",
+        head_sha="abc123",
+        installation_token="ghs_example",
+        check=check,
+        external_id="delivery-123",
+    )
+
+    assert request.json_body is not None
+    assert request.json_body["external_id"] == "delivery-123"
+
+
+def test_list_check_runs_request_targets_exact_ref_and_name() -> None:
+    request = build_list_check_runs_request(
+        repository="octo/demo",
+        ref="abc123",
+        installation_token="ghs_example",
+    )
+
+    assert request.method == "GET"
+    assert request.url == (
+        "https://api.github.com/repos/octo/demo/commits/abc123/check-runs"
+        "?check_name=CWB+Preflight&filter=all&per_page=100"
+    )
+    assert request.headers["Authorization"] == "Bearer ghs_example"
+    assert request.json_body is None
+
+
+def test_list_check_runs_request_escapes_ref_and_check_name() -> None:
+    request = build_list_check_runs_request(
+        repository="octo/demo",
+        ref="refs/heads/feature/test",
+        installation_token="token",
+        check_name="CWB / Preflight",
+    )
+
+    assert "/commits/refs%2Fheads%2Ffeature%2Ftest/check-runs?" in request.url
+    assert "check_name=CWB+%2F+Preflight" in request.url
+
+
 def test_check_run_request_combines_adapter_fields_and_head_sha() -> None:
     check = build_github_check(_report())
 
@@ -185,4 +229,38 @@ def test_installation_token_request_rejects_invalid_installation_id(
         build_installation_token_request(
             installation_id=installation_id,
             app_jwt="app.jwt.token",
+        )
+
+
+
+def test_check_run_external_id_rejects_empty_value() -> None:
+    check = build_github_check(_report())
+
+    with pytest.raises(GitHubDeliveryContractError, match="external_id"):
+        build_check_run_request(
+            repository="octo/demo",
+            head_sha="abc123",
+            installation_token="token",
+            check=check,
+            external_id="",
+        )
+
+
+@pytest.mark.parametrize(
+    ("ref", "check_name"),
+    [
+        ("", "CWB Preflight"),
+        ("abc123", ""),
+    ],
+)
+def test_list_check_runs_rejects_empty_inputs(
+    ref: str,
+    check_name: str,
+) -> None:
+    with pytest.raises(GitHubDeliveryContractError):
+        build_list_check_runs_request(
+            repository="octo/demo",
+            ref=ref,
+            installation_token="token",
+            check_name=check_name,
         )
