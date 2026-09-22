@@ -276,9 +276,11 @@ Read-only evaluations against real public repositories are documented in [docs/P
 
 ## GitHub App
 
+**Public App:** [CWB Preflight](https://github.com/apps/cwb-preflight) · [Install](https://github.com/apps/cwb-preflight/installations/new)
+
 For public OSS repositories, CWB can also run as a self-hosted GitHub App. A verified `push` or `pull_request` event triggers repository-only preflight against the exact event revision and publishes a **CWB Preflight** Check Run on that commit.
 
-The preferred zero-cost development deployment uses:
+The verified zero-cost public-OSS deployment uses:
 
 ```text
 GitHub App
@@ -292,7 +294,9 @@ This path does not require a Google Cloud billing account. It is intentionally *
 
 The App keeps the minimum repository permissions documented by the project: Checks read/write, Contents read-only, and Pull requests read-only.
 
-See [docs/GITHUB_APP.md](docs/GITHUB_APP.md) for the integration contract and [deploy/cloudflare/README.md](deploy/cloudflare/README.md) for the completely free development deployment.
+The current public App has been revalidated after promotion: the renamed `CWB Preflight` App produced a successful `READY` Check Run through the full Cloudflare → Queue → GitHub Actions → installation-token → exact-revision checkout path.
+
+See [docs/GITHUB_APP.md](docs/GITHUB_APP.md) for the integration contract and [deploy/cloudflare/README.md](deploy/cloudflare/README.md) for the completely free deployment.
 
 ## Integration boundary
 
