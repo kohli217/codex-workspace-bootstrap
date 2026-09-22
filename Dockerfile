@@ -9,7 +9,8 @@ RUN apt-get update \
     && useradd --create-home --uid 10001 --shell /usr/sbin/nologin cwb
 
 WORKDIR /app
-COPY . .
+COPY pyproject.toml README.md LICENSE ./
+COPY src ./src
 RUN python -m pip install --no-cache-dir .
 
 USER cwb
