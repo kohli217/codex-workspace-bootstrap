@@ -142,6 +142,29 @@ The webhook core:
 - rejects deleted-ref pushes because they have no commit to inspect;
 - performs no network requests and does not require GitHub credentials.
 
+## GitHub App service core
+
+Webhook delivery can use the network-free service core:
+
+```python
+from codex_workspace_bootstrap.integrations.github_app_service import (
+    build_github_app_check,
+    prepare_github_app_event,
+)
+
+decision = prepare_github_app_event(
+    event_name=event_name,
+    raw_body=raw_body,
+    signature_header=signature_header,
+    webhook_secret=webhook_secret,
+)
+
+if decision.disposition == "scan":
+    check = build_github_app_check(repository_root)
+```
+
+It handles signature verification, JSON parsing, ping/ignored/scan routing, and forces repository-only preflight semantics. Installation-token exchange, authenticated checkout, and Check Run publication remain outside this pure core.
+
 ## GitHub App registration contract
 
 The minimum repository permissions and webhook subscriptions are also represented in code:
