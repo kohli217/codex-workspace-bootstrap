@@ -370,3 +370,60 @@ def test_preflight_policy_reports_all_enabled_failures() -> None:
         "instruction-integrity-findings",
         "repository-not-ready",
     )
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="git is required")
+def test_repository_only_preflight_is_independent_of_host_toolchain(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    subprocess.run(("git", "-C", str(tmp_path), "init"), check=True, capture_output=True, text=True)
+    (tmp_path / "README.md").write_text("# demo\n", encoding="utf-8")
+    (tmp_path / ".gitignore").write_text(".venv/\n", encoding="utf-8")
+    (tmp_path / "package.json").write_text(
+        '{"packageManager":"pnpm@10","scripts":{"test":"vitest"}}',
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    (tmp_path / "AGENTS.md").write_text("Run §pnpm test§.\n".replace("§", "`"), encoding="utf-8")
+
+    def fail_tool_check(label: str, command: tuple[str, ...]) -> Check:
+        raise AssertionError(f"local tool check should not run: {label} {command}")
+
+    monkeypatch.setattr("codex_workspace_bootstrap.audit._tool_check", fail_tool_check)
+
+    report = build_preflight(tmp_path, include_local_toolchain=False)
+
+    assert report["local_toolchain_checked"] is False
+    assert report["state"] == "READY"
+    assert not {
+        "git",
+        "python",
+        "node",
+        "powershell",
+        "wsl",
+        "codex",
+        "npm",
+        "pnpm",
+        "yarn",
+        "bun",
+    }.intersection(item["name"] for item in report["checks"])
+    assert "**Local toolchain checks:** skipped (repository-only mode)" in render_markdown(report)
+
+
+def test_next_actions_keeps_package_manager_conflict_high_priority_without_tool_checks() -> None:
+    checks = [
+        Check(
+            "package-manager-evidence",
+            "warn",
+            "Conflicting Node.js package-manager evidence detected: npm, pnpm",
+        ),
+    ]
+
+    actions = next_actions(checks, [], ["Node.js"])
+
+    assert any(
+        item.priority == "P1"
+        and item.title == "Resolve conflicting repository package-manager evidence"
+        for item in actions
+    )
