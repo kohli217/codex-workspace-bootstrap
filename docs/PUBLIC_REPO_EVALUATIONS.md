@@ -282,6 +282,31 @@ Expected behavior of the current integrity model:
 - read only the regular `AGENTS.md` directly for alias linting;
 - ignore a `GEMINI.md` alias when project settings replace Gemini's context filename list.
 
+## unraid/api
+
+Snapshot: `d0615255e0ce062f7a8262e560f963d07f311539`
+
+Observed signals:
+
+- root `AGENTS.md`;
+- root package selects pnpm;
+- `pnpm-workspace.yaml` includes `./api`;
+- `api/package.json` is named `@unraid/api` and defines `test`;
+- root instructions use `pnpm --filter ./api test`.
+
+Why this matters:
+
+- exercises pnpm's exact repository-relative path selector rather than a package-name selector;
+- prevents CWB from dropping script validation merely because `./api` does not equal the package name `@unraid/api`;
+- keeps complex pnpm filter syntax unresolved unless it can be mapped deterministically and safely.
+
+Expected behavior of the current integrity model:
+
+- recognize an exact `./relative/path` pnpm filter as a repository-relative package target;
+- validate the script against that target's regular `package.json`;
+- reject parent traversal and leave glob/dependency/negated selectors unresolved;
+- preserve a missing-script warning when the exact path target exists but lacks the referenced script.
+
 ## What these evaluations do not prove
 
 These evaluations do not prove:
@@ -317,5 +342,6 @@ The observed repository patterns are encoded as automated regression tests in `t
 - `test_public_pattern_wordpress_npm_post_script_workspace_uses_workspace_script`
 - `test_public_pattern_vtex_claude_alias_reuses_regular_agents`
 - `test_public_pattern_cissp_shared_claude_and_gemini_aliases`
+- `test_public_pattern_unraid_pnpm_exact_path_filter_uses_api_package`
 
 The fixtures intentionally model only the relevant public signals needed to exercise the lint rules. They are not copies of the upstream repositories and they do not imply compatibility certification.
