@@ -157,6 +157,31 @@ Expected behavior of the current integrity model:
 - avoid a missing-script warning when the targeted workspace defines the script;
 - still report a missing script when an exact resolved workspace truly lacks it.
 
+## TracecatHQ/tracecat
+
+Snapshot: `45eb759264c4897dda6cfc2ccc3afe58d5985482`
+
+Observed signals:
+
+- root `AGENTS.md`;
+- no root `package.json` at this snapshot;
+- `frontend/package.json` selects pnpm and defines `test`;
+- root instructions use `pnpm -C frontend test`.
+
+Why this matters:
+
+- exercises a real repository-level instruction that targets a package by repository-relative directory;
+- verifies that script validation follows the explicit pnpm working directory rather than unrelated root package evidence;
+- protects directory-targeted validation without executing repository commands or reading outside the repository.
+
+Expected behavior of the current integrity model:
+
+- parse `-C frontend` as a repository-relative directory target;
+- validate `test` against `frontend/package.json`;
+- reject absolute paths and `..` traversal from evidence resolution;
+- avoid a false missing-script finding when the targeted package defines the script;
+- still report a missing script when the targeted package exists but lacks it.
+
 ## What these evaluations do not prove
 
 These evaluations do not prove:
