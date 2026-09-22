@@ -16,6 +16,7 @@ from codex_workspace_bootstrap.integrations.github_cloud_run import (
     publish_queued_scan,
     run_queued_scan,
     store_manifest_credentials,
+    _safe_header_value,
 )
 from codex_workspace_bootstrap.integrations.github_manifest import (
     GitHubManifestCredentials,
@@ -252,3 +253,11 @@ def test_run_queued_scan_passes_target_and_runtime_credentials(tmp_path: Path) -
     assert seen["client_id"] == "Iv23liExample"
     assert seen["private_key_path"] == key
     assert result.check_run_id == 987
+
+
+
+def test_response_header_values_reject_line_breaks() -> None:
+    assert _safe_header_value("safe-value") == "safe-value"
+
+    with pytest.raises(CloudRunAppError, match="line break"):
+        _safe_header_value("unsafe\r\nInjected: yes")
