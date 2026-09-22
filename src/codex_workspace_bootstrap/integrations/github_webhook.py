@@ -28,6 +28,7 @@ class GitHubWebhookTarget:
     installation_id: int | None
     action: str | None = None
     pull_request_number: int | None = None
+    merge_commit_sha: str | None = None
     ref: str | None = None
 
 
@@ -89,6 +90,10 @@ def normalize_github_webhook(
         pull_request = _mapping(payload.get("pull_request"), "pull_request")
         head = _mapping(pull_request.get("head"), "pull_request.head")
         head_sha = _required_text(head.get("sha"), "pull_request.head.sha")
+        merge_commit_sha = _optional_text(
+            pull_request.get("merge_commit_sha"),
+            "pull_request.merge_commit_sha",
+        )
         action = _optional_text(payload.get("action"), "action")
 
         number = payload.get("number")
@@ -102,6 +107,7 @@ def normalize_github_webhook(
             installation_id=installation_id,
             action=action,
             pull_request_number=number,
+            merge_commit_sha=merge_commit_sha,
         )
 
     if event_name == "push":
