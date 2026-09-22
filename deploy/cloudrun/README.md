@@ -47,7 +47,13 @@ The script:
 7. configures authenticated Pub/Sub push delivery;
 8. prints a one-time GitHub App setup URL.
 
-The setup URL keeps the short-lived bootstrap secret in the URL fragment (`#token=...`). Browser fragments are not sent in the HTTP request, so the bootstrap token is not included in Cloud Run's request URL. A small bootstrap page POSTs the token in the request body and the ingress moves the verified server-side value into a Secure/HttpOnly cookie before rendering the App Manifest form.
+The setup URL keeps the bootstrap secret in the URL fragment (`#token=...`). Browser fragments are not sent in the HTTP request, so the bootstrap token is not included in Cloud Run's request URL. A small bootstrap page POSTs the token in the request body and the ingress moves the verified server-side value into a Secure/HttpOnly cookie before rendering the App Manifest form.
+
+The bootstrap token expires one hour after it is issued. If the setup window expires before App registration is completed, create a fresh token without rebuilding or redeploying the services:
+
+```bash
+./deploy/cloudrun/rotate-setup-token.sh YOUR_GCP_PROJECT_ID
+```
 
 After GitHub redirects to the Manifest callback, the generated client ID, private key, and webhook secret are written directly to Secret Manager. They are never rendered back to the browser.
 
@@ -63,6 +69,7 @@ CWB_REGION=asia-northeast2 ./deploy/cloudrun/deploy.sh YOUR_GCP_PROJECT_ID
 
 - GitHub webhook bodies are accepted up to GitHub's 25 MB webhook payload cap.
 - Worker requests use a 600-second Cloud Run/Pub/Sub deadline.
+- Worker container concurrency is fixed at 1 so multiple repository clones do not contend inside the same 512 MiB instance.
 - The worker uses the existing hardened checkout and repository-only preflight path.
 
 ## Cost
