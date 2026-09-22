@@ -342,3 +342,48 @@ def test_public_pattern_cissp_shared_claude_and_gemini_aliases(
     assert ("Claude Code", "CLAUDE.md", "alias") in pairs
     assert ("Gemini CLI", "GEMINI.md", "alias") in pairs
 
+
+def test_public_pattern_unraid_pnpm_exact_path_filter_uses_api_package(
+    tmp_path: Path,
+) -> None:
+    """Pattern observed in unraid/api at d061525: root AGENTS targets ./api."""
+    (tmp_path / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "unraid-monorepo",
+                "private": True,
+                "packageManager": "pnpm@10.15.0",
+                "scripts": {
+                    "test": "pnpm -r test",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    (tmp_path / "pnpm-workspace.yaml").write_text(
+        'packages:\n  - "./api"\n',
+        encoding="utf-8",
+    )
+    api = tmp_path / "api"
+    api.mkdir()
+    (api / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "@unraid/api",
+                "scripts": {
+                    "test": "NODE_ENV=test vitest run",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run tests with: `pnpm --filter ./api test`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
