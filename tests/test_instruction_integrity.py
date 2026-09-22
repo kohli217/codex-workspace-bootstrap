@@ -833,3 +833,110 @@ def test_embedded_brace_glob_keeps_parent_static_scope(tmp_path: Path) -> None:
 
     assert signal.kind == "path-specific"
     assert signal.scope == "apps/web"
+
+
+def test_pnpm_filter_validates_target_workspace_script(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"packageManager": "pnpm@11", "scripts": {"test": "turbo test"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    package = tmp_path / "packages" / "core"
+    package.mkdir(parents=True)
+    (package / "package.json").write_text(
+        json.dumps({"name": "@demo/core", "scripts": {"dev": "vite"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `pnpm --filter @demo/core run dev`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
+
+def test_pnpm_filter_reports_script_missing_from_target_workspace(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"packageManager": "pnpm@11", "scripts": {"dev": "vite"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    package = tmp_path / "packages" / "core"
+    package.mkdir(parents=True)
+    (package / "package.json").write_text(
+        json.dumps({"name": "@demo/core", "scripts": {"test": "vitest"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `pnpm --filter @demo/core run dev`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    missing = [item for item in findings if item.kind == "missing-package-script"]
+    assert len(missing) == 1
+    assert "dev" in missing[0].message
+
+
+def test_npm_workspace_validates_target_workspace_script(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"packageManager": "npm@11", "scripts": {}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "package-lock.json").write_text("{}\n", encoding="utf-8")
+    package = tmp_path / "packages" / "web"
+    package.mkdir(parents=True)
+    (package / "package.json").write_text(
+        json.dumps({"name": "@demo/web", "scripts": {"lint": "eslint ."}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `npm --workspace @demo/web run lint`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
+
+def test_yarn_workspace_validates_target_workspace_script(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"packageManager": "yarn@4", "scripts": {}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "yarn.lock").write_text("", encoding="utf-8")
+    package = tmp_path / "packages" / "web"
+    package.mkdir(parents=True)
+    (package / "package.json").write_text(
+        json.dumps({"name": "@demo/web", "scripts": {"test": "vitest"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `yarn workspace @demo/web test`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
+
+def test_unresolved_workspace_selector_does_not_fall_back_to_root_scripts(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"packageManager": "pnpm@11", "scripts": {}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `pnpm --filter './packages/**' run test`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
