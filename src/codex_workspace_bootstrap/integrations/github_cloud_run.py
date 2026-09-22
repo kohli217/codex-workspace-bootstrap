@@ -410,6 +410,12 @@ def _cookie_value(cookie_header: str | None, name: str) -> str | None:
     return None
 
 
+def _safe_header_value(value: str) -> str:
+    if "\r" in value or "\n" in value:
+        raise CloudRunAppError("response header value contains a line break")
+    return value
+
+
 class CloudRunHandler(BaseHTTPRequestHandler):
     server_version = "CWBCloudRun/1"
     sys_version = ""
@@ -431,7 +437,7 @@ class CloudRunHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         for key, value in headers:
-            self.send_header(key, value)
+            self.send_header(key, _safe_header_value(value))
         self.end_headers()
         if body:
             self.wfile.write(body)
@@ -532,7 +538,7 @@ class CloudRunHandler(BaseHTTPRequestHandler):
                     (
                         "Set-Cookie",
                         "cwb_setup="
-                        + supplied
+                        + expected
                         + "; Path=/setup/github; Max-Age=3600; Secure; HttpOnly; SameSite=Lax",
                     ),
                 ),
