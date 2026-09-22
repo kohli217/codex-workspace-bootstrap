@@ -17,6 +17,7 @@ from codex_workspace_bootstrap.integrations.github_webhook import GitHubWebhookT
 def _encoded_payload() -> str:
     payload = {
         "delivery_id": "delivery-123",
+        "broker_grant": "signed-webhook-grant",
         "target": {
             "event": "push",
             "repository": "octo/demo",
@@ -33,9 +34,10 @@ def _encoded_payload() -> str:
 
 
 def test_decode_scan_payload_round_trips_normalized_target() -> None:
-    delivery_id, target = decode_scan_payload(_encoded_payload())
+    delivery_id, broker_grant, target = decode_scan_payload(_encoded_payload())
 
     assert delivery_id == "delivery-123"
+    assert broker_grant == "signed-webhook-grant"
     assert target == GitHubWebhookTarget(
         event="push",
         repository="octo/demo",
@@ -49,6 +51,7 @@ def test_decode_scan_payload_rejects_invalid_installation() -> None:
     raw = json.dumps(
         {
             "delivery_id": "delivery-123",
+            "broker_grant": "signed-webhook-grant",
             "target": {
                 "event": "push",
                 "repository": "octo/demo",
@@ -124,6 +127,8 @@ def test_installation_token_broker_request_is_scoped_to_target(monkeypatch) -> N
     token = request_installation_token(
         endpoint="https://example.workers.dev/tokens/github",
         oidc_token="oidc-token",
+        delivery_id="delivery-123",
+        broker_grant="signed-webhook-grant",
         target=GitHubWebhookTarget(
             event="push",
             repository="octo/demo",
@@ -139,6 +144,8 @@ def test_installation_token_broker_request_is_scoped_to_target(monkeypatch) -> N
     assert json.loads(request.data) == {
         "repository": "octo/demo",
         "installation_id": 1234,
+        "delivery_id": "delivery-123",
+        "broker_grant": "signed-webhook-grant",
     }
 
 
@@ -161,6 +168,8 @@ def test_token_broker_error_does_not_include_response_body(monkeypatch) -> None:
         request_installation_token(
             endpoint="https://example.workers.dev/tokens/github",
             oidc_token="oidc-token",
+            delivery_id="delivery-123",
+            broker_grant="signed-webhook-grant",
             target=GitHubWebhookTarget(
                 event="push",
                 repository="octo/demo",
@@ -171,3 +180,21 @@ def test_token_broker_error_does_not_include_response_body(monkeypatch) -> None:
 
     assert "401" in str(exc_info.value)
     assert "must-not-leak" not in str(exc_info.value)
+
+
+def test_decode_scan_payload_requires_broker_grant() -> None:
+    raw = json.dumps(
+        {
+            "delivery_id": "delivery-123",
+            "target": {
+                "event": "push",
+                "repository": "octo/demo",
+                "head_sha": "a" * 40,
+                "installation_id": 1234,
+            },
+        }
+    ).encode("utf-8")
+    encoded = base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
+
+    with pytest.raises(GitHubActionsWorkerError, match="broker_grant"):
+        decode_scan_payload(encoded)
