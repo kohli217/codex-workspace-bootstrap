@@ -1256,3 +1256,90 @@ def test_claude_alias_rejects_symlinked_agents_target(
         for item in signals
     )
 
+
+def test_safe_gemini_agents_alias_is_detected_and_linted(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"scripts": {"test": "vitest"}}),
+        encoding="utf-8",
+    )
+    agents = tmp_path / "AGENTS.md"
+    agents.write_text(
+        "Run `npm run lint`.\n",
+        encoding="utf-8",
+    )
+    gemini = tmp_path / "GEMINI.md"
+    gemini.write_text("AGENTS.md", encoding="utf-8")
+
+    original_is_symlink = Path.is_symlink
+    original_readlink = Path.readlink
+
+    def fake_is_symlink(path: Path) -> bool:
+        if path == gemini:
+            return True
+        return original_is_symlink(path)
+
+    def fake_readlink(path: Path) -> Path:
+        if path == gemini:
+            return Path("AGENTS.md")
+        return original_readlink(path)
+
+    monkeypatch.setattr(Path, "is_symlink", fake_is_symlink)
+    monkeypatch.setattr(Path, "readlink", fake_readlink)
+
+    signals = detect_instruction_signals(tmp_path)
+    alias = next(
+        item
+        for item in signals
+        if item.tool == "Gemini CLI" and item.path == "GEMINI.md"
+    )
+
+    assert alias.kind == "alias"
+    findings = lint_instructions(tmp_path, [alias])
+    assert any(item.kind == "missing-package-script" for item in findings)
+
+
+def test_gemini_alias_is_not_used_when_context_filename_excludes_gemini(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    agents = tmp_path / "AGENTS.md"
+    agents.write_text("Use shared instructions.\n", encoding="utf-8")
+    gemini = tmp_path / "GEMINI.md"
+    gemini.write_text("AGENTS.md", encoding="utf-8")
+    settings = tmp_path / ".gemini"
+    settings.mkdir()
+    (settings / "settings.json").write_text(
+        json.dumps({"context": {"fileName": ["AGENTS.md"]}}),
+        encoding="utf-8",
+    )
+
+    original_is_symlink = Path.is_symlink
+    original_readlink = Path.readlink
+
+    def fake_is_symlink(path: Path) -> bool:
+        if path == gemini:
+            return True
+        return original_is_symlink(path)
+
+    def fake_readlink(path: Path) -> Path:
+        if path == gemini:
+            return Path("AGENTS.md")
+        return original_readlink(path)
+
+    monkeypatch.setattr(Path, "is_symlink", fake_is_symlink)
+    monkeypatch.setattr(Path, "readlink", fake_readlink)
+
+    signals = detect_instruction_signals(tmp_path)
+
+    assert any(
+        item.tool == "Gemini CLI" and item.path == "AGENTS.md"
+        for item in signals
+    )
+    assert not any(
+        item.tool == "Gemini CLI" and item.path == "GEMINI.md"
+        for item in signals
+    )
+
