@@ -64,7 +64,7 @@ When a scan starts:
 5. Cloudflare creates an installation token restricted to only the event repository and only `contents:read` + `checks:write`.
 6. The Actions runner uses that short-lived token for checkout and Check Run publication.
 
-The only long-lived GitHub credential supplied manually is a fine-grained personal access token scoped to **only** `kohli217/codex-workspace-bootstrap` with **Actions: Read and write** and **Variables: Read and write**. The deployment script uses Variables write once to pin the trusted `CWB_TOKEN_ENDPOINT`; the deployed Worker uses the token only for `workflow_dispatch`.
+The only long-lived GitHub credential supplied manually is a fine-grained personal access token scoped to **only** `kohli217/codex-workspace-bootstrap` with **Actions: Read and write** and **Variables: Read and write**. It is uploaded once as the Cloudflare secret `CWB_DISPATCH_TOKEN`. On later reruns, the deployment detects and reuses that secret without asking for the token again. After a successful deploy, the Worker uses the same stored credential to pin the trusted `CWB_TOKEN_ENDPOINT` repository variable; normal runtime use is limited to `workflow_dispatch`.
 
 ## Windows deployment
 
@@ -92,11 +92,11 @@ The script:
 3. creates/reuses one Workers KV namespace; if an earlier interrupted deployment already created the legacy `CWB_STATE` namespace, it is reused rather than duplicated or deleted;
 4. creates/reuses one Queue with 24-hour retention;
 5. writes the generated Wrangler configuration only to an ignored local file;
-6. if needed, opens GitHub's fine-grained token form with the owner, expiry, and required permissions prefilled; you only select `codex-workspace-bootstrap` under **Only select repositories**, generate the token, and paste it once;
+6. detects whether `CWB_DISPATCH_TOKEN` already exists in Cloudflare; only when it is missing does the script open GitHub's fine-grained token form and ask you to paste the token once;
 7. generates a one-hour setup bootstrap secret locally;
 8. stores the setup/dispatch values as Worker secrets;
 9. deploys the Worker to `workers.dev`;
-10. pins that exact `/tokens/github` endpoint into the repository's `CWB_TOKEN_ENDPOINT` Actions variable;
+10. asks the deployed Worker to pin that exact `/tokens/github` endpoint into the repository's `CWB_TOKEN_ENDPOINT` Actions variable using the already-stored Cloudflare secret;
 11. on a brand-new Cloudflare Workers account, detects the one-time `workers.dev` onboarding requirement and opens the exact Cloudflare onboarding page automatically;
 12. prints the protected GitHub App setup URL after deployment succeeds.
 
