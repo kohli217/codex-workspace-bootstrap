@@ -1,0 +1,32 @@
+name: GitHub App worker
+
+on:
+  workflow_dispatch:
+    inputs:
+      payload:
+        description: Base64url-encoded normalized GitHub webhook target
+        required: true
+        type: string
+      token_endpoint:
+        description: Cloudflare installation-token broker URL
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.13"
+      - name: Run queued GitHub App scan
+        env:
+          CWB_SCAN_PAYLOAD: ${{ inputs.payload }}
+          CWB_TOKEN_ENDPOINT: ${{ inputs.token_endpoint }}
+        run: python -m codex_workspace_bootstrap.integrations.github_actions_worker
