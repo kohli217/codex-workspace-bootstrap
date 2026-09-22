@@ -27,6 +27,7 @@ This roadmap records intended work; it is not a promise of delivery dates.
 - repository-only preflight mode so remote App scans do not inherit the scanner host's toolchain state
 - network-free GitHub App service core for signed webhook parsing, event routing, repository-only preflight, and Check rendering
 - deterministic GitHub App JWT / installation-token / Check Run delivery request contract using the current REST API version
+- hardened exact-revision Git checkout for push, pull request, and fork pull-request inspection without repository code execution
 - reusable GitHub Action with Windows and Ubuntu self-tests, structured outputs, and an optional `require_ready` gate
 - PyPI Trusted Publishing through GitHub OIDC
 - CodeQL, Dependency Review, Dependabot, secret scanning, push protection, and protected `main`
@@ -46,7 +47,7 @@ This roadmap records intended work; it is not a promise of delivery dates.
 - additional repository-policy checks for maintainers
 - safer generation of CI configuration from detected repository evidence
 - broader SARIF interoperability and remediation metadata
-- a thin GitHub App delivery shell that loads the private key, provides the RS256 signer/HTTP transport, checks out the target revision, and executes the existing delivery requests
+- a thin GitHub App delivery shell that loads the private key, provides the RS256 signer/HTTP transport, invokes the hardened checkout, and executes the existing delivery requests
 - AI-agent skill adapters that run the same preflight contract before repository edits
 - optional assisted instruction drafting, only when explicitly requested and never by sending repository content remotely by default
 
