@@ -498,6 +498,9 @@ class CloudRunHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
         mode = os.environ.get("CWB_GITHUB_APP_MODE", "")
+        if mode == "ingress" and parsed.path == "/setup/github/session":
+            self._handle_setup_session()
+            return
         if mode == "ingress" and parsed.path == "/webhooks/github":
             self._handle_webhook()
             return
@@ -520,33 +523,33 @@ class CloudRunHandler(BaseHTTPRequestHandler):
         if os.environ.get("CWB_GITHUB_APP_MODE") != "ingress":
             self._send_json(404, {"error": "not found"})
             return
-        query = parse_qs(parsed.query)
-        supplied = query.get("token", [None])[0]
-        if supplied is not None:
-            expected = _read_secret(
-                os.environ.get(
-                    "CWB_SETUP_TOKEN_PATH",
-                    "/var/run/secrets/cwb/setup-token",
-                )
+        if not self._setup_authorized():
+            page = (
+                "<!doctype html><html><head><meta charset=\"utf-8\">"
+                "<meta name=\"referrer\" content=\"no-referrer\">"
+                "<title>CWB GitHub App Setup</title></head><body>"
+                "<h1>CWB GitHub App Setup</h1>"
+                "<p>Authorizing the one-time setup session...</p>"
+                "<noscript>JavaScript is required for the one-time setup link.</noscript>"
+                "<script>"
+                "const token=new URLSearchParams(location.hash.slice(1)).get('token');"
+                "if(!token){document.body.append(' Missing setup token.');}"
+                "else{fetch('/setup/github/session',{method:'POST',"
+                "headers:{'Content-Type':'application/x-www-form-urlencoded'},"
+                "body:new URLSearchParams({token}),credentials:'same-origin'})"
+                ".then(r=>{if(!r.ok)throw new Error('authorization failed');"
+                "history.replaceState(null,'','/setup/github');location.reload();})"
+                ".catch(()=>{document.body.append(' Setup authorization failed.');});}"
+                "</script></body></html>"
             )
-            if not hmac.compare_digest(expected, supplied):
-                self._send_json(403, {"error": "forbidden"})
-                return
-            self._send(
-                303,
+            self._send_html(
+                200,
+                page,
                 headers=(
-                    ("Location", "/setup/github"),
-                    (
-                        "Set-Cookie",
-                        "cwb_setup="
-                        + expected
-                        + "; Path=/setup/github; Max-Age=3600; Secure; HttpOnly; SameSite=Lax",
-                    ),
+                    ("Referrer-Policy", "no-referrer"),
+                    ("X-Content-Type-Options", "nosniff"),
                 ),
             )
-            return
-        if not self._setup_authorized():
-            self._send_json(403, {"error": "forbidden"})
             return
 
         base_url = os.environ.get("CWB_PUBLIC_BASE_URL", "").rstrip("/")
@@ -568,6 +571,42 @@ class CloudRunHandler(BaseHTTPRequestHandler):
                     "Set-Cookie",
                     "cwb_manifest_state="
                     + registration.state
+                    + "; Path=/setup/github; Max-Age=3600; Secure; HttpOnly; SameSite=Lax",
+                ),
+            ),
+        )
+
+    def _handle_setup_session(self) -> None:
+        try:
+            raw_body = self._read_body(limit=4096)
+            form = parse_qs(raw_body.decode("utf-8"), keep_blank_values=True)
+            supplied = form.get("token", [None])[0]
+            if not isinstance(supplied, str) or not supplied:
+                raise CloudRunAppError("setup token is missing")
+            expected = _read_secret(
+                os.environ.get(
+                    "CWB_SETUP_TOKEN_PATH",
+                    "/var/run/secrets/cwb/setup-token",
+                )
+            )
+            if not hmac.compare_digest(expected, supplied):
+                self._send_json(403, {"error": "forbidden"})
+                return
+        except (UnicodeDecodeError, CloudRunAppError) as exc:
+            print(
+                f"setup session rejected: {type(exc).__name__}",
+                file=sys.stderr,
+            )
+            self._send_json(400, {"error": "invalid setup session"})
+            return
+
+        self._send(
+            204,
+            headers=(
+                (
+                    "Set-Cookie",
+                    "cwb_setup="
+                    + expected
                     + "; Path=/setup/github; Max-Age=3600; Secure; HttpOnly; SameSite=Lax",
                 ),
             ),
