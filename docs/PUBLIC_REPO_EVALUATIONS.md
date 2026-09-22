@@ -408,6 +408,32 @@ Expected behavior of the current integrity model:
 - treat recursive-looking tokens after `--` as script arguments;
 - keep package-manager detection unchanged.
 
+## KutyAI/Private-Hosting-App
+
+Snapshot: `9aa90fbb4ca04163f086a928b4b3ffa146a8eb0d`
+
+Observed signals:
+
+- root `AGENTS.md`;
+- root `package.json` declares npm workspaces but does not define `test`;
+- root instructions use `npm test --workspaces`;
+- `apps/backend-api`, `apps/desktop-ui`, `apps/host-agent`, `apps/relay-service`, and `packages/shared-types` each define `test`.
+
+Why this matters:
+
+- exercises npm workspace fan-out where the root package itself does not own the test script;
+- prevents CWB from reporting a false `missing-package-script` warning based only on root script evidence;
+- keeps exact single-workspace routing separate from multi-workspace fan-out.
+
+Expected behavior of the current integrity model:
+
+- recognize npm `--workspaces` and `-ws` before the script-argument `--` separator;
+- avoid root/nearest-package script validation for an un-narrowed workspace fan-out;
+- preserve exact `--workspace` / `-w` validation when one workspace is safely selected;
+- treat workspace-looking tokens after `--` as script arguments;
+- avoid cwd-only package validation for a cwd-prefixed multi-workspace command;
+- keep package-manager detection unchanged.
+
 ## What these evaluations do not prove
 
 These evaluations do not prove:
@@ -448,5 +474,6 @@ The observed repository patterns are encoded as automated regression tests in `t
 - `test_public_pattern_coral_npm_post_script_prefix_uses_coral_ui`
 - `test_public_pattern_marktoflow_pnpm_post_script_filter_uses_workspace`
 - `test_public_pattern_react_auth_pnpm_recursive_skips_root_script_requirement`
+- `test_public_pattern_private_hosting_npm_workspaces_skips_root_script_requirement`
 
 The fixtures intentionally model only the relevant public signals needed to exercise the lint rules. They are not copies of the upstream repositories and they do not imply compatibility certification.
