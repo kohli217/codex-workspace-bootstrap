@@ -131,6 +131,32 @@ Expected behavior of the current integrity model:
 - also detect that same `AGENTS.md` as Gemini CLI context because of `.gemini/settings.json`;
 - not invent a `GEMINI.md` signal when that filename is not part of the configured context list.
 
+## d3plus/d3plus
+
+Snapshot: `2818442024fe3d2d3e25476dd69fe2c9337780fb`
+
+Observed signals:
+
+- root `AGENTS.md`;
+- root `package.json` selects pnpm;
+- root package does not define a `dev` script;
+- `packages/core/package.json` is named `@d3plus/core` and does define `dev`;
+- root instructions use `pnpm --filter @d3plus/core run dev`.
+
+Why this matters:
+
+- exercises a real monorepo command whose script belongs to a targeted workspace rather than the root package;
+- prevents CWB from reporting a false `missing-package-script` finding merely because the root package lacks the workspace's script;
+- validates exact workspace-name resolution without executing repository code.
+
+Expected behavior of the current integrity model:
+
+- recognize pnpm from root repository evidence;
+- resolve the exact `@d3plus/core` workspace target;
+- validate `dev` against that workspace package;
+- avoid a missing-script warning when the targeted workspace defines the script;
+- still report a missing script when an exact resolved workspace truly lacks it.
+
 ## What these evaluations do not prove
 
 These evaluations do not prove:
@@ -160,5 +186,6 @@ The observed repository patterns are encoded as automated regression tests in `t
 - `test_public_pattern_continue_gradle_rule_does_not_conflict_with_root_npm`
 - `test_public_pattern_vscode_brace_wrapped_apply_to_keeps_static_scope`
 - `test_public_pattern_fit_framework_gemini_reads_agents_md`
+- `test_public_pattern_d3plus_workspace_filter_uses_workspace_script`
 
 The fixtures intentionally model only the relevant public signals needed to exercise the lint rules. They are not copies of the upstream repositories and they do not imply compatibility certification.
