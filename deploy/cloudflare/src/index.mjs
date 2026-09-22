@@ -458,7 +458,27 @@ async function verifyActionsOidc(token, audience) {
   return payload;
 }
 
+function validateQueuedTokenEndpoint(value) {
+  if (typeof value !== "string" || !value) {
+    throw new Error("queued token endpoint is missing");
+  }
+  const url = new URL(value);
+  if (
+    url.protocol !== "https:" ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash ||
+    url.pathname !== "/tokens/github" ||
+    !url.hostname.endsWith(".workers.dev")
+  ) {
+    throw new Error("queued token endpoint is invalid");
+  }
+  return url.toString().replace(/\/$/, "");
+}
+
 async function dispatchWorkflow(env, queued) {
+  const tokenEndpoint = validateQueuedTokenEndpoint(queued.token_endpoint);
   const credentials = await loadCredentials(env);
   const grant = await brokerGrant(
     credentials.webhook_secret,
@@ -485,7 +505,7 @@ async function dispatchWorkflow(env, queued) {
         ref: GITHUB_REF,
         inputs: {
           payload,
-          token_endpoint: queued.token_endpoint,
+          token_endpoint: tokenEndpoint,
         },
       }),
     },
@@ -648,6 +668,7 @@ export {
   pkcs1ToPkcs8,
   setupTokenIsValid,
   timingSafeEqual,
+  validateQueuedTokenEndpoint,
 };
 
 export default {
