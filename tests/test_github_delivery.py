@@ -114,6 +114,22 @@ def test_installation_token_request_uses_current_github_headers() -> None:
     assert request.json_body is None
 
 
+def test_installation_token_request_can_be_scoped_to_one_repository() -> None:
+    request = build_installation_token_request(
+        installation_id=1234,
+        app_jwt="app.jwt.token",
+        repository="octo/demo",
+    )
+
+    assert request.json_body == {
+        "repositories": ["demo"],
+        "permissions": {
+            "checks": "write",
+            "contents": "read",
+        },
+    }
+
+
 def test_check_run_request_combines_adapter_fields_and_head_sha() -> None:
     check = build_github_check(_report())
 
