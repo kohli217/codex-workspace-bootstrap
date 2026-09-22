@@ -165,6 +165,20 @@ if decision.disposition == "scan":
 
 It handles signature verification, JSON parsing, ping/ignored/scan routing, and forces repository-only preflight semantics. Installation-token exchange, authenticated checkout, and Check Run publication remain outside this pure core.
 
+## GitHub delivery contract
+
+GitHub authentication/request construction is represented without coupling the core to a particular HTTP or cryptography library:
+
+```python
+from codex_workspace_bootstrap.integrations.github_delivery import (
+    build_check_run_request,
+    build_github_app_jwt,
+    build_installation_token_request,
+)
+```
+
+The JWT builder accepts an injected RS256 signer. The REST request builders produce the exact method, URL, versioned GitHub headers, and JSON body for installation-token exchange and completed Check Run creation. Actual private-key loading and HTTP transport remain in the outer delivery shell.
+
 ## GitHub App registration contract
 
 The minimum repository permissions and webhook subscriptions are also represented in code:
