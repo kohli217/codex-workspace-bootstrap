@@ -1522,3 +1522,86 @@ def test_cd_context_with_nested_package_routing_stays_unresolved(tmp_path: Path)
 
     assert not any(item.kind == "missing-package-script" for item in findings)
 
+
+def test_npm_post_script_prefix_uses_target_package_scripts(tmp_path: Path) -> None:
+    app = tmp_path / "apps" / "web"
+    app.mkdir(parents=True)
+    (app / "package.json").write_text(
+        json.dumps({"scripts": {"test": "vitest", "build": "vite build"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `npm test --prefix apps/web` and "
+        "`npm run build --prefix=apps/web`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
+
+def test_npm_post_script_prefix_reports_missing_target_script(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"scripts": {"test": "vitest root"}}),
+        encoding="utf-8",
+    )
+    app = tmp_path / "apps" / "web"
+    app.mkdir(parents=True)
+    (app / "package.json").write_text(
+        json.dumps({"scripts": {"build": "vite build"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `npm test --prefix apps/web`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    missing = [item for item in findings if item.kind == "missing-package-script"]
+    assert len(missing) == 1
+    assert "test" in missing[0].message
+
+
+def test_npm_prefix_after_double_dash_is_script_argument(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"scripts": {"test": "vitest"}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `npm test -- --prefix apps/web`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
+
+def test_npm_repeated_prefix_stays_unresolved(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text(
+        json.dumps({"scripts": {}}),
+        encoding="utf-8",
+    )
+    first = tmp_path / "apps" / "one"
+    second = tmp_path / "apps" / "two"
+    first.mkdir(parents=True)
+    second.mkdir(parents=True)
+    (first / "package.json").write_text(
+        json.dumps({"scripts": {}}),
+        encoding="utf-8",
+    )
+    (second / "package.json").write_text(
+        json.dumps({"scripts": {}}),
+        encoding="utf-8",
+    )
+    (tmp_path / "AGENTS.md").write_text(
+        "Run `npm test --prefix apps/one --prefix apps/two`.\n",
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "missing-package-script" for item in findings)
+
