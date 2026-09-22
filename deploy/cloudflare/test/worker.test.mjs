@@ -83,23 +83,30 @@ test("private repository webhook is rejected before queueing", () => {
 });
 
 test("broker grant is deterministic and delivery-bound", async () => {
+  const target = {
+    event: "push",
+    repository: "octo/demo",
+    head_sha: "a".repeat(40),
+    installation_id: 1234,
+    action: null,
+    pull_request_number: null,
+    merge_commit_sha: null,
+    ref: "refs/heads/main",
+  };
   const first = await brokerGrant(
     "webhook-secret",
     "delivery-123",
-    "octo/demo",
-    1234,
+    target,
   );
   const same = await brokerGrant(
     "webhook-secret",
     "delivery-123",
-    "octo/demo",
-    1234,
+    target,
   );
   const changed = await brokerGrant(
     "webhook-secret",
-    "delivery-456",
-    "octo/demo",
-    1234,
+    "delivery-123",
+    { ...target, head_sha: "b".repeat(40) },
   );
 
   assert.equal(first, same);
