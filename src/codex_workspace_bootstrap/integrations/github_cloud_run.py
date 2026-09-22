@@ -417,6 +417,29 @@ def _safe_header_value(value: str) -> str:
     return value
 
 
+def render_setup_bootstrap_page() -> str:
+    """Render the fragment-to-POST bootstrap page without embedding any secret."""
+
+    return (
+        "<!doctype html><html><head><meta charset=\"utf-8\">"
+        "<meta name=\"referrer\" content=\"no-referrer\">"
+        "<title>CWB GitHub App Setup</title></head><body>"
+        "<h1>CWB GitHub App Setup</h1>"
+        "<p>Authorizing the one-time setup session...</p>"
+        "<noscript>JavaScript is required for the one-time setup link.</noscript>"
+        "<script>"
+        "const token=new URLSearchParams(location.hash.slice(1)).get('token');"
+        "if(!token){document.body.append(' Missing setup token.');}"
+        "else{fetch('/setup/github/session',{method:'POST',"
+        "headers:{'Content-Type':'application/x-www-form-urlencoded'},"
+        "body:new URLSearchParams({token}),credentials:'same-origin'})"
+        ".then(r=>{if(!r.ok)throw new Error('authorization failed');"
+        "history.replaceState(null,'','/setup/github');location.reload();})"
+        ".catch(()=>{document.body.append(' Setup authorization failed.');});}"
+        "</script></body></html>"
+    )
+
+
 class CloudRunHandler(BaseHTTPRequestHandler):
     server_version = "CWBCloudRun/1"
     sys_version = ""
@@ -524,24 +547,7 @@ class CloudRunHandler(BaseHTTPRequestHandler):
             self._send_json(404, {"error": "not found"})
             return
         if not self._setup_authorized():
-            page = (
-                "<!doctype html><html><head><meta charset=\"utf-8\">"
-                "<meta name=\"referrer\" content=\"no-referrer\">"
-                "<title>CWB GitHub App Setup</title></head><body>"
-                "<h1>CWB GitHub App Setup</h1>"
-                "<p>Authorizing the one-time setup session...</p>"
-                "<noscript>JavaScript is required for the one-time setup link.</noscript>"
-                "<script>"
-                "const token=new URLSearchParams(location.hash.slice(1)).get('token');"
-                "if(!token){document.body.append(' Missing setup token.');}"
-                "else{fetch('/setup/github/session',{method:'POST',"
-                "headers:{'Content-Type':'application/x-www-form-urlencoded'},"
-                "body:new URLSearchParams({token}),credentials:'same-origin'})"
-                ".then(r=>{if(!r.ok)throw new Error('authorization failed');"
-                "history.replaceState(null,'','/setup/github');location.reload();})"
-                ".catch(()=>{document.body.append(' Setup authorization failed.');});}"
-                "</script></body></html>"
-            )
+            page = render_setup_bootstrap_page()
             self._send_html(
                 200,
                 page,
