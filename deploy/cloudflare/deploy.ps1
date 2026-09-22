@@ -8,11 +8,87 @@ Set-StrictMode -Version Latest
 
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ConfigPath = Join-Path $Root "wrangler.generated.json"
+$ToolsRoot = Join-Path $Root ".tools"
+$NodeToolRoot = Join-Path $ToolsRoot "node22"
+$WranglerVersion = "4.136.1"
+$script:CwbNode = $null
+$script:CwbNpx = $null
+
+function Get-CwbNodeTools {
+    $existingNode = Get-ChildItem -Path $NodeToolRoot -Filter "node.exe" -File -Recurse -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+
+    if ($existingNode) {
+        $nodeDir = $existingNode.Directory.FullName
+        $npxPath = Join-Path $nodeDir "npx.cmd"
+        if (Test-Path $npxPath) {
+            return @{
+                Node = $existingNode.FullName
+                Npx = $npxPath
+            }
+        }
+    }
+
+    Write-Host "Preparing CWB-local Node.js 22 LTS on this drive..."
+    New-Item -ItemType Directory -Force -Path $NodeToolRoot | Out-Null
+
+    $releaseBase = "https://nodejs.org/dist/latest-v22.x"
+    $checksumsPath = Join-Path $NodeToolRoot "SHASUMS256.txt"
+    Invoke-WebRequest -Uri "$releaseBase/SHASUMS256.txt" -OutFile $checksumsPath
+
+    $matchingLine = Get-Content $checksumsPath |
+        Where-Object { $_ -match "^([0-9a-fA-F]{64})\s+(node-v22\.[0-9.]+-win-x64\.zip)$" } |
+        Select-Object -First 1
+
+    if (-not $matchingLine) {
+        throw "Could not resolve the current Node.js 22 Windows x64 archive."
+    }
+
+    $null = $matchingLine -match "^([0-9a-fA-F]{64})\s+(node-v22\.[0-9.]+-win-x64\.zip)$"
+    $expectedHash = $Matches[1].ToLowerInvariant()
+    $archiveName = $Matches[2]
+    $archivePath = Join-Path $NodeToolRoot $archiveName
+
+    Invoke-WebRequest -Uri "$releaseBase/$archiveName" -OutFile $archivePath
+
+    $actualHash = (Get-FileHash -Path $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actualHash -ne $expectedHash) {
+        Remove-Item -Force $archivePath -ErrorAction SilentlyContinue
+        throw "Node.js 22 archive SHA-256 verification failed."
+    }
+
+    Expand-Archive -Path $archivePath -DestinationPath $NodeToolRoot -Force
+    Remove-Item -Force $archivePath, $checksumsPath -ErrorAction SilentlyContinue
+
+    $nodeFile = Get-ChildItem -Path $NodeToolRoot -Filter "node.exe" -File -Recurse |
+        Select-Object -First 1
+    if (-not $nodeFile) {
+        throw "Portable Node.js 22 extraction did not produce node.exe."
+    }
+
+    $npxPath = Join-Path $nodeFile.Directory.FullName "npx.cmd"
+    if (-not (Test-Path $npxPath)) {
+        throw "Portable Node.js 22 extraction did not produce npx.cmd."
+    }
+
+    return @{
+        Node = $nodeFile.FullName
+        Npx = $npxPath
+    }
+}
+
+$nodeTools = Get-CwbNodeTools
+$script:CwbNode = $nodeTools.Node
+$script:CwbNpx = $nodeTools.Npx
+$env:npm_config_cache = Join-Path $ToolsRoot "npm-cache"
+
+$nodeVersion = (& $script:CwbNode --version).Trim()
+Write-Host "Using CWB-local Node.js $nodeVersion"
 
 function Invoke-Wrangler {
     param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)
 
-    & npx --yes wrangler@4 @Arguments
+    & $script:CwbNpx --yes "wrangler@$WranglerVersion" @Arguments
     if ($LASTEXITCODE -ne 0) {
         throw "Wrangler command failed: $($Arguments -join ' ')"
     }
@@ -21,7 +97,7 @@ function Invoke-Wrangler {
 function New-RandomBase64Url {
     param([int]$Bytes)
     $nodeScript = "const crypto=require('crypto'); console.log(crypto.randomBytes($Bytes).toString('base64url'))"
-    $value = (& node -e $nodeScript).Trim()
+    $value = (& $script:CwbNode -e $nodeScript).Trim()
     if ($LASTEXITCODE -ne 0 -or -not $value) {
         throw "Could not generate secure random value with Node.js."
     }
@@ -63,19 +139,12 @@ function Set-GitHubRepositoryVariable {
     Invoke-RestMethod -Method Post -Uri $baseUri -Headers $headers -ContentType "application/json" -Body $body | Out-Null
 }
 
-if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
-    throw "Node.js is required. Install Node.js 18+ and run this script again."
-}
-if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
-    throw "npm/npx is required. Install Node.js with npm and run this script again."
-}
-
 Write-Host "Checking Cloudflare authentication..."
-$whoami = & npx --yes wrangler@4 whoami --json 2>$null
+$whoami = & $script:CwbNpx --yes "wrangler@$WranglerVersion" whoami --json 2>$null
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Cloudflare login is required. A browser window will open."
     Invoke-Wrangler login
-    $whoami = & npx --yes wrangler@4 whoami --json
+    $whoami = & $script:CwbNpx --yes "wrangler@$WranglerVersion" whoami --json
     if ($LASTEXITCODE -ne 0) {
         throw "Cloudflare authentication did not complete."
     }
@@ -91,7 +160,7 @@ $bootstrap | ConvertTo-Json -Depth 8 | Set-Content -Path $ConfigPath -Encoding U
 
 Write-Host "Ensuring Workers KV namespace..."
 $namespaceTitle = "$WorkerName-CWB_STATE"
-$kvListRaw = & npx --yes wrangler@4 kv namespace list --config $ConfigPath
+$kvListRaw = & $script:CwbNpx --yes "wrangler@$WranglerVersion" kv namespace list --config $ConfigPath
 if ($LASTEXITCODE -ne 0) {
     throw "Could not list Cloudflare KV namespaces."
 }
@@ -99,7 +168,7 @@ $kvList = ($kvListRaw -join [Environment]::NewLine) | ConvertFrom-Json
 $kv = $kvList | Where-Object { $_.title -eq $namespaceTitle } | Select-Object -First 1
 if (-not $kv) {
     Invoke-Wrangler kv namespace create CWB_STATE --config $ConfigPath
-    $kvListRaw = & npx --yes wrangler@4 kv namespace list --config $ConfigPath
+    $kvListRaw = & $script:CwbNpx --yes "wrangler@$WranglerVersion" kv namespace list --config $ConfigPath
     if ($LASTEXITCODE -ne 0) {
         throw "Could not re-read Cloudflare KV namespaces."
     }
@@ -113,7 +182,7 @@ if (-not $kv -or -not $kv.id) {
 }
 
 Write-Host "Ensuring Cloudflare Queue..."
-$queueList = (& npx --yes wrangler@4 queues list --config $ConfigPath 2>&1) -join [Environment]::NewLine
+$queueList = (& $script:CwbNpx --yes "wrangler@$WranglerVersion" queues list --config $ConfigPath 2>&1) -join [Environment]::NewLine
 if ($LASTEXITCODE -ne 0) {
     throw "Could not list Cloudflare Queues."
 }
@@ -177,13 +246,13 @@ $issued = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
 $setupToken = "v1.$issued.$(New-RandomBase64Url -Bytes 32)"
 
 Write-Host "Uploading Worker secrets..."
-$setupToken | & npx --yes wrangler@4 secret put CWB_SETUP_TOKEN --config $ConfigPath | Out-Host
+$setupToken | & $script:CwbNpx --yes "wrangler@$WranglerVersion" secret put CWB_SETUP_TOKEN --config $ConfigPath | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "Could not store CWB_SETUP_TOKEN." }
 
-$dispatchToken | & npx --yes wrangler@4 secret put CWB_DISPATCH_TOKEN --config $ConfigPath | Out-Host
+$dispatchToken | & $script:CwbNpx --yes "wrangler@$WranglerVersion" secret put CWB_DISPATCH_TOKEN --config $ConfigPath | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "Could not store CWB_DISPATCH_TOKEN." }
 Write-Host "Deploying free Cloudflare Worker..."
-$deployOutput = (& npx --yes wrangler@4 deploy --config $ConfigPath 2>&1)
+$deployOutput = (& $script:CwbNpx --yes "wrangler@$WranglerVersion" deploy --config $ConfigPath 2>&1)
 $deployOutput | Out-Host
 if ($LASTEXITCODE -ne 0) {
     throw "Cloudflare Worker deployment failed."
