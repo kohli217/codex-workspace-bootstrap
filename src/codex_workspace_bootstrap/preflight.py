@@ -152,10 +152,13 @@ def next_actions(
         ]
         evidence = _check_by_name(checks, "package-manager-evidence")
         if evidence is not None and evidence.status != "pass":
-            priority = "P1" if len(manager_checks) > 1 else "P2"
+            evidence_conflict = evidence.message.startswith(
+                "Conflicting Node.js package-manager evidence"
+            )
+            priority = "P1" if evidence_conflict else "P2"
             title = (
                 "Resolve conflicting repository package-manager evidence"
-                if len(manager_checks) > 1
+                if evidence_conflict
                 else "Confirm the repository package manager"
             )
             actions.append(
@@ -212,9 +215,16 @@ def evaluate_preflight_policy(
     )
 
 
-def build_preflight(root: Path) -> dict[str, object]:
+def build_preflight(
+    root: Path,
+    *,
+    include_local_toolchain: bool = True,
+) -> dict[str, object]:
     root = root.resolve()
-    checks = audit_repository(root)
+    checks = audit_repository(
+        root,
+        include_local_toolchain=include_local_toolchain,
+    )
     instructions = detect_instruction_signals(root)
     instruction_findings = lint_instructions(root, instructions)
 
@@ -243,6 +253,7 @@ def build_preflight(root: Path) -> dict[str, object]:
     return {
         "schema_version": PREFLIGHT_REPORT_SCHEMA_VERSION,
         "repository": str(root),
+        "local_toolchain_checked": include_local_toolchain,
         "state": state,
         "project_signals": projects,
         "instruction_signals": [item.to_dict() for item in instructions],
@@ -265,12 +276,20 @@ def render_markdown(report: dict[str, object]) -> str:
 
     project_text = ", ".join(str(item) for item in projects) if projects else "Unknown / no common manifest detected"
 
+    local_toolchain_checked = bool(report.get("local_toolchain_checked", True))
+    local_toolchain_text = (
+        "included"
+        if local_toolchain_checked
+        else "skipped (repository-only mode)"
+    )
+
     lines = [
         "# AI Repository Preflight",
         "",
         f"**State:** {state}",
         "",
         f"**Project signals:** {project_text}",
+        f"**Local toolchain checks:** {local_toolchain_text}",
         f"**Audit:** {totals['passed']} passed · {totals['warnings']} warnings · {totals['blocking']} blocking",
         f"**Instruction integrity:** {instruction_totals['findings']} findings · {instruction_totals['drift']} drift · {instruction_totals['invalid_commands']} invalid commands · {instruction_totals['metadata']} metadata",
         "",
