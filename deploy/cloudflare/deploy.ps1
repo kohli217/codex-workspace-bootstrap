@@ -202,6 +202,30 @@ function New-RandomBase64Url {
     return $value
 }
 
+function Resolve-CwbKvNamespace {
+    param(
+        [object[]]$Namespaces,
+        [string]$PreferredTitle
+    )
+
+    $preferred = @($Namespaces | Where-Object { $_.title -eq $PreferredTitle }) |
+        Select-Object -First 1
+    if ($preferred) {
+        return $preferred
+    }
+
+    # Compatibility with deployments created by CWB <= 0.7.0, where Wrangler
+    # created the namespace with the binding name itself as the title.
+    $legacy = @($Namespaces | Where-Object { $_.title -eq "CWB_STATE" }) |
+        Select-Object -First 1
+    if ($legacy) {
+        Write-Host "Reusing existing legacy Workers KV namespace: CWB_STATE"
+        return $legacy
+    }
+
+    return $null
+}
+
 function Set-GitHubRepositoryVariable {
     param(
         [string]$Token,
@@ -268,10 +292,10 @@ if ($kvListResult.ExitCode -ne 0) {
     throw "Could not list Cloudflare KV namespaces."
 }
 $kvListRaw = $kvListResult.StdoutLines
-$kvList = ($kvListRaw -join [Environment]::NewLine) | ConvertFrom-Json
-$kv = $kvList | Where-Object { $_.title -eq $namespaceTitle } | Select-Object -First 1
+$kvList = @(($kvListRaw -join [Environment]::NewLine) | ConvertFrom-Json)
+$kv = Resolve-CwbKvNamespace -Namespaces $kvList -PreferredTitle $namespaceTitle
 if (-not $kv) {
-    Invoke-Wrangler kv namespace create CWB_STATE --config $ConfigPath
+    Invoke-Wrangler kv namespace create $namespaceTitle --config $ConfigPath
     $kvListResult = Invoke-WranglerCapture -Arguments @("kv", "namespace", "list", "--config", $ConfigPath)
     if ($kvListResult.ExitCode -ne 0) {
         $kvListResult.StdoutLines | Out-Host
@@ -279,10 +303,8 @@ if (-not $kv) {
         throw "Could not re-read Cloudflare KV namespaces."
     }
     $kvListRaw = $kvListResult.StdoutLines
-    $kvList = ($kvListRaw -join [Environment]::NewLine) | ConvertFrom-Json
-    $kv = $kvList | Where-Object {
-        $_.title -eq $namespaceTitle
-    } | Select-Object -First 1
+    $kvList = @(($kvListRaw -join [Environment]::NewLine) | ConvertFrom-Json)
+    $kv = Resolve-CwbKvNamespace -Namespaces $kvList -PreferredTitle $namespaceTitle
 }
 if (-not $kv -or -not $kv.id) {
     throw "Could not resolve the CWB_STATE KV namespace id."
