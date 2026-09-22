@@ -228,44 +228,10 @@ async function buildAppJwt(clientId, privateKeyPem) {
   return `${input}.${base64urlEncode(new Uint8Array(signature))}`;
 }
 
-function masterKey(env) {
-  const raw = base64urlDecode(env.CWB_MASTER_KEY);
-  if (raw.length !== 32) throw new Error("CWB_MASTER_KEY must decode to 32 bytes");
-  return crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["encrypt", "decrypt"]);
-}
-
-async function encryptCredentials(env, credentials) {
-  const iv = new Uint8Array(12);
-  crypto.getRandomValues(iv);
-  const key = await masterKey(env);
-  const encrypted = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
-    key,
-    utf8(JSON.stringify(credentials)),
-  );
-  return JSON.stringify({
-    version: 1,
-    iv: base64urlEncode(iv),
-    data: base64urlEncode(new Uint8Array(encrypted)),
-  });
-}
-
-async function decryptCredentials(env, record) {
-  const payload = JSON.parse(record);
-  if (payload.version !== 1) throw new Error("unsupported credential record version");
-  const key = await masterKey(env);
-  const plaintext = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: base64urlDecode(payload.iv) },
-    key,
-    base64urlDecode(payload.data),
-  );
-  return JSON.parse(decodeUtf8(new Uint8Array(plaintext)));
-}
-
 async function loadCredentials(env) {
   const record = await env.CWB_STATE.get(STATE_KEY);
   if (!record) throw new Error("GitHub App credentials are not configured");
-  const credentials = await decryptCredentials(env, record);
+  const credentials = JSON.parse(record);
   if (!credentials.client_id || !credentials.pem || !credentials.webhook_secret) {
     throw new Error("stored GitHub App credentials are incomplete");
   }
@@ -273,7 +239,7 @@ async function loadCredentials(env) {
 }
 
 async function storeCredentials(env, credentials) {
-  await env.CWB_STATE.put(STATE_KEY, await encryptCredentials(env, credentials));
+  await env.CWB_STATE.put(STATE_KEY, JSON.stringify(credentials));
 }
 
 async function verifyWebhook(secret, body, signatureHeader) {
