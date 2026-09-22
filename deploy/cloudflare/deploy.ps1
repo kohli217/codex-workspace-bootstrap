@@ -398,9 +398,9 @@ $dispatchToken = $env:CWB_DISPATCH_TOKEN
 if (-not $dispatchToken -and -not $dispatchSecretExists) {
     Write-Host ""
     Write-Host "A fine-grained GitHub token is required for the free gateway."
-    Write-Host "Opening GitHub with the token name, owner, expiration, and permissions prefilled."
+    Write-Host "Opening GitHub with the token name, owner, expiration, and Actions permission prefilled."
     Write-Host "On Repository access, choose: Only select repositories -> codex-workspace-bootstrap"
-    $tokenUrl = "https://github.com/settings/personal-access-tokens/new?name=CWB%20Cloudflare%20Dispatch&description=CWB%20free%20gateway%20workflow%20dispatch&target_name=kohli217&expires_in=366&actions=write&variables=write"
+    $tokenUrl = "https://github.com/settings/personal-access-tokens/new?name=CWB%20Cloudflare%20Dispatch&description=CWB%20free%20gateway%20workflow%20dispatch&target_name=kohli217&expires_in=366&actions=write"
     Start-Process $tokenUrl
     $secure = Read-Host "After GitHub generates the token, paste it here" -AsSecureString
     $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
@@ -458,25 +458,6 @@ if (-not $urlMatch.Success) {
 $workerUrl = $urlMatch.Value.TrimEnd("/")
 $workerUrl | Set-Content -Path (Join-Path $Root ".worker-url") -Encoding UTF8
 
-Write-Host "Pinning the token broker URL in the CWB repository..."
-$pinBody = @{ token = $setupToken } | ConvertTo-Json -Compress
-$pinSucceeded = $false
-for ($attempt = 1; $attempt -le 5; $attempt++) {
-    try {
-        Invoke-RestMethod -Method Post -Uri "$workerUrl/setup/repository-variable" -ContentType "application/json" -Body $pinBody | Out-Null
-        $pinSucceeded = $true
-        break
-    }
-    catch {
-        if ($attempt -eq 5) {
-            throw "Worker deployed, but CWB_TOKEN_ENDPOINT could not be pinned through the Worker."
-        }
-        Start-Sleep -Seconds 2
-    }
-}
-if (-not $pinSucceeded) {
-    throw "Worker deployed, but CWB_TOKEN_ENDPOINT pinning did not complete."
-}
 $dispatchToken = $null
 
 Write-Host ""
