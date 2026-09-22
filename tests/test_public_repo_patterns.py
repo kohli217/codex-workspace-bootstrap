@@ -267,3 +267,39 @@ def test_public_pattern_wordpress_npm_post_script_workspace_uses_workspace_scrip
 
     assert not any(item.kind == "missing-package-script" for item in findings)
 
+
+def test_public_pattern_vtex_claude_alias_reuses_regular_agents(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    """Pattern observed in vtex/address-form at 2643de3: CLAUDE.md -> AGENTS.md."""
+    agents = tmp_path / "AGENTS.md"
+    agents.write_text(
+        "Use Yarn. Validate with `yarn test`.\n",
+        encoding="utf-8",
+    )
+    claude = tmp_path / "CLAUDE.md"
+    claude.write_text("AGENTS.md", encoding="utf-8")
+
+    original_is_symlink = Path.is_symlink
+    original_readlink = Path.readlink
+
+    def fake_is_symlink(path: Path) -> bool:
+        if path == claude:
+            return True
+        return original_is_symlink(path)
+
+    def fake_readlink(path: Path) -> Path:
+        if path == claude:
+            return Path("AGENTS.md")
+        return original_readlink(path)
+
+    monkeypatch.setattr(Path, "is_symlink", fake_is_symlink)
+    monkeypatch.setattr(Path, "readlink", fake_readlink)
+
+    signals = detect_instruction_signals(tmp_path)
+    pairs = {(item.tool, item.path, item.kind) for item in signals}
+
+    assert ("Codex / OpenAI agents", "AGENTS.md", "repository") in pairs
+    assert ("Claude Code", "CLAUDE.md", "alias") in pairs
+
