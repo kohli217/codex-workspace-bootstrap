@@ -217,6 +217,20 @@ result = execute_github_scan(
 
 The runtime uses OpenSSL for RS256 signing and the Python standard library for HTTPS. The installation token is reduced to the single event repository with only `contents:read` and `checks:write`. This runtime is intended for queued/background processing after the webhook has already been acknowledged.
 
+## GitHub App Manifest contract
+
+The deployment can generate a GitHub App Manifest registration directly from the same registration contract:
+
+```python
+from codex_workspace_bootstrap.integrations.github_manifest import (
+    build_manifest_registration,
+    parse_manifest_conversion_response,
+    verify_manifest_callback_state,
+)
+```
+
+The manifest uses the deployed HTTPS base URL for the webhook and registration callback, preserves the minimum CWB permissions/events, defaults the development App to private, and produces a CSRF state value. Conversion-response credentials are represented by a redacted object whose public metadata excludes the private key and webhook secret.
+
 ## GitHub App registration contract
 
 The minimum repository permissions and webhook subscriptions are also represented in code:
