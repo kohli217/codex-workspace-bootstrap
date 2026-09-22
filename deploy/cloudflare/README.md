@@ -75,6 +75,8 @@ Prerequisites:
 
 You do **not** need to replace or reconfigure the PC's installed Node.js. On Windows, the deployment script downloads the current Node.js 22 LTS Windows x64 archive into `deploy/cloudflare/.tools/`, verifies it against Node.js's official `SHASUMS256.txt`, and uses that isolated runtime only for Wrangler. The npm cache is kept under the same repository-local tools directory.
 
+The Windows script also separates native stdout/stderr before inspecting Wrangler output. This avoids a Windows PowerShell 5.1 behavior where harmless native stderr such as `npm notice` can otherwise surface as `NativeCommandError` when `$ErrorActionPreference` is `Stop`.
+
 From PowerShell:
 
 ```powershell
