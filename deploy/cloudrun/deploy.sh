@@ -191,6 +191,6 @@ echo "Ingress: ${INGRESS_URL}"
 echo "Worker:  ${WORKER_URL}"
 echo
 echo "Open this one-time setup URL in your browser:"
-echo "${INGRESS_URL}/setup/github?token=${SETUP_TOKEN}"
+echo "${INGRESS_URL}/setup/github#token=${SETUP_TOKEN}"
 echo
 echo "After the GitHub App is created, install it on one test repository."
