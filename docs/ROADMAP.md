@@ -34,6 +34,7 @@ This roadmap records intended work; it is not a promise of delivery dates.
 - zero-cost Cloudflare Worker + Queue + public GitHub Actions deployment with OIDC token brokering and no cloud billing account
 - live installed-GitHub-App end-to-end validation through Cloudflare webhook ingress, durable Queue, workflow dispatch, GitHub Actions OIDC, repository-scoped installation-token checkout, and completed CWB Check Run publication
 - public-promotion runbook for reusing the verified development App without recreating credentials or widening repository permissions
+- public `CWB Preflight` GitHub App published at `github.com/apps/cwb-preflight`, with post-promotion live E2E revalidation and successful READY Check Run
 - completed-delivery idempotency using GitHub delivery IDs and Check Run `external_id` to suppress duplicate scans after queue redelivery
 - reusable GitHub Action with Windows and Ubuntu self-tests, structured outputs, and an optional `require_ready` gate
 - PyPI Trusted Publishing through GitHub OIDC
