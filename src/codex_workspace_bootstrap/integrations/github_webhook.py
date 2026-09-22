@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 import hashlib
 import hmac
-from typing import Mapping, object as _object  # type: ignore[attr-defined]
 
 
 SUPPORTED_PULL_REQUEST_ACTIONS = frozenset(
