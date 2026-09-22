@@ -28,6 +28,41 @@ function New-RandomBase64Url {
     return $value
 }
 
+function Set-GitHubRepositoryVariable {
+    param(
+        [string]$Token,
+        [string]$Value
+    )
+
+    $headers = @{
+        "Accept" = "application/vnd.github+json"
+        "Authorization" = "Bearer $Token"
+        "User-Agent" = "codex-workspace-bootstrap"
+        "X-GitHub-Api-Version" = "2026-03-10"
+    }
+    $baseUri = "https://api.github.com/repos/kohli217/codex-workspace-bootstrap/actions/variables"
+    $body = @{
+        name = "CWB_TOKEN_ENDPOINT"
+        value = $Value
+    } | ConvertTo-Json -Compress
+
+    try {
+        Invoke-RestMethod -Method Patch -Uri "$baseUri/CWB_TOKEN_ENDPOINT" -Headers $headers -ContentType "application/json" -Body $body | Out-Null
+        return
+    }
+    catch {
+        $status = $null
+        if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
+            $status = [int]$_.Exception.Response.StatusCode
+        }
+        if ($status -ne 404) {
+            throw
+        }
+    }
+
+    Invoke-RestMethod -Method Post -Uri $baseUri -Headers $headers -ContentType "application/json" -Body $body | Out-Null
+}
+
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
     throw "Node.js is required. Install Node.js 18+ and run this script again."
 }
@@ -121,7 +156,7 @@ $dispatchToken = $env:CWB_DISPATCH_TOKEN
 if (-not $dispatchToken) {
     Write-Host ""
     Write-Host "A fine-grained GitHub token is required only to start the public CWB workflow."
-    Write-Host "Scope it to kohli217/codex-workspace-bootstrap only, with Actions: Read and write."
+    Write-Host "Scope it to kohli217/codex-workspace-bootstrap only, with Actions: Read and write and Variables: Read and write."
     $secure = Read-Host "Paste the fine-grained GitHub token" -AsSecureString
     $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
     try {
@@ -144,8 +179,6 @@ if ($LASTEXITCODE -ne 0) { throw "Could not store CWB_SETUP_TOKEN." }
 
 $dispatchToken | & npx --yes wrangler@4 secret put CWB_DISPATCH_TOKEN --config $ConfigPath | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "Could not store CWB_DISPATCH_TOKEN." }
-$dispatchToken = $null
-
 Write-Host "Deploying free Cloudflare Worker..."
 $deployOutput = (& npx --yes wrangler@4 deploy --config $ConfigPath 2>&1)
 $deployOutput | Out-Host
@@ -159,14 +192,16 @@ $urlMatch = [regex]::Match(
     "https://[A-Za-z0-9-]+\.[A-Za-z0-9.-]+\.workers\.dev"
 )
 if (-not $urlMatch.Success) {
-    Write-Host ""
-    Write-Host "Deployment succeeded, but the workers.dev URL could not be parsed automatically."
-    Write-Host "Open Cloudflare Workers & Pages, select '$WorkerName', and copy its workers.dev URL."
-    exit 0
+    throw "Deployment succeeded, but the workers.dev URL could not be parsed. Re-run the script after confirming the Worker is visible in Cloudflare."
 }
 
 $workerUrl = $urlMatch.Value.TrimEnd("/")
 $workerUrl | Set-Content -Path (Join-Path $Root ".worker-url") -Encoding UTF8
+
+Write-Host "Pinning the token broker URL in the CWB repository..."
+Set-GitHubRepositoryVariable -Token $dispatchToken -Value "$workerUrl/tokens/github"
+$dispatchToken = $null
+
 Write-Host ""
 Write-Host "CWB free GitHub App gateway is deployed."
 Write-Host "Worker: $workerUrl"
