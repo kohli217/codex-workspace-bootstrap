@@ -97,9 +97,16 @@ The script:
 8. stores the setup/dispatch values as Worker secrets;
 9. deploys the Worker to `workers.dev`;
 10. pins that exact `/tokens/github` endpoint into the repository's `CWB_TOKEN_ENDPOINT` Actions variable;
-11. prints the protected GitHub App setup URL.
+11. on a brand-new Cloudflare Workers account, detects the one-time `workers.dev` onboarding requirement and opens the exact Cloudflare onboarding page automatically;
+12. prints the protected GitHub App setup URL after deployment succeeds.
 
 No GitHub App private key needs to be copied into PowerShell or ChatGPT.
+
+## First-time workers.dev onboarding
+
+A Cloudflare account must register its account-level `workers.dev` subdomain once before the first Worker can be published there. Current Wrangler versions no longer provide a `wrangler subdomain` command; Cloudflare requires this one-time step in the dashboard.
+
+If deployment reaches this boundary, the script detects Cloudflare's onboarding URL, opens it in the default browser, and stops with a resumable message. Complete the free `workers.dev` subdomain registration in the browser, then rerun `deploy.ps1`. Existing KV namespaces, Queue resources, and uploaded Worker secrets are reused.
 
 ## GitHub App registration
 
