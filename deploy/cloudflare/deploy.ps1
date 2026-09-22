@@ -252,7 +252,18 @@ if ($ToolchainOnly) {
 
     Write-Host "CWB-local Windows Wrangler toolchain smoke test: PASS"
     Write-Host "Windows PowerShell harmless native stderr smoke test: PASS"
+    $secretFixture = @(
+        '[{"name":"CWB_SETUP_TOKEN","type":"secret_text"},{"name":"CWB_DISPATCH_TOKEN","type":"secret_text"}]'
+    )
+    if (-not (Test-WranglerSecretPresent -Lines $secretFixture -Name "CWB_DISPATCH_TOKEN")) {
+        throw "Wrangler secret-list reuse smoke test failed."
+    }
+    if (Test-WranglerSecretPresent -Lines $secretFixture -Name "MISSING_SECRET") {
+        throw "Wrangler secret-list missing-secret smoke test failed."
+    }
+
     Write-Host "Workers KV namespace compatibility smoke test: PASS"
+    Write-Host "Cloudflare existing-secret reuse smoke test: PASS"
     exit 0
 }
 
@@ -266,39 +277,20 @@ function New-RandomBase64Url {
     return $value
 }
 
-function Set-GitHubRepositoryVariable {
+function Test-WranglerSecretPresent {
     param(
-        [string]$Token,
-        [string]$Value
+        [string[]]$Lines,
+        [string]$Name
     )
 
-    $headers = @{
-        "Accept" = "application/vnd.github+json"
-        "Authorization" = "Bearer $Token"
-        "User-Agent" = "codex-workspace-bootstrap"
-        "X-GitHub-Api-Version" = "2026-03-10"
-    }
-    $baseUri = "https://api.github.com/repos/kohli217/codex-workspace-bootstrap/actions/variables"
-    $body = @{
-        name = "CWB_TOKEN_ENDPOINT"
-        value = $Value
-    } | ConvertTo-Json -Compress
-
     try {
-        Invoke-RestMethod -Method Patch -Uri "$baseUri/CWB_TOKEN_ENDPOINT" -Headers $headers -ContentType "application/json" -Body $body | Out-Null
-        return
+        $items = @(($Lines -join [Environment]::NewLine) | ConvertFrom-Json)
     }
     catch {
-        $status = $null
-        if ($_.Exception.Response -and $_.Exception.Response.StatusCode) {
-            $status = [int]$_.Exception.Response.StatusCode
-        }
-        if ($status -ne 404) {
-            throw
-        }
+        return $false
     }
 
-    Invoke-RestMethod -Method Post -Uri $baseUri -Headers $headers -ContentType "application/json" -Body $body | Out-Null
+    return [bool](@($items | Where-Object { $_.name -eq $Name }).Count)
 }
 
 Write-Host "Checking Cloudflare authentication..."
@@ -394,8 +386,16 @@ $config = @{
 }
 $config | ConvertTo-Json -Depth 12 | Set-Content -Path $ConfigPath -Encoding UTF8
 
+$dispatchSecretExists = $false
+$secretListResult = Invoke-WranglerCapture -Arguments @(
+    "secret", "list", "--format", "json", "--config", $ConfigPath
+)
+if ($secretListResult.ExitCode -eq 0) {
+    $dispatchSecretExists = Test-WranglerSecretPresent -Lines $secretListResult.StdoutLines -Name "CWB_DISPATCH_TOKEN"
+}
+
 $dispatchToken = $env:CWB_DISPATCH_TOKEN
-if (-not $dispatchToken) {
+if (-not $dispatchToken -and -not $dispatchSecretExists) {
     Write-Host ""
     Write-Host "A fine-grained GitHub token is required for the free gateway."
     Write-Host "Opening GitHub with the token name, owner, expiration, and permissions prefilled."
@@ -411,7 +411,11 @@ if (-not $dispatchToken) {
         [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)
     }
 }
-if (-not $dispatchToken) {
+elseif (-not $dispatchToken -and $dispatchSecretExists) {
+    Write-Host "Reusing existing Cloudflare secret: CWB_DISPATCH_TOKEN"
+}
+
+if (-not $dispatchToken -and -not $dispatchSecretExists) {
     throw "GitHub dispatch token was empty."
 }
 
@@ -420,7 +424,9 @@ $setupToken = "v1.$issued.$(New-RandomBase64Url -Bytes 32)"
 
 Write-Host "Uploading Worker secrets..."
 Set-WranglerSecret -Name "CWB_SETUP_TOKEN" -Value $setupToken
-Set-WranglerSecret -Name "CWB_DISPATCH_TOKEN" -Value $dispatchToken
+if ($dispatchToken) {
+    Set-WranglerSecret -Name "CWB_DISPATCH_TOKEN" -Value $dispatchToken
+}
 Write-Host "Deploying free Cloudflare Worker..."
 $deployResult = Invoke-WranglerCapture -Arguments @("deploy", "--config", $ConfigPath)
 $deployResult.StdoutLines | Out-Host
@@ -453,7 +459,24 @@ $workerUrl = $urlMatch.Value.TrimEnd("/")
 $workerUrl | Set-Content -Path (Join-Path $Root ".worker-url") -Encoding UTF8
 
 Write-Host "Pinning the token broker URL in the CWB repository..."
-Set-GitHubRepositoryVariable -Token $dispatchToken -Value "$workerUrl/tokens/github"
+$pinBody = @{ token = $setupToken } | ConvertTo-Json -Compress
+$pinSucceeded = $false
+for ($attempt = 1; $attempt -le 5; $attempt++) {
+    try {
+        Invoke-RestMethod -Method Post -Uri "$workerUrl/setup/repository-variable" -ContentType "application/json" -Body $pinBody | Out-Null
+        $pinSucceeded = $true
+        break
+    }
+    catch {
+        if ($attempt -eq 5) {
+            throw "Worker deployed, but CWB_TOKEN_ENDPOINT could not be pinned through the Worker."
+        }
+        Start-Sleep -Seconds 2
+    }
+}
+if (-not $pinSucceeded) {
+    throw "Worker deployed, but CWB_TOKEN_ENDPOINT pinning did not complete."
+}
 $dispatchToken = $null
 
 Write-Host ""
