@@ -135,3 +135,10 @@ def test_v1_release_metadata_guard() -> None:
 
     assert PREFLIGHT_REPORT_SCHEMA_VERSION == 1
     assert CONFIG_VERSION == 1
+
+
+
+def test_roadmap_has_no_literal_escaped_bullet_newlines() -> None:
+    roadmap = (ROOT / "docs" / "ROADMAP.md").read_text(encoding="utf-8")
+
+    assert "\\n-" not in roadmap
