@@ -105,6 +105,28 @@ def test_version_flag_reports_package_version(capsys: pytest.CaptureFixture[str]
     assert f"codex-workspace-bootstrap {__version__}" in capsys.readouterr().out
 
 
+def test_schema_command_prints_preflight_contract(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    code = main(["schema", "preflight"])
+
+    assert code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["title"] == "CWB preflight report v1"
+    assert payload["properties"]["schema_version"]["const"] == 1
+
+
+def test_schema_command_prints_config_contract(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    code = main(["schema", "config"])
+
+    assert code == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["title"] == "CWB repository configuration v1"
+    assert payload["properties"]["version"]["const"] == 1
+
+
 def test_audit_writes_sarif(tmp_path: Path) -> None:
     import json
 
