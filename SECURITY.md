@@ -36,6 +36,8 @@ The CLI performs local repository and toolchain inspection. The core audit path 
 
 Secret-risk detection is filename-based and is not a replacement for dedicated secret or vulnerability scanners. A passing result is not a security guarantee.
 
+Repository-level `.cwb.json` suppressions are deliberately fail-closed. The file must be a regular non-symlink root file, every suppression requires a reason, instruction suppressions use exact repository-relative paths, and blocking checks, essential readiness checks, tracked secret-risk findings, and error-severity instruction findings cannot be suppressed. Invalid configuration remains visible as a `configuration` warning rather than silently weakening preflight.
+
 ## GitHub App credentials
 
 The GitHub App uses an App private key, a webhook secret, and short-lived installation access tokens. Treat all of them as credentials.
