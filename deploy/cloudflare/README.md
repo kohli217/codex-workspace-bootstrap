@@ -146,8 +146,8 @@ powershell -ExecutionPolicy Bypass -File .\deploy\cloudflare\deploy.ps1 -EnableM
 
 Marketplace mode keeps the existing free deployment architecture and adds only three HTTP endpoints:
 
-- `/marketplace/setup` — Setup URL that starts GitHub App user authorization;
-- `/marketplace/oauth/callback` — callback that verifies the GitHub identity and revokes the short-lived user token after use;
+- `/marketplace/setup` — Setup URL that requires GitHub's installation ID, signs it into short-lived OAuth state, and starts GitHub App user authorization;
+- `/marketplace/oauth/callback` — callback that verifies the GitHub identity, confirms that user can access the signed installation, and revokes the short-lived user token after use;
 - `/webhooks/marketplace` — separately signed `marketplace_purchase` lifecycle webhook.
 
 The first Marketplace-enabled deployment requires one owner-only GitHub step: generate a **GitHub App client secret** in the CWB Preflight App settings. The deployment script opens the correct settings page and reads the secret through a local SecureString prompt. Do not paste this secret into ChatGPT, an issue, or a repository file.
