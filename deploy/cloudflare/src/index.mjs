@@ -978,14 +978,6 @@ async function handleMarketplaceWebhook(request, env) {
   }
 
   if (decision.disposition === "marketplace") {
-    if (!decision.active) {
-      const credentials = await loadCredentials(env);
-      await deactivateMarketplaceInstallation(
-        credentials,
-        decision.account_id,
-      );
-    }
-
     const value = JSON.stringify({
       active: decision.active,
       action: decision.action,
@@ -996,11 +988,22 @@ async function handleMarketplaceWebhook(request, env) {
     const options = decision.active
       ? undefined
       : { expirationTtl: MARKETPLACE_CANCEL_TTL_SECONDS };
+
+    // Persist cancellation first so scan suppression is fail-closed even if
+    // GitHub's installation-removal API is temporarily unavailable.
     await env.CWB_STATE.put(
       marketplaceAccountKey(decision.account_id),
       value,
       options,
     );
+
+    if (!decision.active) {
+      const credentials = await loadCredentials(env);
+      await deactivateMarketplaceInstallation(
+        credentials,
+        decision.account_id,
+      );
+    }
   }
 
   return jsonResponse(202, {
