@@ -540,6 +540,105 @@ def test_multiline_globs_stop_at_next_frontmatter_key(tmp_path: Path) -> None:
     assert signal.kind == "path-specific"
 
 
+def test_windsurf_rules_preserve_trigger_semantics(tmp_path: Path) -> None:
+    rules = tmp_path / ".windsurf" / "rules"
+    rules.mkdir(parents=True)
+    (rules / "standards.md").write_text(
+        "---\ntrigger: always_on\ndescription:\nglobs:\n---\n"
+        "Validate with §mypy src§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+    (rules / "python.md").write_text(
+        "---\ntrigger: glob\nglobs: services/api/**/*.py\n---\n"
+        "Validate with §ruff check services/api§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+    (rules / "package.md").write_text(
+        "---\ntrigger: model_decision\nglobs: package.json\n---\n"
+        "Use pnpm for package changes.\n",
+        encoding="utf-8",
+    )
+    (rules / "unknown.mdc").write_text(
+        "---\nglobs: apps/web/**/*.ts\n---\n"
+        "Use the web conventions.\n",
+        encoding="utf-8",
+    )
+
+    signals = detect_instruction_signals(tmp_path)
+    by_name = {
+        Path(item.path).name: item
+        for item in signals
+        if item.tool == "Windsurf"
+    }
+
+    assert by_name["standards.md"].scope == "."
+    assert by_name["standards.md"].kind == "repository"
+    assert by_name["python.md"].scope == "services/api"
+    assert by_name["python.md"].kind == "path-specific"
+    assert by_name["package.md"].kind == "conditional"
+    assert by_name["unknown.mdc"].scope == "apps/web"
+    assert by_name["unknown.mdc"].kind == "conditional"
+
+
+def test_windsurf_glob_without_scope_stays_conditional(tmp_path: Path) -> None:
+    rules = tmp_path / ".windsurf" / "rules"
+    rules.mkdir(parents=True)
+    (rules / "incomplete.md").write_text(
+        "---\ntrigger: glob\nglobs:\n---\n"
+        "Validate carefully.\n",
+        encoding="utf-8",
+    )
+
+    signal = next(
+        item
+        for item in detect_instruction_signals(tmp_path)
+        if item.tool == "Windsurf"
+    )
+
+    assert signal.scope == "."
+    assert signal.kind == "conditional"
+
+
+def test_windsurf_rules_ignore_non_rule_extensions(tmp_path: Path) -> None:
+    rules = tmp_path / ".windsurf" / "rules"
+    rules.mkdir(parents=True)
+    (rules / "notes.txt").write_text("trigger: always_on\n", encoding="utf-8")
+    (rules / "standards.md").write_text(
+        "---\ntrigger: always_on\n---\nRepository rules.\n",
+        encoding="utf-8",
+    )
+
+    paths = {
+        item.path
+        for item in detect_instruction_signals(tmp_path)
+        if item.tool == "Windsurf"
+    }
+
+    assert ".windsurf/rules/standards.md" in paths
+    assert ".windsurf/rules/notes.txt" not in paths
+
+
+def test_windsurf_conditional_rule_is_excluded_from_cross_file_drift(
+    tmp_path: Path,
+) -> None:
+    rules = tmp_path / ".windsurf" / "rules"
+    rules.mkdir(parents=True)
+    (rules / "always.md").write_text(
+        "---\ntrigger: always_on\n---\n"
+        "Validate with §mypy src§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+    (rules / "model.md").write_text(
+        "---\ntrigger: model_decision\n---\n"
+        "Validate with §pyright src§ when relevant.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "validation-command-drift" for item in findings)
+
+
 def test_instruction_discovery_prunes_large_generated_directories(tmp_path: Path) -> None:
     (tmp_path / "AGENTS.md").write_text("root\n", encoding="utf-8")
 
