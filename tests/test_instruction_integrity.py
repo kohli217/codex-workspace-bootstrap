@@ -31,6 +31,106 @@ You can also use §python -m pytest§ for the Python package.
     assert "npm" not in commands
 
 
+def test_common_python_validation_commands_are_recognized() -> None:
+    text = """
+§§§bash
+ruff check .
+mypy src
+pyright src
+tox -q
+nox -s tests
+pre-commit run --all-files
+uv run ruff check .
+poetry run mypy src
+pdm run tox -q
+python -m ruff check .
+python -m mypy src
+python -m tox -q
+python -m nox -s tests
+python -m pre_commit run --all-files
+§§§
+""".replace("§", "`")
+
+    commands = extract_commands(text)
+
+    expected = {
+        "ruff check .",
+        "mypy src",
+        "pyright src",
+        "tox -q",
+        "nox -s tests",
+        "pre-commit run --all-files",
+        "uv run ruff check .",
+        "poetry run mypy src",
+        "pdm run tox -q",
+        "python -m ruff check .",
+        "python -m mypy src",
+        "python -m tox -q",
+        "python -m nox -s tests",
+        "python -m pre_commit run --all-files",
+    }
+    assert expected.issubset(set(commands))
+
+
+def test_python_validation_wrapper_equivalence_avoids_false_drift(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "AGENTS.md").write_text(
+        "Run §ruff check .§ and §mypy src§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+    (tmp_path / "CLAUDE.md").write_text(
+        "Run §uv run ruff check .§ and §python -m mypy src§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "validation-command-drift" for item in findings)
+
+
+def test_python_validation_typecheck_drift_is_reported(tmp_path: Path) -> None:
+    (tmp_path / "AGENTS.md").write_text(
+        "Run §mypy src§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+    (tmp_path / "CLAUDE.md").write_text(
+        "Run §pyright src§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    drift = [item for item in findings if item.kind == "validation-command-drift"]
+    assert len(drift) == 1
+    assert "typecheck" in drift[0].message
+    assert any("typecheck:mypy" in item for item in drift[0].evidence)
+    assert any("typecheck:pyright" in item for item in drift[0].evidence)
+
+
+def test_pre_commit_wrapper_equivalence_avoids_false_drift(tmp_path: Path) -> None:
+    (tmp_path / "AGENTS.md").write_text(
+        "Run §pre-commit run --all-files§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+    (tmp_path / "CLAUDE.md").write_text(
+        "Run §uv run pre-commit run --all-files§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+
+    findings = lint_instructions(tmp_path)
+
+    assert not any(item.kind == "validation-command-drift" for item in findings)
+
+
+def test_python_validation_tool_names_in_prose_are_not_commands() -> None:
+    commands = extract_commands(
+        "Use Ruff for linting, mypy for typing, and tox for test orchestration."
+    )
+
+    assert commands == []
+
+
 def test_package_manager_mismatch_uses_repo_evidence(tmp_path: Path) -> None:
     (tmp_path / "package.json").write_text(
         json.dumps(
