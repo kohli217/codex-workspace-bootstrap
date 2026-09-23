@@ -82,6 +82,71 @@ def _audit_annotations(report: dict[str, object]) -> tuple[dict[str, object], ..
     return tuple(annotations)
 
 
+def _applied_suppression_count(report: dict[str, object]) -> int:
+    suppressions = report.get("suppressions", [])
+    if not isinstance(suppressions, list):
+        return 0
+    return sum(
+        1
+        for item in suppressions
+        if isinstance(item, dict) and item.get("applied")
+    )
+
+
+def _configuration_annotations(
+    report: dict[str, object],
+) -> tuple[dict[str, object], ...]:
+    """Make repository policy configuration visible in GitHub review UI."""
+
+    configuration = report.get("configuration")
+    if not isinstance(configuration, dict):
+        return ()
+
+    path = _annotation_path(configuration.get("path"))
+    if path is None:
+        return ()
+
+    if not configuration.get("valid"):
+        error = str(
+            configuration.get("error", "invalid repository preflight configuration")
+        )
+        return (
+            {
+                "path": path,
+                "start_line": 1,
+                "end_line": 1,
+                "annotation_level": "warning",
+                "title": "CWB: invalid repository configuration",
+                "message": error,
+                "raw_details": (
+                    "CWB did not apply repository suppressions from this file. "
+                    "Review policy configuration changes before relying on preflight."
+                ),
+            },
+        )
+
+    applied = _applied_suppression_count(report)
+    if applied <= 0:
+        return ()
+
+    noun = "suppression" if applied == 1 else "suppressions"
+    return (
+        {
+            "path": path,
+            "start_line": 1,
+            "end_line": 1,
+            "annotation_level": "notice",
+            "title": "CWB: repository suppressions applied",
+            "message": f"{applied} repository {noun} applied from this policy file.",
+            "raw_details": (
+                "CWB evaluates .cwb.json from the inspected revision. "
+                "Treat changes to this file as repository policy changes and review "
+                "the recorded suppression reasons."
+            ),
+        },
+    )
+
+
 def _instruction_annotations(report: dict[str, object]) -> tuple[dict[str, object], ...]:
     """Build conservative file-level GitHub annotations from instruction findings."""
 
@@ -138,8 +203,14 @@ def _github_annotations(report: dict[str, object]) -> tuple[dict[str, object], .
     remaining = MAX_GITHUB_CHECK_ANNOTATIONS - len(audit)
     if remaining <= 0:
         return tuple(audit[:MAX_GITHUB_CHECK_ANNOTATIONS])
+
+    configuration = list(_configuration_annotations(report))[:remaining]
+    remaining -= len(configuration)
+    if remaining <= 0:
+        return tuple(audit + configuration)
+
     instruction = list(_instruction_annotations(report))[:remaining]
-    return tuple(audit + instruction)
+    return tuple(audit + configuration + instruction)
 
 
 @dataclass(frozen=True)
@@ -203,10 +274,16 @@ def build_github_check(
     else:
         conclusion = "neutral"
 
+    applied_suppressions = _applied_suppression_count(report)
+    title = f"CWB preflight: {state}"
+    if applied_suppressions:
+        noun = "suppression" if applied_suppressions == 1 else "suppressions"
+        title += f" ({applied_suppressions} {noun})"
+
     return GitHubCheckResult(
         name=name,
         conclusion=conclusion,
-        title=f"CWB preflight: {state}",
+        title=title,
         summary=render_markdown(report),
         policy=decision,
         annotations=_github_annotations(report),
