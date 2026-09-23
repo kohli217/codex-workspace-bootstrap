@@ -44,7 +44,7 @@ cwb schema preflight
 cwb schema config
 ```
 
-Python integrations can call `codex_workspace_bootstrap.schemas.schema_document(...)`. See [SCHEMAS.md](SCHEMAS.md) for the compatibility policy and the boundary between JSON Schema documentation and fail-closed parser checks.
+Python integrations can call `codex_workspace_bootstrap.schemas.schema_document(...)`. See [SCHEMAS.md](SCHEMAS.md) for the schema contract and [STABILITY.md](STABILITY.md) for the v1.x semantic-versioning, deprecation, and upgrade policy. JSON Schema documents interoperability structure; fail-closed parser checks remain authoritative for security boundaries.
 
 ## Repository suppression configuration
 
