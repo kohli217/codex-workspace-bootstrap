@@ -33,6 +33,10 @@ The workflow then:
 
 The release is created only after validation, tests, audit, build, distribution checks, and attestation succeed.
 
+## Compatibility review for v1.x
+
+Before a 1.x release, review [STABILITY.md](STABILITY.md) in addition to the changelog. Confirm that documented CLI behavior remains compatible, that any machine-readable breaking change increments its own schema/config version, and that newly added detector behavior is evidence-backed and covered by a deterministic regression fixture. Security fixes may intentionally tighten unsafe behavior instead of preserving insecure semantics.
+
 ## Permissions
 
 The release job uses narrowly scoped GitHub permissions: `contents: write` to create the tag/release, plus `id-token: write`, `attestations: write`, and `artifact-metadata: write` for GitHub artifact attestations. It uses GitHub's ephemeral repository token and does not require a stored personal access token.
