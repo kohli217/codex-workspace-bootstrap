@@ -61,6 +61,7 @@ This roadmap records intended work; it is not a promise of delivery dates.
 - broader dotenv risk detection for environment-specific files such as `.env.production`
 - exact Release-to-PyPI artifact handoff so automatic publishing uses the same built distributions
 - public regression coverage for real scoped-instruction patterns such as microsoft/vscode Copilot `applyTo` selectors
+- public regression coverage for plexe-ai/plexe combining a canonical AGENTS.md, safe Claude alias, and Poetry-wrapped Python validation commands
 
 ## Later
 
