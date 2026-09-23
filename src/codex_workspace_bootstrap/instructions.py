@@ -474,6 +474,8 @@ def _instruction_file_allowed(tool: str, path: Path) -> bool:
         return name.endswith(".instructions.md")
     if tool == "Cursor":
         return path.suffix.lower() == ".mdc"
+    if tool == "Windsurf":
+        return path.suffix.lower() in {".md", ".mdc"}
     if tool == "Continue":
         return path.suffix.lower() in {".md", ".mdc"}
     if tool == "Cline":
@@ -540,6 +542,69 @@ def _cursor_rule_signals(root: Path) -> list[InstructionSignal]:
 
     return found
 
+
+def _windsurf_rule_signals(root: Path) -> list[InstructionSignal]:
+    """Discover Windsurf workspace rules without promoting conditional rules."""
+
+    found: list[InstructionSignal] = []
+    windsurf_dirs: list[Path] = []
+
+    for directory, dirnames, _filenames in _walk_repository(root):
+        if ".windsurf" in dirnames:
+            windsurf_dirs.append(directory / ".windsurf")
+
+    for windsurf_dir in sorted(windsurf_dirs):
+        rules_dir = windsurf_dir / "rules"
+        if not rules_dir.is_dir() or rules_dir.is_symlink():
+            continue
+
+        base_dir = windsurf_dir.parent
+        base_rel = base_dir.relative_to(root).as_posix()
+        base_scope = "." if base_rel == "." else base_rel
+
+        for current, dirnames, filenames in os.walk(rules_dir):
+            dirnames[:] = [name for name in dirnames if name not in _EXCLUDED_PARTS]
+            current_path = Path(current)
+            for filename in sorted(filenames):
+                path = current_path / filename
+                if (
+                    path.is_symlink()
+                    or not path.is_file()
+                    or not _instruction_file_allowed("Windsurf", path)
+                ):
+                    continue
+
+                text = _safe_read(path)
+                trigger_raw = _frontmatter_value(text, ("trigger",))
+                trigger = trigger_raw.strip().lower() if trigger_raw else ""
+                glob_scope, has_glob_scope = _scope_metadata(text)
+
+                if trigger == "always_on":
+                    scope = base_scope
+                    kind = "repository"
+                elif trigger == "glob" and has_glob_scope:
+                    scope = _combine_scope(base_scope, glob_scope)
+                    kind = "path-specific"
+                else:
+                    scope = (
+                        _combine_scope(base_scope, glob_scope)
+                        if has_glob_scope
+                        else base_scope
+                    )
+                    kind = "conditional"
+
+                found.append(
+                    InstructionSignal(
+                        "Windsurf",
+                        path.relative_to(root).as_posix(),
+                        scope,
+                        kind,
+                    )
+                )
+
+    return found
+
+
 def detect_instruction_signals(root: Path) -> list[InstructionSignal]:
     root = root.resolve()
     found: list[InstructionSignal] = []
@@ -564,6 +629,12 @@ def detect_instruction_signals(root: Path) -> list[InstructionSignal]:
             seen.add(key)
 
     for signal in _cursor_rule_signals(root):
+        key = (signal.tool, signal.path)
+        if key not in seen:
+            found.append(signal)
+            seen.add(key)
+
+    for signal in _windsurf_rule_signals(root):
         key = (signal.tool, signal.path)
         if key not in seen:
             found.append(signal)
