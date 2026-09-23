@@ -23,7 +23,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: "3.13"
-      - uses: kohli217/codex-workspace-bootstrap@v0.11.0
+      - uses: kohli217/codex-workspace-bootstrap@v1.0.0
         with:
           path: .
           strict: "true"
@@ -58,7 +58,7 @@ Example:
 
 ```yaml
 - id: cwb
-  uses: kohli217/codex-workspace-bootstrap@v0.11.0
+  uses: kohli217/codex-workspace-bootstrap@v1.0.0
   with:
     path: .
     strict: "false"
@@ -82,7 +82,7 @@ The Action writes a Markdown snapshot containing:
 ## SARIF
 
 ```yaml
-- uses: kohli217/codex-workspace-bootstrap@v0.11.0
+- uses: kohli217/codex-workspace-bootstrap@v1.0.0
   with:
     path: .
     strict: "true"
