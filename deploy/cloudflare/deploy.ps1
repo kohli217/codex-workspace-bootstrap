@@ -1,7 +1,8 @@
 param(
     [string]$WorkerName = "cwb-github-free",
     [string]$QueueName = "cwb-github-scans",
-    [switch]$ToolchainOnly
+    [switch]$ToolchainOnly,
+    [switch]$EnableMarketplace
 )
 
 $ErrorActionPreference = "Stop"
@@ -269,10 +270,16 @@ if ($ToolchainOnly) {
     Write-Host "CWB-local Windows Wrangler toolchain smoke test: PASS"
     Write-Host "Windows PowerShell harmless native stderr smoke test: PASS"
     $secretFixture = @(
-        '[{"name":"CWB_SETUP_TOKEN","type":"secret_text"},{"name":"CWB_DISPATCH_TOKEN","type":"secret_text"}]'
+        '[{"name":"CWB_SETUP_TOKEN","type":"secret_text"},{"name":"CWB_DISPATCH_TOKEN","type":"secret_text"},{"name":"CWB_GITHUB_CLIENT_SECRET","type":"secret_text"},{"name":"CWB_MARKETPLACE_WEBHOOK_SECRET","type":"secret_text"}]'
     )
     if (-not (Test-WranglerSecretPresent -Lines $secretFixture -Name "CWB_DISPATCH_TOKEN")) {
         throw "Wrangler secret-list reuse smoke test failed."
+    }
+    if (-not (Test-WranglerSecretPresent -Lines $secretFixture -Name "CWB_GITHUB_CLIENT_SECRET")) {
+        throw "Marketplace client-secret detection smoke test failed."
+    }
+    if (-not (Test-WranglerSecretPresent -Lines $secretFixture -Name "CWB_MARKETPLACE_WEBHOOK_SECRET")) {
+        throw "Marketplace webhook-secret detection smoke test failed."
     }
     if (Test-WranglerSecretPresent -Lines $secretFixture -Name "MISSING_SECRET") {
         throw "Wrangler secret-list missing-secret smoke test failed."
@@ -387,11 +394,15 @@ $config = @{
 $config | ConvertTo-Json -Depth 12 | Set-Content -Path $ConfigPath -Encoding UTF8
 
 $dispatchSecretExists = $false
+$marketplaceClientSecretExists = $false
+$marketplaceWebhookSecretExists = $false
 $secretListResult = Invoke-WranglerCapture -Arguments @(
     "secret", "list", "--format", "json", "--config", $ConfigPath
 )
 if ($secretListResult.ExitCode -eq 0) {
     $dispatchSecretExists = Test-WranglerSecretPresent -Lines $secretListResult.StdoutLines -Name "CWB_DISPATCH_TOKEN"
+    $marketplaceClientSecretExists = Test-WranglerSecretPresent -Lines $secretListResult.StdoutLines -Name "CWB_GITHUB_CLIENT_SECRET"
+    $marketplaceWebhookSecretExists = Test-WranglerSecretPresent -Lines $secretListResult.StdoutLines -Name "CWB_MARKETPLACE_WEBHOOK_SECRET"
 }
 
 $dispatchToken = $env:CWB_DISPATCH_TOKEN
@@ -419,6 +430,45 @@ if (-not $dispatchToken -and -not $dispatchSecretExists) {
     throw "GitHub dispatch token was empty."
 }
 
+$marketplaceClientSecret = $null
+$marketplaceWebhookSecret = $null
+$marketplaceWebhookSecretIsNew = $false
+
+if ($EnableMarketplace) {
+    $marketplaceClientSecret = $env:CWB_GITHUB_CLIENT_SECRET
+    if (-not $marketplaceClientSecret -and -not $marketplaceClientSecretExists) {
+        Write-Host ""
+        Write-Host "GitHub Marketplace onboarding requires the public App client secret."
+        Write-Host "Opening the CWB Preflight GitHub App settings page."
+        Write-Host "Under Client secrets, generate a new client secret, then paste it here."
+        Start-Process "https://github.com/settings/apps/cwb-preflight"
+        $secure = Read-Host "Paste the GitHub App client secret here" -AsSecureString
+        $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+        try {
+            $marketplaceClientSecret = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
+        }
+        finally {
+            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)
+        }
+    }
+    elseif (-not $marketplaceClientSecret -and $marketplaceClientSecretExists) {
+        Write-Host "Reusing existing Cloudflare secret: CWB_GITHUB_CLIENT_SECRET"
+    }
+
+    if (-not $marketplaceClientSecret -and -not $marketplaceClientSecretExists) {
+        throw "GitHub App client secret was empty."
+    }
+
+    $marketplaceWebhookSecret = $env:CWB_MARKETPLACE_WEBHOOK_SECRET
+    if (-not $marketplaceWebhookSecret -and -not $marketplaceWebhookSecretExists) {
+        $marketplaceWebhookSecret = New-RandomBase64Url -Bytes 48
+        $marketplaceWebhookSecretIsNew = $true
+    }
+    elseif (-not $marketplaceWebhookSecret -and $marketplaceWebhookSecretExists) {
+        Write-Host "Reusing existing Cloudflare secret: CWB_MARKETPLACE_WEBHOOK_SECRET"
+    }
+}
+
 $issued = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
 $setupToken = "v1.$issued.$(New-RandomBase64Url -Bytes 32)"
 
@@ -426,6 +476,12 @@ Write-Host "Uploading Worker secrets..."
 Set-WranglerSecret -Name "CWB_SETUP_TOKEN" -Value $setupToken
 if ($dispatchToken) {
     Set-WranglerSecret -Name "CWB_DISPATCH_TOKEN" -Value $dispatchToken
+}
+if ($EnableMarketplace -and $marketplaceClientSecret) {
+    Set-WranglerSecret -Name "CWB_GITHUB_CLIENT_SECRET" -Value $marketplaceClientSecret
+}
+if ($EnableMarketplace -and $marketplaceWebhookSecret) {
+    Set-WranglerSecret -Name "CWB_MARKETPLACE_WEBHOOK_SECRET" -Value $marketplaceWebhookSecret
 }
 Write-Host "Deploying free Cloudflare Worker..."
 $deployResult = Invoke-WranglerCapture -Arguments @("deploy", "--config", $ConfigPath)
@@ -459,6 +515,7 @@ $workerUrl = $urlMatch.Value.TrimEnd("/")
 $workerUrl | Set-Content -Path (Join-Path $Root ".worker-url") -Encoding UTF8
 
 $dispatchToken = $null
+$marketplaceClientSecret = $null
 
 Write-Host ""
 Write-Host "CWB free GitHub App gateway is deployed."
@@ -468,3 +525,30 @@ Write-Host "Open this setup URL within one hour:"
 Write-Host "$workerUrl/setup/github#token=$setupToken"
 Write-Host ""
 Write-Host "The setup token is not sent to Cloudflare in the URL request and expires after one hour."
+
+if ($EnableMarketplace) {
+    Write-Host ""
+    Write-Host "GitHub Marketplace URLs:"
+    Write-Host "  Setup URL:    $workerUrl/marketplace/setup"
+    Write-Host "  Callback URL: $workerUrl/marketplace/oauth/callback"
+    Write-Host "  Webhook URL:  $workerUrl/webhooks/marketplace"
+    Write-Host "  Privacy:      https://github.com/kohli217/codex-workspace-bootstrap/blob/main/PRIVACY.md"
+    Write-Host "  Support:      https://github.com/kohli217/codex-workspace-bootstrap/blob/main/SUPPORT.md"
+
+    if ($marketplaceWebhookSecretIsNew -and $marketplaceWebhookSecret) {
+        if (Get-Command Set-Clipboard -ErrorAction SilentlyContinue) {
+            Set-Clipboard -Value $marketplaceWebhookSecret
+            Write-Host ""
+            Write-Host "A new Marketplace webhook secret was generated and copied to the clipboard."
+            Write-Host "Paste it into the GitHub Marketplace listing Webhook -> Secret field."
+        }
+        else {
+            Write-Host ""
+            Write-Host "A new Marketplace webhook secret was generated."
+            Write-Host "Copy the next value directly into GitHub Marketplace Webhook -> Secret."
+            Write-Host $marketplaceWebhookSecret
+        }
+    }
+}
+
+$marketplaceWebhookSecret = $null
