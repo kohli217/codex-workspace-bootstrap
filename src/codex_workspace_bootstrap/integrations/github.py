@@ -31,6 +31,57 @@ def _annotation_path(value: object) -> str | None:
     return normalized
 
 
+def _audit_annotations(report: dict[str, object]) -> tuple[dict[str, object], ...]:
+    """Build file-level GitHub annotations from structured audit paths."""
+
+    checks = report.get("checks", [])
+    if not isinstance(checks, list):
+        return ()
+
+    annotations: list[dict[str, object]] = []
+    seen: set[tuple[str, str, str, str]] = set()
+
+    for item in checks:
+        if not isinstance(item, dict) or item.get("status") == "pass":
+            continue
+        paths = item.get("paths", [])
+        if not isinstance(paths, list):
+            continue
+
+        name = str(item.get("name", "repository-readiness"))
+        message = str(item.get("message", "")).strip()
+        if not message:
+            continue
+        level = "failure" if bool(item.get("blocking", False)) else "warning"
+
+        for raw_path in paths:
+            path = _annotation_path(raw_path)
+            if path is None:
+                continue
+            key = (name, path, level, message)
+            if key in seen:
+                continue
+            seen.add(key)
+            annotations.append(
+                {
+                    "path": path,
+                    "start_line": 1,
+                    "end_line": 1,
+                    "annotation_level": level,
+                    "title": f"CWB: {name}"[:255],
+                    "message": message,
+                    "raw_details": (
+                        "CWB reports this as a file-level repository-readiness finding. "
+                        "Line 1 is used only as the GitHub annotation anchor."
+                    ),
+                }
+            )
+            if len(annotations) >= MAX_GITHUB_CHECK_ANNOTATIONS:
+                return tuple(annotations)
+
+    return tuple(annotations)
+
+
 def _instruction_annotations(report: dict[str, object]) -> tuple[dict[str, object], ...]:
     """Build conservative file-level GitHub annotations from instruction findings."""
 
@@ -80,6 +131,15 @@ def _instruction_annotations(report: dict[str, object]) -> tuple[dict[str, objec
                 return tuple(annotations)
 
     return tuple(annotations)
+
+
+def _github_annotations(report: dict[str, object]) -> tuple[dict[str, object], ...]:
+    audit = list(_audit_annotations(report))
+    remaining = MAX_GITHUB_CHECK_ANNOTATIONS - len(audit)
+    if remaining <= 0:
+        return tuple(audit[:MAX_GITHUB_CHECK_ANNOTATIONS])
+    instruction = list(_instruction_annotations(report))[:remaining]
+    return tuple(audit + instruction)
 
 
 @dataclass(frozen=True)
@@ -149,5 +209,5 @@ def build_github_check(
         title=f"CWB preflight: {state}",
         summary=render_markdown(report),
         policy=decision,
-        annotations=_instruction_annotations(report),
+        annotations=_github_annotations(report),
     )
