@@ -240,7 +240,7 @@ If a repository intentionally triggers a known non-blocking preflight warning, a
 
 Suppressions are fail-closed and auditable. Every entry requires a reason, instruction suppressions require an exact repository-relative file path, and applied or unused entries remain visible in the preflight report. Blocking checks, essential readiness checks, tracked secret-risk findings, wildcard paths, and error-severity instruction findings cannot be suppressed. Invalid or unsafe `.cwb.json` configuration makes preflight `NEEDS ATTENTION`.
 
-The raw `cwb audit` command is intentionally unsuppressed. Repository suppressions apply to the shared `preflight` contract used by the CLI, reusable Action, and GitHub App.
+The raw `cwb audit` command is intentionally unsuppressed. Repository suppressions apply to the shared `preflight` contract used by the CLI, reusable Action, and GitHub App. Because `.cwb.json` is repository policy and is evaluated from the inspected revision, changes to it should be reviewed like CI or branch-policy changes. GitHub Checks add a notice on `.cwb.json` whenever a suppression is actually applied.
 
 ### Detailed audit
 
