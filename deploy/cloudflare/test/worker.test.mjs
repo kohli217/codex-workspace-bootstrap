@@ -15,6 +15,7 @@ import worker, {
   marketplaceAccountKey,
   normalizeMarketplacePurchase,
   normalizeWebhook,
+  parseMarketplaceOAuthState,
   setupTokenIsValid,
   validateQueuedTokenEndpoint,
   verifyManifestState,
@@ -264,10 +265,14 @@ async function webhookSignature(secret, body) {
   ).join("");
 }
 
-test("Marketplace OAuth state is signed and short-lived", async () => {
+test("Marketplace OAuth state binds installation and is short-lived", async () => {
   const secret = "github-client-secret";
-  const state = await buildMarketplaceOAuthState(secret, 1000);
+  const state = await buildMarketplaceOAuthState(secret, 2468, 1000);
 
+  assert.deepEqual(
+    await parseMarketplaceOAuthState(secret, state, 1000),
+    { installation_id: 2468 },
+  );
   assert.equal(await verifyMarketplaceOAuthState(secret, state, 1000), true);
   assert.equal(await verifyMarketplaceOAuthState(secret, state, 1600), true);
   assert.equal(await verifyMarketplaceOAuthState(secret, state, 1601), false);
@@ -277,7 +282,13 @@ test("Marketplace OAuth state is signed and short-lived", async () => {
   );
 
   const parts = state.split(".");
-  const tampered = [parts[0], parts[1], "tampered", parts[3]].join(".");
+  const tampered = [
+    parts[0],
+    parts[1],
+    parts[2],
+    "9999",
+    parts[4],
+  ].join(".");
   assert.equal(await verifyMarketplaceOAuthState(secret, tampered, 1000), false);
 });
 
@@ -322,7 +333,7 @@ test("Marketplace account keys do not contain account names", () => {
   assert.throws(() => marketplaceAccountKey("12345"));
 });
 
-test("Marketplace setup redirects through GitHub App OAuth", async () => {
+test("Marketplace setup binds GitHub installation before OAuth", async () => {
   const stored = {
     app_id: 123,
     client_id: "Iv1.client",
@@ -341,7 +352,9 @@ test("Marketplace setup redirects through GitHub App OAuth", async () => {
   };
 
   const response = await worker.fetch(
-    new Request("https://cwb.example.workers.dev/marketplace/setup"),
+    new Request(
+      "https://cwb.example.workers.dev/marketplace/setup?installation_id=2468",
+    ),
     env,
   );
 
@@ -354,7 +367,162 @@ test("Marketplace setup redirects through GitHub App OAuth", async () => {
     location.searchParams.get("redirect_uri"),
     "https://cwb.example.workers.dev/marketplace/oauth/callback",
   );
-  assert.ok(location.searchParams.get("state"));
+  const state = location.searchParams.get("state");
+  assert.ok(state);
+  assert.deepEqual(
+    await parseMarketplaceOAuthState("client-secret", state),
+    { installation_id: 2468 },
+  );
+
+  const invalid = await worker.fetch(
+    new Request("https://cwb.example.workers.dev/marketplace/setup"),
+    env,
+  );
+  assert.equal(invalid.status, 400);
+});
+
+test("Marketplace OAuth callback verifies access to the bound installation", async (t) => {
+  const clientSecret = "client-secret";
+  const stored = {
+    app_id: 123,
+    client_id: "Iv1.client",
+    pem: "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----",
+    webhook_secret: "app-webhook-secret",
+    slug: "cwb-preflight",
+  };
+  const env = {
+    CWB_GITHUB_CLIENT_SECRET: clientSecret,
+    CWB_STATE: {
+      async get(key) {
+        assert.equal(key, "github-app-credentials");
+        return JSON.stringify(stored);
+      },
+    },
+  };
+  const state = await buildMarketplaceOAuthState(
+    clientSecret,
+    2468,
+  );
+  const requests = [];
+
+  t.mock.method(globalThis, "fetch", async (input, init = {}) => {
+    const url = String(input);
+    requests.push({ url, method: init.method || "GET" });
+
+    if (url === "https://github.com/login/oauth/access_token") {
+      return new Response(
+        JSON.stringify({ access_token: "temporary-user-token" }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    if (url === "https://api.github.com/user") {
+      return new Response(
+        JSON.stringify({ id: 42, login: "octocat" }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    if (url.includes("/user/installations?")) {
+      return new Response(
+        JSON.stringify({
+          total_count: 1,
+          installations: [{ id: 2468 }],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    if (
+      url === "https://api.github.com/applications/Iv1.client/token" &&
+      init.method === "DELETE"
+    ) {
+      assert.match(String(init.headers.Authorization), /^Basic /);
+      assert.equal(
+        JSON.parse(init.body).access_token,
+        "temporary-user-token",
+      );
+      return new Response(null, { status: 204 });
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  });
+
+  const response = await worker.fetch(
+    new Request(
+      "https://cwb.example.workers.dev/marketplace/oauth/callback" +
+        `?code=temporary-code&state=${encodeURIComponent(state)}`,
+    ),
+    env,
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(await response.text(), /octocat/);
+  assert.equal(requests.length, 4);
+});
+
+test("Marketplace OAuth callback rejects spoofed installation after revoking token", async (t) => {
+  const clientSecret = "client-secret";
+  const stored = {
+    app_id: 123,
+    client_id: "Iv1.client",
+    pem: "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----",
+    webhook_secret: "app-webhook-secret",
+    slug: "cwb-preflight",
+  };
+  const env = {
+    CWB_GITHUB_CLIENT_SECRET: clientSecret,
+    CWB_STATE: {
+      async get() {
+        return JSON.stringify(stored);
+      },
+    },
+  };
+  const state = await buildMarketplaceOAuthState(
+    clientSecret,
+    2468,
+  );
+  let revoked = false;
+
+  t.mock.method(globalThis, "fetch", async (input, init = {}) => {
+    const url = String(input);
+    if (url === "https://github.com/login/oauth/access_token") {
+      return new Response(
+        JSON.stringify({ access_token: "temporary-user-token" }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    if (url === "https://api.github.com/user") {
+      return new Response(
+        JSON.stringify({ id: 42, login: "octocat" }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    if (url.includes("/user/installations?")) {
+      return new Response(
+        JSON.stringify({
+          total_count: 1,
+          installations: [{ id: 9999 }],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    if (
+      url === "https://api.github.com/applications/Iv1.client/token" &&
+      init.method === "DELETE"
+    ) {
+      revoked = true;
+      return new Response(null, { status: 204 });
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  });
+
+  const response = await worker.fetch(
+    new Request(
+      "https://cwb.example.workers.dev/marketplace/oauth/callback" +
+        `?code=temporary-code&state=${encodeURIComponent(state)}`,
+    ),
+    env,
+  );
+
+  assert.equal(response.status, 403);
+  assert.equal(revoked, true);
 });
 
 test("Marketplace cancellation is recorded and uninstalls the App", async (t) => {
