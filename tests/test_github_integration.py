@@ -42,6 +42,7 @@ def test_ready_report_maps_to_success_check() -> None:
     assert isinstance(output, dict)
     assert output["title"] == "CWB preflight: READY"
     assert output["summary"].startswith("# AI Repository Preflight")
+    assert "annotations" not in output
 
 
 def test_needs_attention_is_neutral_when_policy_allows_it() -> None:
@@ -92,3 +93,79 @@ def test_custom_check_name_is_preserved() -> None:
 
     assert check.name == "Repository readiness"
     assert check.to_check_run_fields()["name"] == "Repository readiness"
+
+
+def test_instruction_findings_become_file_level_annotations() -> None:
+    report = _report("NEEDS ATTENTION", findings=1)
+    report["instruction_findings"] = [
+        {
+            "kind": "missing-package-script",
+            "severity": "warning",
+            "message": "Instruction references a missing lint script.",
+            "files": ["AGENTS.md", ".github\\instructions\\frontend.md"],
+            "evidence": ["npm run lint"],
+            "scope": ".",
+        }
+    ]
+
+    output = build_github_check(report).to_check_run_fields()["output"]
+    assert isinstance(output, dict)
+    annotations = output["annotations"]
+    assert isinstance(annotations, list)
+    assert [item["path"] for item in annotations] == [
+        "AGENTS.md",
+        ".github/instructions/frontend.md",
+    ]
+    assert all(item["annotation_level"] == "warning" for item in annotations)
+    assert all(item["start_line"] == 1 for item in annotations)
+    assert all(item["end_line"] == 1 for item in annotations)
+    assert all("file-level finding" in item["raw_details"] for item in annotations)
+
+
+def test_github_annotations_skip_unsafe_paths_and_deduplicate() -> None:
+    report = _report("NEEDS ATTENTION", findings=1)
+    report["instruction_findings"] = [
+        {
+            "kind": "package-manager-mismatch",
+            "severity": "warning",
+            "message": "Package manager mismatch.",
+            "files": [
+                "./AGENTS.md",
+                "AGENTS.md",
+                "../outside.md",
+                "/absolute.md",
+                "C:\\absolute.md",
+            ],
+            "evidence": ["pnpm"],
+            "scope": ".",
+        }
+    ]
+
+    output = build_github_check(report).to_check_run_fields()["output"]
+    assert isinstance(output, dict)
+    annotations = output["annotations"]
+    assert isinstance(annotations, list)
+    assert len(annotations) == 1
+    assert annotations[0]["path"] == "AGENTS.md"
+
+
+def test_github_annotations_are_capped_at_fifty() -> None:
+    report = _report("NEEDS ATTENTION", findings=1)
+    report["instruction_findings"] = [
+        {
+            "kind": "validation-command-drift",
+            "severity": "warning",
+            "message": "Validation commands disagree.",
+            "files": [f"rules/rule-{index}.md" for index in range(60)],
+            "evidence": [],
+            "scope": ".",
+        }
+    ]
+
+    output = build_github_check(report).to_check_run_fields()["output"]
+    assert isinstance(output, dict)
+    annotations = output["annotations"]
+    assert isinstance(annotations, list)
+    assert len(annotations) == 50
+    assert annotations[0]["path"] == "rules/rule-0.md"
+    assert annotations[-1]["path"] == "rules/rule-49.md"
