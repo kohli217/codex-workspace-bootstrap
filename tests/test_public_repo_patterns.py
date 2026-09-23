@@ -647,3 +647,63 @@ def test_public_pattern_prompt_kitchen_npm_workspace_directory_selector(
 
     assert not any(item.kind == "missing-package-script" for item in findings)
 
+
+
+
+def test_public_pattern_plexe_poetry_ruff_with_claude_alias(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    """Pattern observed in plexe-ai/plexe at a1e05f6: Poetry validation + Claude alias."""
+    instruction_text = (
+        "# AGENTS.md\n\n"
+        "AGENTS.md is canonical; CLAUDE.md is a compatibility symlink.\n\n"
+        "Validate with:\n"
+        "```bash\n"
+        "poetry run pytest tests/unit/\n"
+        "poetry run ruff check . --fix\n"
+        "```\n"
+    )
+    agents = tmp_path / "AGENTS.md"
+    agents.write_text(instruction_text, encoding="utf-8")
+    claude = tmp_path / "CLAUDE.md"
+    claude.write_text("AGENTS.md", encoding="utf-8")
+    (tmp_path / "pyproject.toml").write_text(
+        "[tool.poetry]\n"
+        'name = "plexe-pattern"\n'
+        'version = "0.0.0"\n'
+        "[tool.poetry.group.dev.dependencies]\n"
+        'pytest = "^8.3.4"\n'
+        'ruff = "^0.14.9"\n',
+        encoding="utf-8",
+    )
+
+    original_is_symlink = Path.is_symlink
+    original_readlink = Path.readlink
+
+    def fake_is_symlink(path: Path) -> bool:
+        if path == claude:
+            return True
+        return original_is_symlink(path)
+
+    def fake_readlink(path: Path) -> Path:
+        if path == claude:
+            return Path("AGENTS.md")
+        return original_readlink(path)
+
+    monkeypatch.setattr(Path, "is_symlink", fake_is_symlink)
+    monkeypatch.setattr(Path, "readlink", fake_readlink)
+
+    signals = detect_instruction_signals(tmp_path)
+    pairs = {(item.tool, item.path, item.kind) for item in signals}
+
+    assert ("Codex / OpenAI agents", "AGENTS.md", "repository") in pairs
+    assert ("Claude Code", "CLAUDE.md", "alias") in pairs
+
+    commands = extract_commands(instruction_text)
+    assert "poetry run pytest tests/unit/" in commands
+    assert "poetry run ruff check . --fix" in commands
+
+    findings = lint_instructions(tmp_path, signals)
+
+    assert not any(item.kind == "validation-command-drift" for item in findings)
