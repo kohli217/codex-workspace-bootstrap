@@ -79,7 +79,7 @@ After the Marketplace-enabled Worker is deployed, configure the public GitHub Ap
   - Push
   - Pull request
 
-The OAuth callback exchanges the temporary code, calls GitHub's authenticated-user endpoint to verify identity, revokes the single user access token, and does not persist that token.
+The Setup URL requires GitHub's `installation_id`, binds it into a signed short-lived OAuth state, and the callback verifies that the authenticated user can access that exact installation before setup succeeds. The callback then revokes the single user access token and does not persist it.
 
 ## Marketplace webhook
 
