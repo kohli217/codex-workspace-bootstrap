@@ -180,7 +180,7 @@ Checkout hardening:
 
 Use `checkout.commit_sha` as the SHA for the resulting Check Run. This ensures the Check describes the exact tree CWB inspected.
 
-Instruction-integrity findings that already identify concrete repository files are emitted as GitHub Check annotations. CWB keeps these annotations conservative: when the preflight contract does not contain an exact source line, GitHub line 1 is used only as a file-level anchor and the annotation explains that limitation. Findings without a concrete file path remain summary-only. A single Check Run request is capped at GitHub's 50-annotation limit, and no additional App permission is required beyond `checks:write`.
+Findings that already identify concrete repository files are emitted as GitHub Check annotations. This includes instruction-integrity findings and tracked secret-risk filenames. CWB never reads secret-file contents for these annotations. It keeps annotations conservative: when the preflight contract does not contain an exact source line, GitHub line 1 is used only as a file-level anchor and the annotation explains that limitation. Findings without a concrete file path remain summary-only. Blocking audit annotations are prioritized before instruction annotations when applying GitHub's 50-annotation limit, and no additional App permission is required beyond `checks:write`.
 
 ## Delivery contract
 
