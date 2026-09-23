@@ -164,7 +164,7 @@ def test_repository_config_rejects_symlink(tmp_path: Path) -> None:
     except (OSError, NotImplementedError):
         pytest.skip("symlinks are not available in this test environment")
 
-    with pytest.raises(RepositoryConfigError, match="regular file"):
+    with pytest.raises(RepositoryConfigError, match="non-symlink"):
         load_repository_config(tmp_path)
 
 
@@ -268,3 +268,22 @@ def test_apply_repository_config_never_suppresses_error_instruction_findings() -
 
     assert active_findings == [finding]
     assert records[0].applied is False
+
+
+
+@pytest.mark.parametrize("version", [True, 1.0, "1", 2, None])
+def test_repository_config_requires_integer_version_one(
+    tmp_path: Path,
+    version: object,
+) -> None:
+    _write_config(tmp_path, {"version": version})
+
+    with pytest.raises(RepositoryConfigError, match="version must be 1"):
+        load_repository_config(tmp_path)
+
+
+def test_repository_config_rejects_oversized_file(tmp_path: Path) -> None:
+    (tmp_path / ".cwb.json").write_text(" " * 64_001, encoding="utf-8")
+
+    with pytest.raises(RepositoryConfigError, match="size limit"):
+        load_repository_config(tmp_path)
