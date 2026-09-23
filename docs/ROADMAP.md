@@ -65,7 +65,8 @@ This roadmap records intended work; it is not a promise of delivery dates.
 - broader dotenv risk detection for environment-specific files such as `.env.production`
 - exact Release-to-PyPI artifact handoff so automatic publishing uses the same built distributions
 - public regression coverage for real scoped-instruction patterns such as microsoft/vscode Copilot `applyTo` selectors
-- public regression coverage for plexe-ai/plexe Poetry-wrapped Pytest/Ruff guidance with a strict Claude-to-AGENTS compatibility alias\n- conservative Windsurf `.windsurf/rules` discovery with always-on, glob, and model-decision trigger semantics backed by public regression fixtures
+- public regression coverage for plexe-ai/plexe Poetry-wrapped Pytest/Ruff guidance with a strict Claude-to-AGENTS compatibility alias
+- conservative Windsurf `.windsurf/rules` discovery with always-on, glob, and model-decision trigger semantics backed by public regression fixtures
 
 ## Later
 
