@@ -278,7 +278,7 @@ Read-only evaluations against real public repositories are documented in [docs/P
 
 **Public App:** [CWB Preflight](https://github.com/apps/cwb-preflight) · [Install](https://github.com/apps/cwb-preflight/installations/new)
 
-For public OSS repositories, CWB can also run as a self-hosted GitHub App. A verified `push` or `pull_request` event triggers repository-only preflight against the exact event revision and publishes a **CWB Preflight** Check Run on that commit. Instruction-integrity findings that identify concrete files are also surfaced as file-level Check annotations, without adding repository permissions.
+For public OSS repositories, CWB can also run as a self-hosted GitHub App. A verified `push` or `pull_request` event triggers repository-only preflight against the exact event revision and publishes a **CWB Preflight** Check Run on that commit. File-backed instruction-integrity findings and tracked secret-risk filenames are surfaced as file-level Check annotations, without adding repository permissions or reading secret-file contents.
 
 The verified zero-cost public-OSS deployment uses:
 
