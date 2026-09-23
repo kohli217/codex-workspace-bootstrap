@@ -134,6 +134,28 @@ The App itself keeps the minimum registration permissions:
 
 and subscribes only to `push` and `pull_request`.
 
+## Optional GitHub Marketplace readiness deployment
+
+The direct public GitHub App does not require Marketplace, so the default deployment remains unchanged.
+
+When preparing the existing public App for GitHub Marketplace, redeploy with:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\deploy\cloudflare\deploy.ps1 -EnableMarketplace
+```
+
+Marketplace mode keeps the existing free deployment architecture and adds only three HTTP endpoints:
+
+- `/marketplace/setup` — Setup URL that starts GitHub App user authorization;
+- `/marketplace/oauth/callback` — callback that verifies the GitHub identity and revokes the short-lived user token after use;
+- `/webhooks/marketplace` — separately signed `marketplace_purchase` lifecycle webhook.
+
+The first Marketplace-enabled deployment requires one owner-only GitHub step: generate a **GitHub App client secret** in the CWB Preflight App settings. The deployment script opens the correct settings page and reads the secret through a local SecureString prompt. Do not paste this secret into ChatGPT, an issue, or a repository file.
+
+The deployment also generates a separate Marketplace webhook secret on first use, stores it as the Cloudflare secret `CWB_MARKETPLACE_WEBHOOK_SECRET`, and copies the value to the Windows clipboard for direct entry into the Marketplace listing Webhook settings. Existing secrets are reused on later deployments.
+
+After deployment, the script prints the exact Setup URL, OAuth callback URL, Marketplace webhook URL, Privacy Policy URL, and Support URL needed by the Marketplace listing.
+
 ## Expired setup link
 
 If the one-hour setup window expires:
