@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented here.
 
+## [0.11.0] - 2026-09-23
+
+### Added
+- Public GitHub Marketplace preparation for the free CWB Preflight App, including secure Marketplace setup/OAuth verification and fail-closed plan lifecycle handling without widening repository permissions.
+- File-level GitHub Check annotations for instruction-integrity findings and tracked secret-risk filenames, plus SARIF locations for structured audit paths.
+- Optional root `.cwb.json` repository suppressions for narrowly scoped known false positives. Suppressions require reasons, remain visible in reports, and cannot hide blocking, essential-readiness, tracked secret-risk, or error-severity findings.
+- Python validation-command recognition for Ruff, mypy, Pyright, tox, nox, and pre-commit, including safe normalization across direct, `python -m`, `uv run`, `poetry run`, and `pdm run` forms where applicable.
+
+### Changed
+- GitHub Check Runs now make applied repository suppressions and invalid suppression configuration visible directly on `.cwb.json`.
+- Validation-command drift can now distinguish Python lint/typecheck/test/check families while preserving path-specific scope isolation.
+- The public App remains public-repository-only on the zero-cost Cloudflare/GitHub Actions deployment and keeps the same least-privilege GitHub permissions.
+
+### Safety
+- Repository suppressions fail closed: only a regular non-symlink root `.cwb.json` up to 64 KB is accepted, exact relative paths are required for instruction suppressions, and unsafe broad suppressions are rejected.
+- GitHub annotations continue to avoid reading or printing secret-file contents.
+- Python validation recognition is lexical only; commands extracted from instructions are never executed.
+
+### Documentation and regression coverage
+- Added a CI-verified multi-agent Python demo showing real typecheck drift, wrapper equivalence, and isolation of path-specific Copilot rules.
+- Added a fixed public regression fixture modeled from `plexe-ai/plexe` for Poetry-wrapped Pytest/Ruff guidance with a strict `CLAUDE.md -> AGENTS.md` compatibility alias.
+- Expanded English/Japanese docs, GitHub App guidance, integration contracts, security notes, and roadmap coverage for the new behavior.
+
 ## [0.10.0] - 2026-09-22
 
 ### Fixed
