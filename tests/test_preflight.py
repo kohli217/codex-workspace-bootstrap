@@ -99,6 +99,54 @@ def test_markdown_report_is_human_readable(tmp_path: Path) -> None:
     assert "Codex / OpenAI agents" in markdown
 
 
+@pytest.mark.parametrize(
+    ("state", "expected"),
+    [
+        (
+            "READY",
+            "The repository satisfies CWB's current readiness and "
+            "instruction-integrity checks. This is not a security guarantee.",
+        ),
+        (
+            "NEEDS ATTENTION",
+            "important readiness or instruction findings need review",
+        ),
+        (
+            "BLOCKED",
+            "Review it before allowing an AI coding agent to modify the repository.",
+        ),
+    ],
+)
+def test_markdown_explains_each_preflight_state(
+    state: str,
+    expected: str,
+) -> None:
+    report = {
+        "state": state,
+        "project_signals": [],
+        "instruction_signals": [],
+        "instruction_findings": [],
+        "instruction_summary": {
+            "findings": 0,
+            "drift": 0,
+            "invalid_commands": 0,
+            "metadata": 0,
+        },
+        "summary": {
+            "passed": 0,
+            "warnings": 0,
+            "blocking": 1 if state == "BLOCKED" else 0,
+        },
+        "next_actions": [],
+    }
+
+    markdown = render_markdown(report)
+
+    assert f"**State:** {state}" in markdown
+    assert "**What this means:**" in markdown
+    assert expected in markdown
+
+
 def test_readiness_needs_attention_with_only_scoped_instruction() -> None:
     from codex_workspace_bootstrap.preflight import InstructionSignal
 
