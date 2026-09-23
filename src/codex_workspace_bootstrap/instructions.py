@@ -84,10 +84,10 @@ def _walk_repository(root: Path):
         yield Path(current), dirnames, filenames
 
 _PY_VALIDATION_TOOL = (
-    r"(?:ruff\s+check|mypy|pyright|tox|nox|pre-commit\s+run)"
+    r"(?:ruff\s+check\b|mypy\b|pyright\b|tox\b|nox\b|pre-commit\s+run\b)"
 )
 _PY_MODULE_VALIDATION_TOOL = (
-    r"(?:ruff\s+check|mypy|tox|nox|pre_commit\s+run)"
+    r"(?:ruff\s+check\b|mypy\b|tox\b|nox\b|pre_commit\s+run\b)"
 )
 
 _COMMAND_PATTERNS: tuple[re.Pattern[str], ...] = (
@@ -103,12 +103,12 @@ _COMMAND_PATTERNS: tuple[re.Pattern[str], ...] = (
     ),
     re.compile(r"(?<![\w.-])pytest(?:\s+[^\n`]+)?", re.I),
     re.compile(r"\bpython\s+-m\s+unittest(?:\s+[^\n`]+)?", re.I),
-    re.compile(r"(?<![\w.-])ruff\s+check(?:\s+[^\n`]+)?", re.I),
-    re.compile(r"(?<![\w.-])mypy(?:\s+[^\n`]+)?", re.I),
-    re.compile(r"(?<![\w.-])pyright(?:\s+[^\n`]+)?", re.I),
-    re.compile(r"(?<![\w.-])tox(?:\s+[^\n`]+)?", re.I),
-    re.compile(r"(?<![\w.-])nox(?:\s+[^\n`]+)?", re.I),
-    re.compile(r"(?<![\w.-])pre-commit\s+run(?:\s+[^\n`]+)?", re.I),
+    re.compile(r"(?<![\w.-])ruff\s+check\b(?:\s+[^\n`]+)?", re.I),
+    re.compile(r"(?<![\w.-])mypy\b(?:\s+[^\n`]+)?", re.I),
+    re.compile(r"(?<![\w.-])pyright\b(?:\s+[^\n`]+)?", re.I),
+    re.compile(r"(?<![\w.-])tox\b(?:\s+[^\n`]+)?", re.I),
+    re.compile(r"(?<![\w.-])nox\b(?:\s+[^\n`]+)?", re.I),
+    re.compile(r"(?<![\w.-])pre-commit\s+run\b(?:\s+[^\n`]+)?", re.I),
     re.compile(r"\b(?:npm|pnpm|bun)\s+(?:run\s+)?[\w:./=@-]+(?:\s+[^\n`]+)?", re.I),
     re.compile(r"\byarn\s+(?:run\s+)?[\w:./=@-]+(?:\s+[^\n`]+)?", re.I),
     re.compile(r"\bgo\s+test(?:\s+[^\n`]+)?", re.I),
