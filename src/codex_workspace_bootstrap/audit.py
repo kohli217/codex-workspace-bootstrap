@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 import os
 import shutil
@@ -17,9 +17,18 @@ class Check:
     status: str
     message: str
     blocking: bool = False
+    paths: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, object]:
-        return asdict(self)
+        payload: dict[str, object] = {
+            "name": self.name,
+            "status": self.status,
+            "message": self.message,
+            "blocking": self.blocking,
+        }
+        if self.paths:
+            payload["paths"] = list(self.paths)
+        return payload
 
 
 COMMON_TOOLS: tuple[tuple[str, tuple[str, ...]], ...] = (
@@ -352,6 +361,7 @@ def audit_repository(root: Path, *, include_local_toolchain: bool = True) -> lis
                 "Potential secret-bearing filenames detected (" + "; ".join(parts) + "). "
                 "The audit does not read file contents.",
                 blocking=bool(tracked),
+                paths=tuple(sorted(tracked)),
             )
         )
     else:
