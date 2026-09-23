@@ -460,6 +460,31 @@ Expected behavior of the current integrity model:
 - reject absolute paths, parent traversal, glob selectors, and missing targets;
 - preserve script arguments after npm's `--` separator.
 
+## plexe-ai/plexe
+
+Snapshot: `a1e05f6dc4c0875e0075f3b6f020fbecef57a699`
+
+Observed signals:
+
+- root `AGENTS.md` is a regular file and identifies itself as the canonical agent guidance;
+- root `CLAUDE.md` has Git mode `120000` and points exactly to sibling `AGENTS.md`;
+- root instructions include `poetry run pytest tests/unit/` and `poetry run ruff check . --fix`;
+- `pyproject.toml` uses Poetry and declares pytest and Ruff in the development dependency group.
+
+Why this matters:
+
+- combines a real safe Claude compatibility alias with Python validation commands in one repository pattern;
+- exercises Poetry-wrapped Pytest and Ruff extraction after broader Python validation-command support;
+- protects alias handling from turning one canonical instruction file into artificial cross-agent drift.
+
+Expected behavior of the current integrity model:
+
+- detect regular `AGENTS.md` for Codex/OpenAI agents;
+- recognize exact sibling `CLAUDE.md -> AGENTS.md` as a Claude Code alias without following arbitrary symlinks;
+- extract Poetry-wrapped Pytest and Ruff commands from the canonical file;
+- normalize the Ruff command into the lint validation family;
+- avoid a validation-command drift finding caused solely by the compatibility alias.
+
 ## What these evaluations do not prove
 
 These evaluations do not prove:
