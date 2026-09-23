@@ -10,7 +10,7 @@
 
 **Preflight your repository before an AI coding agent touches it — and catch instruction drift before different agents follow different rules.**
 
-Windows-first. Local by default. CI-friendly. Designed for repositories used with Codex, Copilot, Cline, Claude Code, Gemini CLI, Continue, Cursor, and similar coding agents.
+Windows-first. Local by default. CI-friendly. Designed for repositories used with Codex, Copilot, Cline, Claude Code, Gemini CLI, Continue, Cursor, Windsurf, and similar coding agents.
 
 [日本語ガイド](docs/README.ja.md) · [Examples](docs/EXAMPLES.md) · [GitHub Action](docs/GITHUB_ACTION.md) · [GitHub App](docs/GITHUB_APP.md) · [Marketplace](docs/GITHUB_MARKETPLACE.md) · [Privacy](PRIVACY.md) · [Free GitHub App deployment](deploy/cloudflare/README.md) · [Cloud Run alternative](deploy/cloudrun/README.md) · [Integration contract](docs/INTEGRATIONS.md) · [Roadmap](docs/ROADMAP.md) · [Releases](https://github.com/kohli217/codex-workspace-bootstrap/releases)
 
