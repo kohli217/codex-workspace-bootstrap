@@ -37,6 +37,8 @@ The release is created only after validation, tests, audit, build, distribution 
 
 Before a 1.x release, review [STABILITY.md](STABILITY.md) in addition to the changelog. Confirm that documented CLI behavior remains compatible, that any machine-readable breaking change increments its own schema/config version, and that newly added detector behavior is evidence-backed and covered by a deterministic regression fixture. Security fixes may intentionally tighten unsafe behavior instead of preserving insecure semantics.
 
+The release-consistency suite also contains a dormant v1 guard. It activates automatically when the package major version becomes 1 or higher and rejects a release if PyPI metadata still says Alpha, if Production/Stable metadata is missing, if the exact version is absent from the changelog, if the stability/schema documents are missing, or if the v1 machine-contract versions are no longer explicit. This is intended to catch incomplete final-release preparation before the one-click Release workflow creates a tag.
+
 ## Permissions
 
 The release job uses narrowly scoped GitHub permissions: `contents: write` to create the tag/release, plus `id-token: write`, `attestations: write`, and `artifact-metadata: write` for GitHub artifact attestations. It uses GitHub's ephemeral repository token and does not require a stored personal access token.
