@@ -145,6 +145,8 @@ else:
 
 This API performs no HTTP requests and does not exchange GitHub credentials. The outer delivery service remains responsible for installation authentication, checkout, and posting the Check Run.
 
+The Check summary is intentionally understandable without prior CLI knowledge. Near the top it explains the meaning of `READY`, `NEEDS ATTENTION`, or `BLOCKED`, then lists instruction coverage, integrity findings, repository-policy suppressions, and concrete next actions. The same Markdown renderer is used by CLI output files, the reusable Action Job Summary, and the GitHub App so these surfaces do not develop different meanings for the same state.
+
 ## Secure repository checkout
 
 The App should inspect the exact webhook revision without executing repository code:
