@@ -10,6 +10,7 @@ This roadmap records intended work; it is not a promise of delivery dates.
 - expand validation-command recognition where repository evidence can support it safely
 - keep CLI, GitHub Action, release metadata, and documentation behavior aligned through regression tests
 - keep the machine-readable preflight contract stable for external adapters
+- maintain an explicit semantic-versioning, deprecation, and upgrade policy for the v1.x line
 - continue supply-chain hardening without making solo-maintainer workflows impractical
 
 ## Recently completed
