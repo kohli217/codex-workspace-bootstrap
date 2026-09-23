@@ -169,3 +169,26 @@ def test_github_annotations_are_capped_at_fifty() -> None:
     assert len(annotations) == 50
     assert annotations[0]["path"] == "rules/rule-0.md"
     assert annotations[-1]["path"] == "rules/rule-49.md"
+
+
+def test_blocking_audit_paths_become_failure_annotations() -> None:
+    report = _report("BLOCKED")
+    report["checks"] = [
+        {
+            "name": "secret-risk-files",
+            "status": "warn",
+            "message": "Tracked risky filename detected; contents were not read.",
+            "blocking": True,
+            "paths": [".env.production"],
+        }
+    ]
+
+    output = build_github_check(report).to_check_run_fields()["output"]
+    assert isinstance(output, dict)
+    annotations = output["annotations"]
+    assert isinstance(annotations, list)
+    assert len(annotations) == 1
+    assert annotations[0]["path"] == ".env.production"
+    assert annotations[0]["annotation_level"] == "failure"
+    assert annotations[0]["title"] == "CWB: secret-risk-files"
+    assert "repository-readiness finding" in annotations[0]["raw_details"]
