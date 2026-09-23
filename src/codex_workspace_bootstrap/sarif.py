@@ -109,23 +109,45 @@ def _payload(
     }
 
 
+def _sarif_locations(paths: object) -> list[dict[str, object]]:
+    if not isinstance(paths, (list, tuple)):
+        return []
+
+    locations: list[dict[str, object]] = []
+    for path in paths:
+        if not isinstance(path, str) or not path:
+            continue
+        locations.append(
+            {
+                "physicalLocation": {
+                    "artifactLocation": {
+                        "uri": path.replace("\\", "/"),
+                    }
+                }
+            }
+        )
+    return locations
+
+
 def checks_to_sarif(checks: Iterable[Check]) -> dict[str, object]:
     findings = [check for check in checks if check.status != "pass"]
     rule_by_id = {check.name: _audit_rule(check) for check in findings}
 
     results: list[dict[str, object]] = []
     for check in findings:
-        results.append(
-            {
-                "ruleId": check.name,
-                "level": "error" if check.blocking else "warning",
-                "message": {"text": check.message},
-                "properties": {
-                    "blocking": check.blocking,
-                    "source": "codex-workspace-bootstrap",
-                },
-            }
-        )
+        result: dict[str, object] = {
+            "ruleId": check.name,
+            "level": "error" if check.blocking else "warning",
+            "message": {"text": check.message},
+            "properties": {
+                "blocking": check.blocking,
+                "source": "codex-workspace-bootstrap",
+            },
+        }
+        locations = _sarif_locations(check.paths)
+        if locations:
+            result["locations"] = locations
+        results.append(result)
 
     return _payload(
         [rule_by_id[rule_id] for rule_id in sorted(rule_by_id)],
@@ -145,24 +167,37 @@ def preflight_report_to_sarif(report: dict[str, object]) -> dict[str, object]:
             if not isinstance(item, dict) or item.get("status") == "pass":
                 continue
             name = str(item.get("name", "repository-readiness"))
+            raw_paths = item.get("paths", [])
+            paths = (
+                tuple(
+                    path
+                    for path in raw_paths
+                    if isinstance(path, str) and path
+                )
+                if isinstance(raw_paths, list)
+                else ()
+            )
             check = Check(
                 name=name,
                 status=str(item.get("status", "warn")),
                 message=str(item.get("message", "")),
                 blocking=bool(item.get("blocking", False)),
+                paths=paths,
             )
             rules[name] = _audit_rule(check)
-            results.append(
-                {
-                    "ruleId": name,
-                    "level": "error" if check.blocking else "warning",
-                    "message": {"text": check.message},
-                    "properties": {
-                        "blocking": check.blocking,
-                        "source": "codex-workspace-bootstrap",
-                    },
-                }
-            )
+            result: dict[str, object] = {
+                "ruleId": name,
+                "level": "error" if check.blocking else "warning",
+                "message": {"text": check.message},
+                "properties": {
+                    "blocking": check.blocking,
+                    "source": "codex-workspace-bootstrap",
+                },
+            }
+            locations = _sarif_locations(check.paths)
+            if locations:
+                result["locations"] = locations
+            results.append(result)
 
     if isinstance(instruction_findings, list):
         for item in instruction_findings:
@@ -183,23 +218,9 @@ def preflight_report_to_sarif(report: dict[str, object]) -> dict[str, object]:
                 },
             }
 
-            files = item.get("files", [])
-            if isinstance(files, list) and files:
-                locations: list[dict[str, object]] = []
-                for path in files:
-                    if not isinstance(path, str) or not path:
-                        continue
-                    locations.append(
-                        {
-                            "physicalLocation": {
-                                "artifactLocation": {
-                                    "uri": path.replace("\\", "/"),
-                                }
-                            }
-                        }
-                    )
-                if locations:
-                    result["locations"] = locations
+            locations = _sarif_locations(item.get("files", []))
+            if locations:
+                result["locations"] = locations
 
             results.append(result)
 
