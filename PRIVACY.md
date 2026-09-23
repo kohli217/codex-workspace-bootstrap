@@ -54,7 +54,7 @@ For an active Marketplace plan, the stored record contains only:
 
 CWB does not store the customer's GitHub login in Marketplace state.
 
-Cancellation records expire from Workers KV within 30 days. Direct public GitHub App installations that have no Marketplace record continue to use the existing free public-App path.
+When GitHub reports a Marketplace cancellation, CWB first records the account as inactive, then requests removal of the matching CWB Preflight GitHub App installation. The minimal cancellation record expires from Workers KV within 30 days. Direct public GitHub App installations that have no Marketplace record continue to use the existing free public-App path.
 
 ## Credentials and security data
 
@@ -80,6 +80,7 @@ CWB does not maintain a separate hosted customer profile database.
 
 - Marketplace cancellation records expire within 30 days.
 - Marketplace OAuth user access tokens are not retained.
+- A Marketplace cancellation requests removal of the matching GitHub App installation after the inactive state is persisted.
 - Uninstalling the GitHub App stops future repository webhook processing for that installation.
 
 For a privacy or deletion question, open a support request without including secrets or private repository contents.
