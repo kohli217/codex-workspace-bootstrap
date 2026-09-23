@@ -100,7 +100,7 @@ Repo固有の事情で、既知の非blocking警告を意図的に許容した�
 - wildcardを使った広いpath指定
 - error severityのinstruction finding
 
-不正または危険な `.cwb.json` は無視して続行せず、preflightを `NEEDS ATTENTION` にします。なお `cwb audit` は生の診断結果を確認するため、意図的に抑制を適用しません。抑制はCLI / GitHub Action / GitHub Appが共有する `preflight` 契約に適用されます。
+不正または危険な `.cwb.json` は無視して続行せず、preflightを `NEEDS ATTENTION` にします。なお `cwb audit` は生の診断結果を確認するため、意図的に抑制を適用しません。抑制はCLI / GitHub Action / GitHub Appが共有する `preflight` 契約に適用されます。`.cwb.json` は検査対象revisionのRepo policyとして評価されるため、変更はCI設定やbranch policyと同様にレビューしてください。実際に抑制が適用された場合、GitHub Checkは `.cwb.json` にnotice annotationを表示します。
 
 ## AGENTS.md生成
 
