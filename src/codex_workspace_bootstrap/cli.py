@@ -138,6 +138,32 @@ def _run_preflight(
         f"{instruction_totals['metadata']} metadata"
     )
 
+    configuration = report.get("configuration")
+    if isinstance(configuration, dict):
+        if configuration.get("valid"):
+            print(
+                "Repository config: "
+                f"{configuration.get('path', '.cwb.json')} "
+                f"(version {configuration.get('version', '?')})"
+            )
+        else:
+            print(
+                "Repository config: INVALID - "
+                f"{configuration.get('error', 'unknown configuration error')}"
+            )
+
+        suppressions = report.get("suppressions", [])
+        if isinstance(suppressions, list) and suppressions:
+            applied = sum(
+                1
+                for item in suppressions
+                if isinstance(item, dict) and item.get("applied")
+            )
+            print(
+                f"Suppressions: {applied} applied, "
+                f"{len(suppressions) - applied} unused"
+            )
+
     findings = report["instruction_findings"]
     if findings:
         print("Instruction findings:")
