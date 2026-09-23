@@ -37,6 +37,7 @@ This roadmap records intended work; it is not a promise of delivery dates.
 - public `CWB Preflight` GitHub App published at `github.com/apps/cwb-preflight`, with post-promotion live E2E revalidation and successful READY Check Run
 - completed-delivery idempotency using GitHub delivery IDs and Check Run `external_id` to suppress duplicate scans after queue redelivery
 - file-level GitHub Check annotations for instruction-integrity findings and tracked secret-risk files, with no additional App permissions
+- explicit fail-closed repository suppressions for narrow false positives, with reasons and unsuppressible blocking/essential checks
 - reusable GitHub Action with Windows and Ubuntu self-tests, structured outputs, and an optional `require_ready` gate
 - PyPI Trusted Publishing through GitHub OIDC
 - CodeQL, Dependency Review, Dependabot, secret scanning, push protection, and protected `main`
