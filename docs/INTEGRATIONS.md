@@ -37,6 +37,24 @@ Within a schema version, new optional fields may be added. A change that intenti
 
 This makes it possible for integrations to reject an unsupported report version instead of silently misinterpreting it.
 
+## Repository suppression configuration
+
+`build_preflight(...)` automatically reads an optional root `.cwb.json`. This behavior is part of the shared preflight boundary, so the CLI, reusable GitHub Action, GitHub App, and future adapters see the same active findings.
+
+Configuration is intentionally narrow and fail-closed:
+
+- the format is versioned JSON and uses only the Python standard library;
+- only a regular, non-symlinked root `.cwb.json` up to 64 KB is accepted;
+- every suppression requires a non-empty reason;
+- instruction suppressions require an exact repository-relative file path and scope;
+- blocking checks, essential readiness checks, tracked secret-risk findings, and error-severity instruction findings cannot be suppressed;
+- invalid or unsafe configuration is represented as a `configuration` warning and makes the preflight state `NEEDS ATTENTION`;
+- applied and unused suppressions remain visible through optional `configuration` and `suppressions` report fields.
+
+These are additive optional fields under schema version 1. Consumers that do not use them can continue to rely on the existing contract.
+
+The lower-level `audit_repository(...)` API and `cwb audit` command intentionally return raw, unsuppressed evidence.
+
 ## Evaluate policy once
 
 Delivery surfaces should not reimplement READY / NEEDS ATTENTION / BLOCKED gating.
