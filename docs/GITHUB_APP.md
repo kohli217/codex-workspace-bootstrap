@@ -17,7 +17,7 @@ The verified public GitHub App is:
 
 After the development App was renamed and made public, a fresh push event was sent through the live deployment. The App created a completed **CWB Preflight** Check Run with conclusion `success` and state `READY` on the exact test commit. This revalidated the deployed credentials, webhook, Cloudflare Queue, GitHub Actions OIDC broker, repository-scoped installation token, hardened checkout, and Check Run delivery after public promotion.
 
-GitHub Marketplace listing is not required for direct installation from the public App page.
+GitHub Marketplace listing is not required for direct installation from the public App page. Marketplace publication additionally requires the onboarding and plan-webhook endpoints documented in [GITHUB_MARKETPLACE.md](GITHUB_MARKETPLACE.md).
 
 ## Preferred development registration: App Manifest
 
