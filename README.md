@@ -224,6 +224,17 @@ cwb preflight . --repository-only
 
 This prevents a remote scanner from reporting the scanner host's Node.js, package-manager, WSL, PowerShell, or Codex availability as if it belonged to the inspected repository.
 
+### Machine-readable schemas
+
+Inspect the stable JSON Schema contracts used by integrations and repository policy:
+
+```powershell
+cwb schema preflight
+cwb schema config
+```
+
+The preflight report currently uses `schema_version: 1`; root `.cwb.json` uses `version: 1`. Breaking machine-contract changes require a new version rather than silently reinterpreting an existing one. See [docs/SCHEMAS.md](docs/SCHEMAS.md).
+
 ### Explicit repository suppressions
 
 If a repository intentionally triggers a known non-blocking preflight warning, add a root `.cwb.json` with a narrow, documented suppression:
