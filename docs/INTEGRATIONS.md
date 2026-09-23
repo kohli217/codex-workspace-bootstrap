@@ -37,6 +37,15 @@ Within a schema version, new optional fields may be added. A change that intenti
 
 This makes it possible for integrations to reject an unsupported report version instead of silently misinterpreting it.
 
+The current contract can be inspected without adding a runtime schema dependency:
+
+```powershell
+cwb schema preflight
+cwb schema config
+```
+
+Python integrations can call `codex_workspace_bootstrap.schemas.schema_document(...)`. See [SCHEMAS.md](SCHEMAS.md) for the compatibility policy and the boundary between JSON Schema documentation and fail-closed parser checks.
+
 ## Repository suppression configuration
 
 `build_preflight(...)` automatically reads an optional root `.cwb.json`. This behavior is part of the shared preflight boundary, so the CLI, reusable GitHub Action, GitHub App, and future adapters see the same active findings.
