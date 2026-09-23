@@ -31,7 +31,7 @@ The free hosted deployment does not support private repositories. Events for pri
 
 For GitHub Marketplace onboarding, CWB Preflight uses GitHub's user authorization flow only to verify the identity of the person completing installation.
 
-The resulting GitHub user access token:
+The Setup URL binds GitHub's `installation_id` into a signed, short-lived OAuth state. After OAuth, CWB checks that the authenticated GitHub user can access that exact installation before setup succeeds. The resulting GitHub user access token:
 
 - is used only to call GitHub's authenticated user endpoint;
 - is not written to Workers KV, GitHub Actions artifacts, repository files, or application logs;
