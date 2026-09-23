@@ -40,6 +40,8 @@ jobs:
         run: python examples/first-run-demo/run_demo.py
       - name: Run reproducible scoped monorepo demo
         run: python examples/scoped-monorepo-demo/run_demo.py
+      - name: Run reproducible multi-agent Python demo
+        run: python examples/multi-agent-python-demo/run_demo.py
       - name: Run self-preflight
         run: python -m codex_workspace_bootstrap preflight . --markdown preflight.md --fail-on-integrity
       - name: Preview safe fixes
