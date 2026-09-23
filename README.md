@@ -83,6 +83,18 @@ Demo verification: PASS
 
 See [examples/first-run-demo](examples/first-run-demo) for the full reproducible demo. It uses disposable temporary Git repositories and is verified in CI.
 
+### See multi-agent Python drift
+
+A second reproducible demo shows same-scope validation drift between multiple coding agents without confusing it with a path-specific rule:
+
+```powershell
+py examples/multi-agent-python-demo/run_demo.py
+```
+
+The root `AGENTS.md` uses `mypy src`, while `CLAUDE.md` initially uses `pyright src`. A Copilot rule scoped to `tests/**/*.py` separately uses `ruff check tests` and is not falsely compared as a repository-wide peer. After Claude switches to the wrapper-equivalent `python -m mypy src`, the temporary repository reaches `READY`.
+
+See [examples/multi-agent-python-demo](examples/multi-agent-python-demo). The demo is network-free, does not execute commands extracted from instruction files, and is verified in CI on Windows and Ubuntu.
+
 ### Try it on your repository
 
 ```powershell
