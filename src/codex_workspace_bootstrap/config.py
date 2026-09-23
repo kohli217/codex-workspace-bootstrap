@@ -138,9 +138,11 @@ def load_repository_config(root: Path) -> RepositoryConfig | None:
     """Load the optional root .cwb.json suppression configuration."""
 
     path = root.resolve() / CONFIG_FILENAME
+    if path.is_symlink():
+        raise RepositoryConfigError(f"{CONFIG_FILENAME} must be a regular non-symlink file")
     if not path.exists():
         return None
-    if path.is_symlink() or not path.is_file():
+    if not path.is_file():
         raise RepositoryConfigError(f"{CONFIG_FILENAME} must be a regular file")
 
     try:
@@ -162,7 +164,11 @@ def load_repository_config(root: Path) -> RepositoryConfig | None:
     _reject_unknown_keys(data, {"version", "suppress"}, CONFIG_FILENAME)
 
     version = data.get("version")
-    if isinstance(version, bool) or version != CONFIG_VERSION:
+    if (
+        isinstance(version, bool)
+        or not isinstance(version, int)
+        or version != CONFIG_VERSION
+    ):
         raise RepositoryConfigError(
             f"{CONFIG_FILENAME} version must be {CONFIG_VERSION}"
         )
