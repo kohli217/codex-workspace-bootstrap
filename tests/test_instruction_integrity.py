@@ -131,6 +131,17 @@ def test_python_validation_tool_names_in_prose_are_not_commands() -> None:
     assert commands == []
 
 
+def test_python_validation_config_filenames_are_not_commands() -> None:
+    commands = extract_commands(
+        "Review §mypy.ini§, §pyrightconfig.json§, and §noxfile.py§.".replace(
+            "§",
+            "`",
+        )
+    )
+
+    assert commands == []
+
+
 def test_package_manager_mismatch_uses_repo_evidence(tmp_path: Path) -> None:
     (tmp_path / "package.json").write_text(
         json.dumps(
