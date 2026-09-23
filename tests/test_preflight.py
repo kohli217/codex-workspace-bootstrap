@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import shutil
 import subprocess
 
@@ -427,3 +428,151 @@ def test_next_actions_keeps_package_manager_conflict_high_priority_without_tool_
         and item.title == "Resolve conflicting repository package-manager evidence"
         for item in actions
     )
+
+
+
+def _write_ready_repository(root: Path) -> None:
+    (root / ".git").mkdir()
+    (root / "README.md").write_text("# demo\n", encoding="utf-8")
+    (root / ".gitignore").write_text(".venv/\n", encoding="utf-8")
+    (root / "package.json").write_text(
+        '{"packageManager":"pnpm@10","scripts":{"test":"echo ok"}}',
+        encoding="utf-8",
+    )
+    (root / "pnpm-lock.yaml").write_text("lockfileVersion: '9.0'\n", encoding="utf-8")
+
+
+def test_preflight_applies_exact_instruction_suppression(tmp_path: Path) -> None:
+    _write_ready_repository(tmp_path)
+    (tmp_path / "AGENTS.md").write_text(
+        "Run §npm test§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+    (tmp_path / ".cwb.json").write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "suppress": {
+                    "instruction_findings": [
+                        {
+                            "kind": "package-manager-mismatch",
+                            "path": "AGENTS.md",
+                            "scope": ".",
+                            "reason": "The compatibility command is intentional.",
+                        }
+                    ]
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    report = build_preflight(tmp_path, include_local_toolchain=False)
+
+    assert report["state"] == "READY"
+    assert report["instruction_findings"] == []
+    assert report["instruction_summary"]["findings"] == 0
+    assert report["configuration"] == {
+        "path": ".cwb.json",
+        "version": 1,
+        "valid": True,
+    }
+    suppressions = report["suppressions"]
+    assert len(suppressions) == 1
+    assert suppressions[0]["applied"] is True
+    assert suppressions[0]["reason"] == "The compatibility command is intentional."
+
+    markdown = render_markdown(report)
+    assert "## Repository configuration" in markdown
+    assert "**APPLIED**" in markdown
+    assert "package-manager-mismatch" in markdown
+
+
+def test_preflight_keeps_unused_suppression_visible(tmp_path: Path) -> None:
+    _write_ready_repository(tmp_path)
+    (tmp_path / "AGENTS.md").write_text(
+        "Run §pnpm test§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+    (tmp_path / ".cwb.json").write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "suppress": {
+                    "checks": [
+                        {
+                            "name": "license",
+                            "reason": "Only relevant when the warning exists.",
+                        }
+                    ]
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    report = build_preflight(tmp_path, include_local_toolchain=False)
+
+    suppressions = report["suppressions"]
+    assert suppressions[0]["applied"] is True
+
+    (tmp_path / "LICENSE").write_text("MIT\n", encoding="utf-8")
+    report = build_preflight(tmp_path, include_local_toolchain=False)
+
+    suppressions = report["suppressions"]
+    assert suppressions[0]["applied"] is False
+    assert "**UNUSED**" in render_markdown(report)
+
+
+def test_invalid_repository_config_fails_closed(tmp_path: Path) -> None:
+    _write_ready_repository(tmp_path)
+    (tmp_path / "AGENTS.md").write_text(
+        "Run §pnpm test§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+    (tmp_path / ".cwb.json").write_text("{not-json", encoding="utf-8")
+
+    report = build_preflight(tmp_path, include_local_toolchain=False)
+
+    assert report["state"] == "NEEDS ATTENTION"
+    configuration = report["configuration"]
+    assert configuration["valid"] is False
+    config_checks = [
+        item for item in report["checks"] if item["name"] == "configuration"
+    ]
+    assert len(config_checks) == 1
+    assert config_checks[0]["status"] == "warn"
+    assert any(
+        item["title"] == "Fix invalid repository preflight configuration"
+        for item in report["next_actions"]
+    )
+
+
+def test_repository_config_cannot_suppress_essential_readiness(tmp_path: Path) -> None:
+    _write_ready_repository(tmp_path)
+    (tmp_path / "AGENTS.md").write_text(
+        "Run §pnpm test§.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+    (tmp_path / ".cwb.json").write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "suppress": {
+                    "checks": [
+                        {
+                            "name": "readme",
+                            "reason": "Attempted unsafe exception.",
+                        }
+                    ]
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    report = build_preflight(tmp_path, include_local_toolchain=False)
+
+    assert report["state"] == "NEEDS ATTENTION"
+    assert report["configuration"]["valid"] is False
+    assert any(item["name"] == "readme" for item in report["checks"])
