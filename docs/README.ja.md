@@ -75,6 +75,8 @@ cwb schema config
 
 preflight reportは現在 `schema_version: 1`、root `.cwb.json` は `version: 1` です。互換性を壊す変更では既存versionの意味を黙って変えず、新しいversionへ上げます。詳細は [SCHEMAS.md](SCHEMAS.md) を参照してください。
 
+v1.xのCLI / schema / config / GitHub Action / GitHub Appに対する互換性方針とupgrade手順は [STABILITY.md](STABILITY.md) にまとめています。1.xでは検出精度の改善は継続しますが、既存の公開interfaceを黙って別物にしません。
+
 ## 意図した警告を安全に抑制する
 
 Repo固有の事情で、既知の非blocking警告を意図的に許容したい場合は、Repo rootに `.cwb.json` を置けます。
