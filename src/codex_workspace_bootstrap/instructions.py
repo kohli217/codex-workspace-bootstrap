@@ -84,10 +84,10 @@ def _walk_repository(root: Path):
         yield Path(current), dirnames, filenames
 
 _PY_VALIDATION_TOOL = (
-    r"(?:ruff\\s+check|mypy|pyright|tox|nox|pre-commit\\s+run)"
+    r"(?:ruff\s+check|mypy|pyright|tox|nox|pre-commit\s+run)"
 )
 _PY_MODULE_VALIDATION_TOOL = (
-    r"(?:ruff\\s+check|mypy|tox|nox|pre_commit\\s+run)"
+    r"(?:ruff\s+check|mypy|tox|nox|pre_commit\s+run)"
 )
 
 _COMMAND_PATTERNS: tuple[re.Pattern[str], ...] = (
