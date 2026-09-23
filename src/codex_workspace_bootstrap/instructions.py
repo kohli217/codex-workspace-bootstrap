@@ -83,11 +83,32 @@ def _walk_repository(root: Path):
         dirnames[:] = [name for name in dirnames if name not in _EXCLUDED_PARTS]
         yield Path(current), dirnames, filenames
 
+_PY_VALIDATION_TOOL = (
+    r"(?:ruff\\s+check|mypy|pyright|tox|nox|pre-commit\\s+run)"
+)
+_PY_MODULE_VALIDATION_TOOL = (
+    r"(?:ruff\\s+check|mypy|tox|nox|pre_commit\\s+run)"
+)
+
 _COMMAND_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\b(?:uv|poetry|pdm)\s+run\s+pytest(?:\s+[^\n`]+)?", re.I),
+    re.compile(
+        rf"\b(?:uv|poetry|pdm)\s+run\s+{_PY_VALIDATION_TOOL}(?:\s+[^\n`]+)?",
+        re.I,
+    ),
     re.compile(r"\bpython\s+-m\s+pytest(?:\s+[^\n`]+)?", re.I),
+    re.compile(
+        rf"\bpython\s+-m\s+{_PY_MODULE_VALIDATION_TOOL}(?:\s+[^\n`]+)?",
+        re.I,
+    ),
     re.compile(r"(?<![\w.-])pytest(?:\s+[^\n`]+)?", re.I),
     re.compile(r"\bpython\s+-m\s+unittest(?:\s+[^\n`]+)?", re.I),
+    re.compile(r"(?<![\w.-])ruff\s+check(?:\s+[^\n`]+)?", re.I),
+    re.compile(r"(?<![\w.-])mypy(?:\s+[^\n`]+)?", re.I),
+    re.compile(r"(?<![\w.-])pyright(?:\s+[^\n`]+)?", re.I),
+    re.compile(r"(?<![\w.-])tox(?:\s+[^\n`]+)?", re.I),
+    re.compile(r"(?<![\w.-])nox(?:\s+[^\n`]+)?", re.I),
+    re.compile(r"(?<![\w.-])pre-commit\s+run(?:\s+[^\n`]+)?", re.I),
     re.compile(r"\b(?:npm|pnpm|bun)\s+(?:run\s+)?[\w:./=@-]+(?:\s+[^\n`]+)?", re.I),
     re.compile(r"\byarn\s+(?:run\s+)?[\w:./=@-]+(?:\s+[^\n`]+)?", re.I),
     re.compile(r"\bgo\s+test(?:\s+[^\n`]+)?", re.I),
@@ -599,7 +620,7 @@ def _command_regions(text: str) -> list[str]:
     for raw_line in text.splitlines():
         line = raw_line.strip().lstrip("-*+> ").strip()
         if re.match(
-            r"^(?:python\s+-m\s+|pytest\b|uv\s+run\s+|poetry\s+run\s+|pdm\s+run\s+|npm\b|pnpm\b|yarn\b|bun\b|go\s+test\b|cargo\s+test\b|make\b|just\b|(?:\.\/)?gradlew?\b|(?:\.\/)?mvnw?\b|dotnet\s+test\b)",
+            r"^(?:python\s+-m\s+|pytest\b|ruff\s+check\b|mypy\b|pyright\b|tox\b|nox\b|pre-commit\s+run\b|uv\s+run\s+|poetry\s+run\s+|pdm\s+run\s+|npm\b|pnpm\b|yarn\b|bun\b|go\s+test\b|cargo\s+test\b|make\b|just\b|(?:\.\/)?gradlew?\b|(?:\.\/)?mvnw?\b|dotnet\s+test\b)",
             line,
             re.I,
         ):
@@ -1298,6 +1319,30 @@ def _script_for_command(command: str) -> tuple[str, str, bool] | None:
 
 def _validation_key(command: str) -> str | None:
     lowered = " ".join(command.lower().split())
+
+    normalized = lowered
+    for prefix in ("uv run ", "poetry run ", "pdm run "):
+        if normalized.startswith(prefix):
+            normalized = normalized[len(prefix):]
+            break
+    if normalized.startswith("python -m "):
+        normalized = normalized[len("python -m "):]
+    if normalized.startswith("pre_commit run"):
+        normalized = "pre-commit run" + normalized[len("pre_commit run"):]
+
+    if re.match(r"^ruff\s+check\b", normalized):
+        return "lint:ruff"
+    if re.match(r"^mypy\b", normalized):
+        return "typecheck:mypy"
+    if re.match(r"^pyright\b", normalized):
+        return "typecheck:pyright"
+    if re.match(r"^tox\b", normalized):
+        return "test:tox"
+    if re.match(r"^nox\b", normalized):
+        return "test:nox"
+    if re.match(r"^pre-commit\s+run\b", normalized):
+        return "check:pre-commit"
+
     if "pytest" in lowered:
         return "test:pytest"
     if "unittest" in lowered:
