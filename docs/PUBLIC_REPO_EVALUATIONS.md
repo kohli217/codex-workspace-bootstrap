@@ -460,6 +460,34 @@ Expected behavior of the current integrity model:
 - reject absolute paths, parent traversal, glob selectors, and missing targets;
 - preserve script arguments after npm's `--` separator.
 
+## plexe-ai/plexe
+
+Snapshot: `a1e05f6dc4c0875e0075f3b6f020fbecef57a699`
+
+Observed signals:
+
+- root `AGENTS.md` is a regular canonical instruction file;
+- root `CLAUDE.md` is a Git symlink (mode `120000`) whose blob contains exactly `AGENTS.md`;
+- the canonical instructions document that Claude reuses `AGENTS.md`;
+- validation guidance includes `poetry run pytest tests/unit/` and `poetry run ruff check . --fix`;
+- `pyproject.toml` uses Poetry and lists Pytest/Ruff development tooling.
+
+Why this matters:
+
+- combines the strict Claude compatibility-alias boundary with Python validation commands wrapped by Poetry;
+- verifies that the alias is recognized without reading arbitrary symlink targets;
+- protects Ruff normalization so a wrapped lint command remains comparable across agent surfaces;
+- exercises a real Python multi-agent layout without interpreting the same canonical content as cross-agent drift.
+
+Expected behavior of the current integrity model:
+
+- detect regular `AGENTS.md` for Codex/OpenAI agents;
+- recognize exact sibling `CLAUDE.md -> AGENTS.md` as a Claude Code alias;
+- read only the regular canonical `AGENTS.md` for alias linting;
+- extract `poetry run pytest tests/unit/` and `poetry run ruff check . --fix`;
+- normalize the Ruff command into the `lint:ruff` validation family;
+- avoid package-manager or validation-command drift when both agent signals resolve to the same canonical guidance.
+
 ## What these evaluations do not prove
 
 These evaluations do not prove:
@@ -502,5 +530,6 @@ The observed repository patterns are encoded as automated regression tests in `t
 - `test_public_pattern_react_auth_pnpm_recursive_skips_root_script_requirement`
 - `test_public_pattern_private_hosting_npm_workspaces_skips_root_script_requirement`
 - `test_public_pattern_prompt_kitchen_npm_workspace_directory_selector`
+- `test_public_pattern_plexe_poetry_ruff_claude_alias`
 
 The fixtures intentionally model only the relevant public signals needed to exercise the lint rules. They are not copies of the upstream repositories and they do not imply compatibility certification.
