@@ -12,6 +12,7 @@ from .doctor import doctor_findings
 from .fixes import apply_fix_plan, build_fix_plan
 from .preflight import build_preflight, evaluate_preflight_policy, render_markdown
 from .sarif import checks_to_sarif, preflight_report_to_sarif
+from .schemas import schema_document
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -76,6 +77,16 @@ def _parser() -> argparse.ArgumentParser:
     init_agents = sub.add_parser("init-agents", help="Create a project-aware starter AGENTS.md")
     init_agents.add_argument("path", nargs="?", default=".")
     init_agents.add_argument("--force", action="store_true", help="Overwrite an existing AGENTS.md")
+
+    schema = sub.add_parser(
+        "schema",
+        help="Print a stable machine-readable JSON Schema contract",
+    )
+    schema.add_argument(
+        "kind",
+        choices=("preflight", "config"),
+        help="Schema to print: preflight report or .cwb.json repository config",
+    )
 
     return parser
 
@@ -306,6 +317,11 @@ def _run_doctor(path: str) -> int:
     print("Doctor is diagnostic only; it did not install software or modify configuration.")
     return 0
 
+def _run_schema(kind: str) -> int:
+    print(json.dumps(schema_document(kind), indent=2, sort_keys=True))
+    return 0
+
+
 def _run_init_agents(path: str, force: bool) -> int:
     root = Path(path).expanduser().resolve()
     if not root.exists() or not root.is_dir():
@@ -346,4 +362,6 @@ def main(argv: list[str] | None = None) -> int:
         return _run_doctor(args.path)
     if args.command == "init-agents":
         return _run_init_agents(args.path, args.force)
+    if args.command == "schema":
+        return _run_schema(args.kind)
     return 2
