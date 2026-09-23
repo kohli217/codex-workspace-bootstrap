@@ -192,3 +192,51 @@ def test_blocking_audit_paths_become_failure_annotations() -> None:
     assert annotations[0]["annotation_level"] == "failure"
     assert annotations[0]["title"] == "CWB: secret-risk-files"
     assert "repository-readiness finding" in annotations[0]["raw_details"]
+
+
+
+def test_applied_repository_suppression_is_visible_in_github_check() -> None:
+    report = _report("READY")
+    report["configuration"] = {
+        "path": ".cwb.json",
+        "version": 1,
+        "valid": True,
+    }
+    report["suppressions"] = [
+        {
+            "target": "check",
+            "name": "license",
+            "reason": "Intentional internal repository policy.",
+            "applied": True,
+        }
+    ]
+
+    fields = build_github_check(report).to_check_run_fields()
+    output = fields["output"]
+    assert isinstance(output, dict)
+    assert output["title"] == "CWB preflight: READY (1 suppression)"
+    annotations = output["annotations"]
+    assert isinstance(annotations, list)
+    assert len(annotations) == 1
+    assert annotations[0]["path"] == ".cwb.json"
+    assert annotations[0]["annotation_level"] == "notice"
+    assert "repository suppressions applied" in annotations[0]["title"].lower()
+
+
+def test_invalid_repository_config_is_annotated_in_github_check() -> None:
+    report = _report("NEEDS ATTENTION")
+    report["configuration"] = {
+        "path": ".cwb.json",
+        "valid": False,
+        "error": "version must be 1",
+    }
+    report["suppressions"] = []
+
+    output = build_github_check(report).to_check_run_fields()["output"]
+    assert isinstance(output, dict)
+    annotations = output["annotations"]
+    assert isinstance(annotations, list)
+    assert len(annotations) == 1
+    assert annotations[0]["path"] == ".cwb.json"
+    assert annotations[0]["annotation_level"] == "warning"
+    assert "version must be 1" in annotations[0]["message"]
