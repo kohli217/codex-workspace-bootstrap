@@ -9,11 +9,15 @@ import worker, {
   base64urlEncode,
   brokerGrant,
   buildManifestState,
+  buildMarketplaceOAuthState,
   manifestFor,
+  marketplaceAccountKey,
+  normalizeMarketplacePurchase,
   normalizeWebhook,
   setupTokenIsValid,
   validateQueuedTokenEndpoint,
   verifyManifestState,
+  verifyMarketplaceOAuthState,
 } from "../src/index.mjs";
 
 test("setup token expires after one hour", () => {
@@ -222,3 +226,211 @@ test("async route failures are converted to service errors", async () => {
   assert.equal(response.status, 500);
   assert.deepEqual(await response.json(), { error: "service error" });
 });
+
+async function webhookSignature(secret, body) {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const digest = new Uint8Array(
+    await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(body)),
+  );
+  return "sha256=" + Array.from(
+    digest,
+    (value) => value.toString(16).padStart(2, "0"),
+  ).join("");
+}
+
+test("Marketplace OAuth state is signed and short-lived", async () => {
+  const secret = "github-client-secret";
+  const state = await buildMarketplaceOAuthState(secret, 1000);
+
+  assert.equal(await verifyMarketplaceOAuthState(secret, state, 1000), true);
+  assert.equal(await verifyMarketplaceOAuthState(secret, state, 1600), true);
+  assert.equal(await verifyMarketplaceOAuthState(secret, state, 1601), false);
+  assert.equal(
+    await verifyMarketplaceOAuthState("different-secret", state, 1000),
+    false,
+  );
+
+  const parts = state.split(".");
+  const tampered = [parts[0], parts[1], "tampered", parts[3]].join(".");
+  assert.equal(await verifyMarketplaceOAuthState(secret, tampered, 1000), false);
+});
+
+test("Marketplace purchase normalizes only supported lifecycle actions", () => {
+  const purchased = normalizeMarketplacePurchase("marketplace_purchase", {
+    action: "purchased",
+    effective_date: "2026-09-23T00:00:00Z",
+    marketplace_purchase: {
+      account: { id: 123 },
+      plan: { id: 456 },
+    },
+  });
+  assert.deepEqual(purchased, {
+    disposition: "marketplace",
+    action: "purchased",
+    account_id: 123,
+    active: true,
+    plan_id: 456,
+    effective_date: "2026-09-23T00:00:00Z",
+  });
+
+  const cancelled = normalizeMarketplacePurchase("marketplace_purchase", {
+    action: "cancelled",
+    marketplace_purchase: {
+      account: { id: 123 },
+      plan: { id: 456 },
+    },
+  });
+  assert.equal(cancelled.active, false);
+  assert.equal(
+    normalizeMarketplacePurchase("marketplace_purchase", {
+      action: "pending_change",
+    }).disposition,
+    "ignored",
+  );
+  assert.equal(normalizeMarketplacePurchase("ping", {}).disposition, "ping");
+});
+
+test("Marketplace account keys do not contain account names", () => {
+  assert.equal(marketplaceAccountKey(12345), "marketplace-account:12345");
+  assert.throws(() => marketplaceAccountKey(0));
+  assert.throws(() => marketplaceAccountKey("12345"));
+});
+
+test("Marketplace setup redirects through GitHub App OAuth", async () => {
+  const stored = {
+    app_id: 123,
+    client_id: "Iv1.client",
+    pem: "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----",
+    webhook_secret: "app-webhook-secret",
+    slug: "cwb-preflight",
+  };
+  const env = {
+    CWB_GITHUB_CLIENT_SECRET: "client-secret",
+    CWB_STATE: {
+      async get(key) {
+        assert.equal(key, "github-app-credentials");
+        return JSON.stringify(stored);
+      },
+    },
+  };
+
+  const response = await worker.fetch(
+    new Request("https://cwb.example.workers.dev/marketplace/setup"),
+    env,
+  );
+
+  assert.equal(response.status, 302);
+  const location = new URL(response.headers.get("Location"));
+  assert.equal(location.origin, "https://github.com");
+  assert.equal(location.pathname, "/login/oauth/authorize");
+  assert.equal(location.searchParams.get("client_id"), "Iv1.client");
+  assert.equal(
+    location.searchParams.get("redirect_uri"),
+    "https://cwb.example.workers.dev/marketplace/oauth/callback",
+  );
+  assert.ok(location.searchParams.get("state"));
+});
+
+test("Marketplace webhook records cancellation with 30-day expiry", async () => {
+  const secret = "marketplace-webhook-secret";
+  const payload = JSON.stringify({
+    action: "cancelled",
+    effective_date: "2026-09-23T00:00:00Z",
+    marketplace_purchase: {
+      account: { id: 987 },
+      plan: { id: 654 },
+    },
+  });
+  const writes = [];
+  const env = {
+    CWB_MARKETPLACE_WEBHOOK_SECRET: secret,
+    CWB_STATE: {
+      async put(key, value, options) {
+        writes.push({ key, value: JSON.parse(value), options });
+      },
+    },
+  };
+  const response = await worker.fetch(
+    new Request("https://cwb.example.workers.dev/webhooks/marketplace", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-GitHub-Event": "marketplace_purchase",
+        "X-GitHub-Delivery": "marketplace-delivery",
+        "X-Hub-Signature-256": await webhookSignature(secret, payload),
+      },
+      body: payload,
+    }),
+    env,
+  );
+
+  assert.equal(response.status, 202);
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].key, "marketplace-account:987");
+  assert.equal(writes[0].value.active, false);
+  assert.equal(writes[0].value.plan_id, 654);
+  assert.deepEqual(writes[0].options, { expirationTtl: 2592000 });
+});
+
+test("cancelled Marketplace account is not queued for scans", async () => {
+  const appSecret = "app-webhook-secret";
+  const payload = JSON.stringify({
+    after: "a".repeat(40),
+    ref: "refs/heads/main",
+    repository: {
+      full_name: "octo/demo",
+      private: false,
+      owner: { id: 777 },
+    },
+    installation: { id: 1234 },
+  });
+  let queued = false;
+  const stored = {
+    app_id: 123,
+    client_id: "Iv1.client",
+    pem: "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----",
+    webhook_secret: appSecret,
+    slug: "cwb-preflight",
+  };
+  const env = {
+    CWB_STATE: {
+      async get(key) {
+        if (key === "github-app-credentials") return JSON.stringify(stored);
+        if (key === "marketplace-account:777") {
+          return JSON.stringify({ active: false });
+        }
+        return null;
+      },
+    },
+    SCAN_QUEUE: {
+      async send() {
+        queued = true;
+      },
+    },
+  };
+  const response = await worker.fetch(
+    new Request("https://cwb.example.workers.dev/webhooks/github", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-GitHub-Event": "push",
+        "X-GitHub-Delivery": "push-delivery",
+        "X-Hub-Signature-256": await webhookSignature(appSecret, payload),
+      },
+      body: payload,
+    }),
+    env,
+  );
+
+  assert.equal(response.status, 202);
+  const body = await response.json();
+  assert.equal(body.disposition, "marketplace-cancelled");
+  assert.equal(queued, false);
+});
+
