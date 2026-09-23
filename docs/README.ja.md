@@ -213,4 +213,18 @@ Demo verification: PASS
 
 詳細は [examples/first-run-demo](../examples/first-run-demo) を参照してください。
 
+### multi-agent Pythonデモ
+
+複数のAI coding agentが同じscopeで異なる検証commandを指定した場合と、path-specific ruleを区別するデモもあります。
+
+```powershell
+py examples/multi-agent-python-demo/run_demo.py
+```
+
+修正前はrootの `AGENTS.md` が `mypy src`、`CLAUDE.md` が `pyright src` を指定するため、`typecheck` の `validation-command-drift` を1件検出します。一方、`tests/**/*.py` だけに適用されるCopilot ruleの `ruff check tests` はrepository-wide ruleとして誤比較しません。
+
+修正後はClaude側を同等のwrapper形式 `python -m mypy src` に揃え、`READY` になることまで自動検証します。ネットワーク通信やinstruction内commandの実行は行わず、Windows / Ubuntu CIで継続検証します。
+
+詳細は [examples/multi-agent-python-demo](../examples/multi-agent-python-demo) を参照してください。
+
 これは第三者利用実績の主張ではなく、製品の検出能力を再現可能な形で確認するための技術デモです。
