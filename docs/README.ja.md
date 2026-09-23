@@ -64,6 +64,44 @@ SARIF:
 cwb preflight . --sarif preflight.sarif
 ```
 
+## 意図した警告を安全に抑制する
+
+Repo固有の事情で、既知の非blocking警告を意図的に許容したい場合は、Repo rootに `.cwb.json` を置けます。
+
+```json
+{
+  "version": 1,
+  "suppress": {
+    "checks": [
+      {
+        "name": "license",
+        "reason": "この内部Repoでは単独のLICENSEを置かない運用です。"
+      }
+    ],
+    "instruction_findings": [
+      {
+        "kind": "validation-command-drift",
+        "path": "CLAUDE.md",
+        "scope": ".",
+        "reason": "Claudeでは意図的に軽量なsmoke testだけを実行します。"
+      }
+    ]
+  }
+}
+```
+
+抑制はfail-closedです。すべての抑制に理由が必要で、instruction findingは正確なRepo相対パスを指定します。適用済み・未使用の抑制はpreflight reportに残るため、黙って消えることはありません。
+
+次は抑制できません。
+
+- blocking check
+- Git repository / README / .gitignore / project manifestなどREADY判定の必須check
+- tracked secret-risk finding
+- wildcardを使った広いpath指定
+- error severityのinstruction finding
+
+不正または危険な `.cwb.json` は無視して続行せず、preflightを `NEEDS ATTENTION` にします。なお `cwb audit` は生の診断結果を確認するため、意図的に抑制を適用しません。抑制はCLI / GitHub Action / GitHub Appが共有する `preflight` 契約に適用されます。
+
 ## AGENTS.md生成
 
 ```powershell
