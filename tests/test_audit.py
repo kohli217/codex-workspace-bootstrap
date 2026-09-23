@@ -4,7 +4,12 @@ import subprocess
 
 import pytest
 
-from codex_workspace_bootstrap.audit import _git_tracked_files, audit_repository, summary
+from codex_workspace_bootstrap.audit import (
+    Check,
+    _git_tracked_files,
+    audit_repository,
+    summary,
+)
 
 
 def _git(root: Path, *args: str) -> None:
