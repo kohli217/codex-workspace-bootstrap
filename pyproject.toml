@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "codex-workspace-bootstrap"
 version = "0.11.0"
-description = "Preflight AI coding repositories before Codex, Copilot, Cline, Claude, Gemini, Continue, or Cursor touches them."
+description = "Preflight AI coding repositories before Codex, Copilot, Cline, Claude, Gemini, Continue, Cursor, or Windsurf touches them."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
