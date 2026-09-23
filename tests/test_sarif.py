@@ -24,6 +24,7 @@ def test_sarif_marks_blocking_findings_as_error() -> None:
                 "warn",
                 "Potential secret-bearing filenames detected (tracked: .env). The audit does not read file contents.",
                 blocking=True,
+                paths=(".env",),
             )
         ]
     )
@@ -32,6 +33,7 @@ def test_sarif_marks_blocking_findings_as_error() -> None:
     assert result["ruleId"] == "secret-risk-files"
     assert result["level"] == "error"
     assert result["properties"]["blocking"] is True
+    assert result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == ".env"
 
 
 def test_sarif_contains_stable_tool_metadata() -> None:
@@ -116,3 +118,27 @@ def test_sarif_has_specific_package_manager_help() -> None:
     assert "pnpm" in rules["pnpm"]["help"]["text"].lower()
     assert "packageManager" in rules["package-manager-evidence"]["help"]["text"]
     assert "lockfile" in rules["package-manager-evidence"]["help"]["text"]
+
+
+def test_preflight_sarif_includes_audit_locations() -> None:
+    payload = preflight_report_to_sarif(
+        {
+            "checks": [
+                {
+                    "name": "secret-risk-files",
+                    "status": "warn",
+                    "message": "Tracked risky filename detected.",
+                    "blocking": True,
+                    "paths": [".env.production", "config\\service.key"],
+                }
+            ],
+            "instruction_findings": [],
+        }
+    )
+
+    result = payload["runs"][0]["results"][0]
+    uris = [
+        item["physicalLocation"]["artifactLocation"]["uri"]
+        for item in result["locations"]
+    ]
+    assert uris == [".env.production", "config/service.key"]
