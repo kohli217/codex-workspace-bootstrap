@@ -12,6 +12,74 @@ from ..preflight import (
 
 
 GitHubCheckConclusion = Literal["success", "neutral", "failure"]
+MAX_GITHUB_CHECK_ANNOTATIONS = 50
+
+
+def _annotation_path(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.strip().replace("\\", "/")
+    while normalized.startswith("./"):
+        normalized = normalized[2:]
+    if not normalized or normalized.startswith("/"):
+        return None
+    parts = normalized.split("/")
+    if any(part in {"", ".."} for part in parts):
+        return None
+    if parts[0].endswith(":"):
+        return None
+    return normalized
+
+
+def _instruction_annotations(report: dict[str, object]) -> tuple[dict[str, object], ...]:
+    """Build conservative file-level GitHub annotations from instruction findings."""
+
+    findings = report.get("instruction_findings", [])
+    if not isinstance(findings, list):
+        return ()
+
+    annotations: list[dict[str, object]] = []
+    seen: set[tuple[str, str, str, str]] = set()
+
+    for item in findings:
+        if not isinstance(item, dict):
+            continue
+        files = item.get("files", [])
+        if not isinstance(files, list):
+            continue
+
+        kind = str(item.get("kind", "instruction-integrity"))
+        message = str(item.get("message", "")).strip()
+        if not message:
+            continue
+        level = "failure" if item.get("severity") == "error" else "warning"
+
+        for raw_path in files:
+            path = _annotation_path(raw_path)
+            if path is None:
+                continue
+            key = (kind, path, level, message)
+            if key in seen:
+                continue
+            seen.add(key)
+            annotations.append(
+                {
+                    "path": path,
+                    "start_line": 1,
+                    "end_line": 1,
+                    "annotation_level": level,
+                    "title": f"CWB: {kind}"[:255],
+                    "message": message,
+                    "raw_details": (
+                        "CWB currently reports this as a file-level finding. "
+                        "Line 1 is used only as the GitHub annotation anchor."
+                    ),
+                }
+            )
+            if len(annotations) >= MAX_GITHUB_CHECK_ANNOTATIONS:
+                return tuple(annotations)
+
+    return tuple(annotations)
 
 
 @dataclass(frozen=True)
@@ -23,18 +91,23 @@ class GitHubCheckResult:
     title: str
     summary: str
     policy: PolicyDecision
+    annotations: tuple[dict[str, object], ...] = ()
 
     def to_check_run_fields(self) -> dict[str, object]:
         """Return Check Run fields that a caller can combine with head_sha."""
+
+        output: dict[str, object] = {
+            "title": self.title,
+            "summary": self.summary,
+        }
+        if self.annotations:
+            output["annotations"] = [dict(item) for item in self.annotations]
 
         return {
             "name": self.name,
             "status": "completed",
             "conclusion": self.conclusion,
-            "output": {
-                "title": self.title,
-                "summary": self.summary,
-            },
+            "output": output,
         }
 
 
@@ -76,4 +149,5 @@ def build_github_check(
         title=f"CWB preflight: {state}",
         summary=render_markdown(report),
         policy=decision,
+        annotations=_instruction_annotations(report),
     )
