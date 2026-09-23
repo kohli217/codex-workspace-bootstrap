@@ -90,7 +90,7 @@ The Marketplace listing has a separate webhook configuration.
 - **Secret:** use the value generated locally by `deploy.ps1 -EnableMarketplace`
 - **Active:** enabled
 
-The endpoint accepts GitHub's `marketplace_purchase` lifecycle events. CWB stores only numeric account ID plus minimal plan state. Explicit cancellations suppress scans while the cancellation record exists; cancellation records expire within 30 days.
+The endpoint accepts GitHub's `marketplace_purchase` lifecycle events. CWB stores only numeric account ID plus minimal plan state. On cancellation, CWB persists the inactive state first, then requests removal of the matching CWB Preflight installation with an App JWT. This makes scan suppression fail-closed if GitHub's uninstall API is temporarily unavailable. Cancellation records expire within 30 days.
 
 ## Contact information
 
