@@ -308,6 +308,25 @@ def build_preflight(
     return report
 
 
+def _state_explanation(state: str) -> str:
+    if state == "READY":
+        return (
+            "The repository satisfies CWB's current readiness and "
+            "instruction-integrity checks. This is not a security guarantee."
+        )
+    if state == "BLOCKED":
+        return (
+            "A blocking repository-risk finding is present. Review it before "
+            "allowing an AI coding agent to modify the repository."
+        )
+    if state == "NEEDS ATTENTION":
+        return (
+            "The repository may still be usable, but important readiness or "
+            "instruction findings need review before relying on agent guidance."
+        )
+    return "Review the report before relying on this repository for agent work."
+
+
 def render_markdown(report: dict[str, object]) -> str:
     state = str(report["state"])
     projects = report["project_signals"]
@@ -330,6 +349,7 @@ def render_markdown(report: dict[str, object]) -> str:
         "# AI Repository Preflight",
         "",
         f"**State:** {state}",
+        f"**What this means:** {_state_explanation(state)}",
         "",
         f"**Project signals:** {project_text}",
         f"**Local toolchain checks:** {local_toolchain_text}",
