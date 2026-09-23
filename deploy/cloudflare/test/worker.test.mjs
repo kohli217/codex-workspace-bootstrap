@@ -10,6 +10,7 @@ import worker, {
   brokerGrant,
   buildManifestState,
   buildMarketplaceOAuthState,
+  deactivateMarketplaceInstallation,
   manifestFor,
   marketplaceAccountKey,
   normalizeMarketplacePurchase,
@@ -227,6 +228,25 @@ test("async route failures are converted to service errors", async () => {
   assert.deepEqual(await response.json(), { error: "service error" });
 });
 
+async function testPrivateKeyPem() {
+  const keys = await crypto.subtle.generateKey(
+    {
+      name: "RSASSA-PKCS1-v1_5",
+      modulusLength: 1024,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: "SHA-256",
+    },
+    true,
+    ["sign", "verify"],
+  );
+  const der = new Uint8Array(
+    await crypto.subtle.exportKey("pkcs8", keys.privateKey),
+  );
+  const base64 = Buffer.from(der).toString("base64");
+  const wrapped = base64.match(/.{1,64}/g)?.join("\n") || base64;
+  return `-----BEGIN PRIVATE KEY-----\n${wrapped}\n-----END PRIVATE KEY-----`;
+}
+
 async function webhookSignature(secret, body) {
   const key = await crypto.subtle.importKey(
     "raw",
@@ -337,7 +357,7 @@ test("Marketplace setup redirects through GitHub App OAuth", async () => {
   assert.ok(location.searchParams.get("state"));
 });
 
-test("Marketplace webhook records cancellation with 30-day expiry", async () => {
+test("Marketplace cancellation is recorded and uninstalls the App", async (t) => {
   const secret = "marketplace-webhook-secret";
   const payload = JSON.stringify({
     action: "cancelled",
@@ -348,14 +368,48 @@ test("Marketplace webhook records cancellation with 30-day expiry", async () => 
     },
   });
   const writes = [];
+  const requests = [];
+  const stored = {
+    app_id: 123,
+    client_id: "Iv1.client",
+    pem: await testPrivateKeyPem(),
+    webhook_secret: "app-webhook-secret",
+    slug: "cwb-preflight",
+  };
   const env = {
     CWB_MARKETPLACE_WEBHOOK_SECRET: secret,
     CWB_STATE: {
+      async get(key) {
+        if (key === "github-app-credentials") return JSON.stringify(stored);
+        return null;
+      },
       async put(key, value, options) {
         writes.push({ key, value: JSON.parse(value), options });
       },
     },
   };
+
+  t.mock.method(globalThis, "fetch", async (input, init = {}) => {
+    const url = String(input);
+    requests.push({ url, method: init.method || "GET" });
+    if (url.includes("/app/installations?")) {
+      return new Response(
+        JSON.stringify([
+          {
+            id: 2468,
+            account: { id: 987 },
+            target_id: 987,
+          },
+        ]),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    if (url.endsWith("/app/installations/2468") && init.method === "DELETE") {
+      return new Response(null, { status: 202 });
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  });
+
   const response = await worker.fetch(
     new Request("https://cwb.example.workers.dev/webhooks/marketplace", {
       method: "POST",
@@ -376,6 +430,85 @@ test("Marketplace webhook records cancellation with 30-day expiry", async () => 
   assert.equal(writes[0].value.active, false);
   assert.equal(writes[0].value.plan_id, 654);
   assert.deepEqual(writes[0].options, { expirationTtl: 2592000 });
+  assert.equal(requests.length, 2);
+  assert.match(requests[0].url, /\/app\/installations\?/);
+  assert.deepEqual(requests[1], {
+    url: "https://api.github.com/app/installations/2468",
+    method: "DELETE",
+  });
+});
+
+test("Marketplace cancellation stays blocked if uninstall API fails", async (t) => {
+  const secret = "marketplace-webhook-secret";
+  const payload = JSON.stringify({
+    action: "cancelled",
+    marketplace_purchase: {
+      account: { id: 987 },
+      plan: { id: 654 },
+    },
+  });
+  const writes = [];
+  const stored = {
+    app_id: 123,
+    client_id: "Iv1.client",
+    pem: await testPrivateKeyPem(),
+    webhook_secret: "app-webhook-secret",
+    slug: "cwb-preflight",
+  };
+  const env = {
+    CWB_MARKETPLACE_WEBHOOK_SECRET: secret,
+    CWB_STATE: {
+      async get(key) {
+        if (key === "github-app-credentials") return JSON.stringify(stored);
+        return null;
+      },
+      async put(key, value, options) {
+        writes.push({ key, value: JSON.parse(value), options });
+      },
+    },
+  };
+
+  t.mock.method(globalThis, "fetch", async () => {
+    return new Response("temporary failure", { status: 503 });
+  });
+
+  const response = await worker.fetch(
+    new Request("https://cwb.example.workers.dev/webhooks/marketplace", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-GitHub-Event": "marketplace_purchase",
+        "X-GitHub-Delivery": "marketplace-delivery-failed-uninstall",
+        "X-Hub-Signature-256": await webhookSignature(secret, payload),
+      },
+      body: payload,
+    }),
+    env,
+  );
+
+  assert.equal(response.status, 500);
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].key, "marketplace-account:987");
+  assert.equal(writes[0].value.active, false);
+  assert.deepEqual(writes[0].options, { expirationTtl: 2592000 });
+});
+
+test("Marketplace deactivation treats missing installation as already inactive", async (t) => {
+  const credentials = {
+    client_id: "Iv1.client",
+    pem: await testPrivateKeyPem(),
+  };
+  t.mock.method(globalThis, "fetch", async () => {
+    return new Response("[]", {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  });
+
+  assert.equal(
+    await deactivateMarketplaceInstallation(credentials, 987),
+    false,
+  );
 });
 
 test("cancelled Marketplace account is not queued for scans", async () => {
