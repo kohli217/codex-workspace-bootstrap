@@ -2,7 +2,7 @@
 
 **AIコーディングエージェントにリポジトリを触らせる前のpreflightツール**です。
 
-Windows-first、ローカル実行中心、CI対応。Codexだけでなく、Copilot / Cline / Claude Code / Gemini CLI / Continue / Cursor系の指示ファイルを横断し、存在確認だけでなく指示間のdriftも検出します。
+Windows-first、ローカル実行中心、CI対応。Codexだけでなく、Copilot / Cline / Claude Code / Gemini CLI / Continue / Cursor / Windsurf系の指示ファイルを横断し、存在確認だけでなく指示間のdriftも検出します。
 
 > コミュニティ運営のOSSです。OpenAI公式製品ではありません。
 
@@ -28,7 +28,7 @@ preflightは、次に何をすべきかをP0/P1/P2の優先度付きで表示し
 - Git / Python / Node.js / Repoで選択されたpackage manager / PowerShell / WSL / Codex
 - AGENTS.md
 - GitHub Copilot repository instructions
-- Cline / Claude Code / Gemini CLI / Continue / Cursor系の指示ファイル
+- Cline / Claude Code / Gemini CLI / Continue / Cursor / Windsurf系の指示ファイル
 - .env / `.env.production` などの環境別 `.env.*` / private-key系などsecret-riskになりやすいファイル名（`.env.example` などの一般的なテンプレート名は除外）
 - Git追跡済み / ignore済み / untrackedの区別
 
