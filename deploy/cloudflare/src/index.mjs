@@ -187,12 +187,62 @@ async function verifyManifestState(
 
 async function buildMarketplaceOAuthState(
   secret,
+  installationId,
   now = Math.floor(Date.now() / 1000),
 ) {
+  const normalizedInstallationId = positiveInteger(
+    installationId,
+    "installation_id",
+  );
   const nonce = randomToken();
-  const unsigned = `m1.${now}.${nonce}`;
+  const unsigned = `m2.${now}.${nonce}.${normalizedInstallationId}`;
   const signature = await hmacHex(secret, utf8(unsigned));
   return `${unsigned}.${signature}`;
+}
+
+async function parseMarketplaceOAuthState(
+  secret,
+  state,
+  now = Math.floor(Date.now() / 1000),
+) {
+  if (typeof state !== "string" || !state) return null;
+  const parts = state.split(".");
+  if (
+    parts.length !== 5 ||
+    parts[0] !== "m2" ||
+    !parts[2] ||
+    !parts[3] ||
+    !parts[4]
+  ) {
+    return null;
+  }
+
+  const issuedAt = Number(parts[1]);
+  const installationId = Number(parts[3]);
+  if (
+    !Number.isInteger(issuedAt) ||
+    issuedAt <= 0 ||
+    !Number.isInteger(installationId) ||
+    installationId <= 0
+  ) {
+    return null;
+  }
+
+  const age = now - issuedAt;
+  if (
+    age < -SETUP_FUTURE_SKEW_SECONDS ||
+    age > MARKETPLACE_OAUTH_TTL_SECONDS
+  ) {
+    return null;
+  }
+
+  const unsigned = parts.slice(0, 4).join(".");
+  const expected = await hmacHex(secret, utf8(unsigned));
+  if (!timingSafeEqual(expected, parts[4])) return null;
+
+  return {
+    installation_id: installationId,
+  };
 }
 
 async function verifyMarketplaceOAuthState(
@@ -200,23 +250,7 @@ async function verifyMarketplaceOAuthState(
   state,
   now = Math.floor(Date.now() / 1000),
 ) {
-  if (typeof state !== "string" || !state) return false;
-  const parts = state.split(".");
-  if (parts.length !== 4 || parts[0] !== "m1" || !parts[2] || !parts[3]) {
-    return false;
-  }
-  const issuedAt = Number(parts[1]);
-  if (!Number.isInteger(issuedAt) || issuedAt <= 0) return false;
-  const age = now - issuedAt;
-  if (
-    age < -SETUP_FUTURE_SKEW_SECONDS ||
-    age > MARKETPLACE_OAUTH_TTL_SECONDS
-  ) {
-    return false;
-  }
-  const unsigned = parts.slice(0, 3).join(".");
-  const expected = await hmacHex(secret, utf8(unsigned));
-  return timingSafeEqual(expected, parts[3]);
+  return (await parseMarketplaceOAuthState(secret, state, now)) !== null;
 }
 
 function marketplaceAccountKey(accountId) {
@@ -580,6 +614,45 @@ async function identifyMarketplaceUser(accessToken) {
   return { id: body.id, login: body.login };
 }
 
+async function marketplaceUserCanAccessInstallation(
+  accessToken,
+  installationId,
+) {
+  const expectedId = positiveInteger(installationId, "installation_id");
+
+  for (let page = 1; page <= 20; page += 1) {
+    const response = await fetch(
+      `https://api.github.com/user/installations?per_page=100&page=${page}`,
+      {
+        headers: {
+          Accept: GITHUB_ACCEPT,
+          Authorization: `Bearer ${accessToken}`,
+          "User-Agent": GITHUB_USER_AGENT,
+          "X-GitHub-Api-Version": GITHUB_API_VERSION,
+        },
+      },
+    );
+    if (!response.ok) {
+      throw new Error(
+        `GitHub user installation lookup failed with HTTP ${response.status}`,
+      );
+    }
+
+    const body = await response.json();
+    const installations = body?.installations;
+    if (!Array.isArray(installations)) {
+      throw new Error("GitHub user installation lookup response is malformed");
+    }
+
+    if (installations.some((item) => item?.id === expectedId)) {
+      return true;
+    }
+    if (installations.length < 100) return false;
+  }
+
+  throw new Error("GitHub user installation lookup exceeded pagination limit");
+}
+
 async function revokeMarketplaceUserToken(
   credentials,
   clientSecret,
@@ -876,15 +949,23 @@ async function handleSetupCallback(request, env) {
 }
 
 async function handleMarketplaceSetup(request, env) {
+  const setupUrl = new URL(request.url);
+  const installationId = Number(setupUrl.searchParams.get("installation_id"));
+  if (!Number.isInteger(installationId) || installationId <= 0) {
+    return jsonResponse(400, { error: "missing or invalid installation_id" });
+  }
+
   const credentials = await loadCredentials(env);
   const clientSecret = marketplaceClientSecret(env, credentials);
   if (!clientSecret) {
     return jsonResponse(503, { error: "Marketplace OAuth is not configured" });
   }
 
-  const origin = new URL(request.url).origin;
-  const redirectUri = `${origin}/marketplace/oauth/callback`;
-  const state = await buildMarketplaceOAuthState(clientSecret);
+  const redirectUri = `${setupUrl.origin}/marketplace/oauth/callback`;
+  const state = await buildMarketplaceOAuthState(
+    clientSecret,
+    installationId,
+  );
   const authorize = new URL("https://github.com/login/oauth/authorize");
   authorize.searchParams.set("client_id", credentials.client_id);
   authorize.searchParams.set("redirect_uri", redirectUri);
@@ -913,12 +994,19 @@ async function handleMarketplaceOAuthCallback(request, env) {
   if (!clientSecret) {
     return jsonResponse(503, { error: "Marketplace OAuth is not configured" });
   }
-  if (!(await verifyMarketplaceOAuthState(clientSecret, state))) {
+
+  const stateContext = await parseMarketplaceOAuthState(
+    clientSecret,
+    state,
+  );
+  if (!stateContext) {
     return jsonResponse(403, { error: "invalid Marketplace OAuth state" });
   }
 
   const redirectUri = `${url.origin}/marketplace/oauth/callback`;
   let accessToken = null;
+  let identity = null;
+  let installationAllowed = false;
   try {
     accessToken = await exchangeMarketplaceOAuthCode(
       credentials,
@@ -926,19 +1014,29 @@ async function handleMarketplaceOAuthCallback(request, env) {
       code,
       redirectUri,
     );
-    const identity = await identifyMarketplaceUser(accessToken);
-    await revokeMarketplaceUserToken(
-      credentials,
-      clientSecret,
+    identity = await identifyMarketplaceUser(accessToken);
+    installationAllowed = await marketplaceUserCanAccessInstallation(
       accessToken,
+      stateContext.installation_id,
     );
-    accessToken = null;
-    return htmlResponse(200, marketplaceReadyPage(identity.login));
   } finally {
-    // Never persist or log GitHub user access tokens. If revocation failed,
-    // the short-lived token remains only at GitHub until its normal expiry.
-    accessToken = null;
+    if (accessToken) {
+      await revokeMarketplaceUserToken(
+        credentials,
+        clientSecret,
+        accessToken,
+      );
+      accessToken = null;
+    }
   }
+
+  if (!installationAllowed) {
+    return jsonResponse(403, {
+      error: "authenticated user cannot access this installation",
+    });
+  }
+
+  return htmlResponse(200, marketplaceReadyPage(identity.login));
 }
 
 async function handleMarketplaceWebhook(request, env) {
@@ -1135,7 +1233,9 @@ export {
   deactivateMarketplaceInstallation,
   manifestFor,
   marketplaceAccountKey,
+  marketplaceUserCanAccessInstallation,
   normalizeMarketplacePurchase,
+  parseMarketplaceOAuthState,
   normalizeWebhook,
   pkcs1ToPkcs8,
   setupTokenIsValid,
