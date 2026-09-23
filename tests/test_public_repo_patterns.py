@@ -709,3 +709,73 @@ def test_public_pattern_plexe_poetry_ruff_claude_alias(
     assert not any(item.kind == "validation-command-drift" for item in findings)
     assert not any(item.kind == "package-manager-drift" for item in findings)
     assert not any(item.kind == "package-manager-mismatch" for item in findings)
+
+
+
+def test_public_pattern_c2fo_windsurf_always_on_is_repository_rule(
+    tmp_path: Path,
+) -> None:
+    """Pattern observed in C2FO/vfs at 80e2c9f: Windsurf always_on rule."""
+    rules = tmp_path / ".windsurf" / "rules"
+    rules.mkdir(parents=True)
+    (rules / "standards.md").write_text(
+        "---\ntrigger: always_on\ndescription:\nglobs:\n---\n"
+        "# VFS Development Standards\n",
+        encoding="utf-8",
+    )
+
+    signal = next(
+        item
+        for item in detect_instruction_signals(tmp_path)
+        if item.path == ".windsurf/rules/standards.md"
+    )
+
+    assert signal.tool == "Windsurf"
+    assert signal.kind == "repository"
+    assert signal.scope == "."
+
+
+def test_public_pattern_betterrtx_windsurf_glob_is_path_specific(
+    tmp_path: Path,
+) -> None:
+    """Pattern observed in BetterRTX/BetterRTX-Installer at f1d8682."""
+    rules = tmp_path / ".windsurf" / "rules"
+    rules.mkdir(parents=True)
+    (rules / "css.md").write_text(
+        "---\ntrigger: glob\nglobs: **/*.css,**/*.tsx\n---\n"
+        "# Project Code Style - CSS / Tailwind\n",
+        encoding="utf-8",
+    )
+
+    signal = next(
+        item
+        for item in detect_instruction_signals(tmp_path)
+        if item.path == ".windsurf/rules/css.md"
+    )
+
+    assert signal.tool == "Windsurf"
+    assert signal.kind == "path-specific"
+
+
+def test_public_pattern_dxos_windsurf_model_decision_is_conditional(
+    tmp_path: Path,
+) -> None:
+    """Pattern observed in dxos/dxos at 605455c: model_decision + package.json."""
+    rules = tmp_path / ".windsurf" / "rules"
+    rules.mkdir(parents=True)
+    (rules / "pnpm.md").write_text(
+        "---\ntrigger: model_decision\ndescription:\nglobs: package.json\n---\n"
+        "Use §pnpm install§ to install new packages.\n".replace("§", "`"),
+        encoding="utf-8",
+    )
+
+    signal = next(
+        item
+        for item in detect_instruction_signals(tmp_path)
+        if item.path == ".windsurf/rules/pnpm.md"
+    )
+    findings = lint_instructions(tmp_path)
+
+    assert signal.tool == "Windsurf"
+    assert signal.kind == "conditional"
+    assert not any(item.kind == "package-manager-drift" for item in findings)
