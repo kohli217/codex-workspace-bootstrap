@@ -212,6 +212,36 @@ cwb preflight . --repository-only
 
 This prevents a remote scanner from reporting the scanner host's Node.js, package-manager, WSL, PowerShell, or Codex availability as if it belonged to the inspected repository.
 
+### Explicit repository suppressions
+
+If a repository intentionally triggers a known non-blocking preflight warning, add a root `.cwb.json` with a narrow, documented suppression:
+
+```json
+{
+  "version": 1,
+  "suppress": {
+    "checks": [
+      {
+        "name": "license",
+        "reason": "This internal repository intentionally has no standalone license file."
+      }
+    ],
+    "instruction_findings": [
+      {
+        "kind": "validation-command-drift",
+        "path": "CLAUDE.md",
+        "scope": ".",
+        "reason": "Claude intentionally runs a narrower smoke suite."
+      }
+    ]
+  }
+}
+```
+
+Suppressions are fail-closed and auditable. Every entry requires a reason, instruction suppressions require an exact repository-relative file path, and applied or unused entries remain visible in the preflight report. Blocking checks, essential readiness checks, tracked secret-risk findings, wildcard paths, and error-severity instruction findings cannot be suppressed. Invalid or unsafe `.cwb.json` configuration makes preflight `NEEDS ATTENTION`.
+
+The raw `cwb audit` command is intentionally unsuppressed. Repository suppressions apply to the shared `preflight` contract used by the CLI, reusable Action, and GitHub App.
+
 ### Detailed audit
 
 ```powershell
