@@ -32,7 +32,7 @@ preflightは、次に何をすべきかをP0/P1/P2の優先度付きで表示し
 - .env / `.env.production` などの環境別 `.env.*` / private-key系などsecret-riskになりやすいファイル名（`.env.example` などの一般的なテンプレート名は除外）
 - Git追跡済み / ignore済み / untrackedの区別
 
-さらに、packageManager / lockfile / package.json scriptsを根拠に、AI指示間のpackage manager不一致、存在しないscript、test/lint/build系コマンドの食い違いを保守的に検出します。ネストされた `AGENTS.md` / `AGENTS.override.md` / `CLAUDE.md` / `GEMINI.md` と、Copilotの `applyTo` やruleの `globs` から適用scopeも判定し、別scopeの指示を無理に矛盾扱いしません。
+さらに、packageManager / lockfile / package.json scriptsを根拠に、AI指示間のpackage manager不一致、存在しないscript、test/lint/build/typecheck/check系コマンドの食い違いを保守的に検出します。Pythonでは `ruff check` / `mypy` / `pyright` / `tox` / `nox` / `pre-commit run` を認識し、対応可能な `python -m` / `uv run` / `poetry run` / `pdm run` 形式も同一toolとして正規化します。ネストされた `AGENTS.md` / `AGENTS.override.md` / `CLAUDE.md` / `GEMINI.md` と、Copilotの `applyTo` やruleの `globs` から適用scopeも判定し、別scopeの指示を無理に矛盾扱いしません。
 
 Secret候補のファイル内容は表示しません。
 
