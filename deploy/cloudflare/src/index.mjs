@@ -609,6 +609,62 @@ function marketplaceReadyPage(login) {
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>CWB Preflight ready</title></head><body><h1>CWB Preflight is ready</h1><p>GitHub identity verified for <strong>${escapeHtml(login)}</strong>. No user access token is retained.</p><p>CWB Preflight will run on supported push and pull request events for selected public repositories.</p><p><a href="https://github.com/apps/cwb-preflight">Open CWB Preflight</a></p></body></html>`;
 }
 
+async function deactivateMarketplaceInstallation(credentials, accountId) {
+  const appJwt = await buildAppJwt(credentials.client_id, credentials.pem);
+
+  for (let page = 1; page <= 20; page += 1) {
+    const response = await fetch(
+      `https://api.github.com/app/installations?per_page=100&page=${page}`,
+      {
+        headers: {
+          Accept: GITHUB_ACCEPT,
+          Authorization: `Bearer ${appJwt}`,
+          "User-Agent": GITHUB_USER_AGENT,
+          "X-GitHub-Api-Version": GITHUB_API_VERSION,
+        },
+      },
+    );
+    if (!response.ok) {
+      throw new Error(
+        `GitHub App installation listing failed with HTTP ${response.status}`,
+      );
+    }
+
+    const installations = await response.json();
+    if (!Array.isArray(installations)) {
+      throw new Error("GitHub App installation listing is malformed");
+    }
+
+    const match = installations.find(
+      (item) => item?.account?.id === accountId || item?.target_id === accountId,
+    );
+    if (match?.id) {
+      const removal = await fetch(
+        `https://api.github.com/app/installations/${encodeURIComponent(match.id)}`,
+        {
+          method: "DELETE",
+          headers: {
+            Accept: GITHUB_ACCEPT,
+            Authorization: `Bearer ${appJwt}`,
+            "User-Agent": GITHUB_USER_AGENT,
+            "X-GitHub-Api-Version": GITHUB_API_VERSION,
+          },
+        },
+      );
+      if (![202, 404].includes(removal.status)) {
+        throw new Error(
+          `GitHub App installation removal failed with HTTP ${removal.status}`,
+        );
+      }
+      return true;
+    }
+
+    if (installations.length < 100) return false;
+  }
+
+  throw new Error("GitHub App installation lookup exceeded pagination limit");
+}
+
 async function createInstallationToken(credentials, installationId, repository) {
   const appJwt = await buildAppJwt(credentials.client_id, credentials.pem);
   const [, repoName] = repository.split("/");
@@ -922,6 +978,14 @@ async function handleMarketplaceWebhook(request, env) {
   }
 
   if (decision.disposition === "marketplace") {
+    if (!decision.active) {
+      const credentials = await loadCredentials(env);
+      await deactivateMarketplaceInstallation(
+        credentials,
+        decision.account_id,
+      );
+    }
+
     const value = JSON.stringify({
       active: decision.active,
       action: decision.action,
@@ -1065,6 +1129,7 @@ export {
   brokerGrant,
   buildManifestState,
   buildMarketplaceOAuthState,
+  deactivateMarketplaceInstallation,
   manifestFor,
   marketplaceAccountKey,
   normalizeMarketplacePurchase,
