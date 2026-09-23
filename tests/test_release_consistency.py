@@ -83,3 +83,22 @@ def test_powershell_installer_default_matches_package_version() -> None:
     assert f'[string]$Version = "{version}"' in installer
     assert "releases/download/v$Version/codex_workspace_bootstrap-$Version-py3-none-any.whl" in installer
     assert 'Write-Host "  cwb preflight ."' in installer
+
+
+
+def test_v1_stability_policy_keeps_public_compatibility_anchors() -> None:
+    stability = (ROOT / "docs" / "STABILITY.md").read_text(encoding="utf-8")
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    japanese = (ROOT / "docs" / "README.ja.md").read_text(encoding="utf-8")
+    integrations = (ROOT / "docs" / "INTEGRATIONS.md").read_text(encoding="utf-8")
+    releasing = (ROOT / "docs" / "RELEASING.md").read_text(encoding="utf-8")
+
+    assert "semantic versioning" in stability.lower()
+    assert "schema_version" in stability
+    assert ".cwb.json" in stability
+    assert "Deprecation" in stability
+    assert "security" in stability.lower()
+    assert "docs/STABILITY.md" in readme
+    assert "STABILITY.md" in japanese
+    assert "STABILITY.md" in integrations
+    assert "STABILITY.md" in releasing
