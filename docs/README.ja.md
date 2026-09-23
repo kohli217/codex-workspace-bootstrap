@@ -64,6 +64,17 @@ SARIF:
 cwb preflight . --sarif preflight.sarif
 ```
 
+## 機械可読schema
+
+外部連携やRepo policy向けのJSON SchemaはCLIから確認できます。
+
+```powershell
+cwb schema preflight
+cwb schema config
+```
+
+preflight reportは現在 `schema_version: 1`、root `.cwb.json` は `version: 1` です。互換性を壊す変更では既存versionの意味を黙って変えず、新しいversionへ上げます。詳細は [SCHEMAS.md](SCHEMAS.md) を参照してください。
+
 ## 意図した警告を安全に抑制する
 
 Repo固有の事情で、既知の非blocking警告を意図的に許容したい場合は、Repo rootに `.cwb.json` を置けます。
