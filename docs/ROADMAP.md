@@ -21,6 +21,7 @@ This roadmap records intended work; it is not a promise of delivery dates.
 - safe fix preview with explicit `--apply`
 - JSON, Markdown, and SARIF reporting
 - versioned preflight report contract and shared policy evaluation for CLI, Action, and future adapters
+- CLI-accessible JSON Schema contracts for preflight report v1 and repository config v1, with explicit compatibility rules toward v1.0
 - network-free GitHub Check adapter with schema validation and shared policy/result mapping
 - constant-time GitHub webhook signature verification plus PR/push event normalization
 - code-level minimum GitHub App permission/event contract plus a maintainer registration runbook
