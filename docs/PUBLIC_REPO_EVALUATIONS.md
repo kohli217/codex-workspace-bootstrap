@@ -488,6 +488,29 @@ Expected behavior of the current integrity model:
 - normalize the Ruff command into the `lint:ruff` validation family;
 - avoid package-manager or validation-command drift when both agent signals resolve to the same canonical guidance.
 
+## Windsurf rule trigger patterns
+
+Public snapshots:
+
+- `C2FO/vfs` at `80e2c9fea6898f0076703d97c5c5f33bf28a1ba9` uses `.windsurf/rules/standards.md` with `trigger: always_on`;
+- `BetterRTX/BetterRTX-Installer` at `f1d86827871d261941a721a7ed6acbf675660313` uses `trigger: glob` with CSS/TSX globs;
+- `dxos/dxos` at `605455c19f37164aea7a400802e11c78c4088b36` uses `trigger: model_decision`, including a rule scoped by `globs: package.json`.
+
+Why this matters:
+
+- exercises a current multi-file Windsurf repository-rules layout;
+- prevents an always-on rule from being confused with a conditional/model-selected rule;
+- keeps glob-triggered rules path-specific so coarse cross-file drift comparison does not invent conflicts between unrelated selectors;
+- treats missing/unknown trigger semantics conservatively rather than promoting them to repository-wide policy.
+
+Expected behavior of the current integrity model:
+
+- discover regular non-symlink `.md` and `.mdc` files under `.windsurf/rules/`;
+- classify `always_on` as repository-wide at the containing repository scope;
+- classify `glob` with usable glob metadata as path-specific with static scope inference;
+- keep `model_decision`, unknown, missing, or incomplete glob triggers conditional;
+- validate commands inside discovered rules against repository evidence without executing them.
+
 ## What these evaluations do not prove
 
 These evaluations do not prove:
@@ -531,5 +554,8 @@ The observed repository patterns are encoded as automated regression tests in `t
 - `test_public_pattern_private_hosting_npm_workspaces_skips_root_script_requirement`
 - `test_public_pattern_prompt_kitchen_npm_workspace_directory_selector`
 - `test_public_pattern_plexe_poetry_ruff_claude_alias`
+- `test_public_pattern_c2fo_windsurf_always_on_is_repository_rule`
+- `test_public_pattern_betterrtx_windsurf_glob_is_path_specific`
+- `test_public_pattern_dxos_windsurf_model_decision_is_conditional`
 
 The fixtures intentionally model only the relevant public signals needed to exercise the lint rules. They are not copies of the upstream repositories and they do not imply compatibility certification.
