@@ -5,6 +5,12 @@ from pathlib import Path
 
 from .agents import detect_project_signals
 from .audit import Check, audit_repository, summary
+from .config import (
+    CONFIG_FILENAME,
+    RepositoryConfigError,
+    apply_repository_config,
+    load_repository_config,
+)
 from .doctor import doctor_findings
 from .instructions import (
     InstructionFinding,
@@ -42,6 +48,7 @@ class PolicyDecision:
 
 
 ESSENTIAL_CHECKS = {
+    "configuration",
     "git-repository",
     "readme",
     "gitignore",
@@ -123,6 +130,7 @@ def next_actions(
         )
 
     essentials = [
+        ("configuration", "Fix invalid repository preflight configuration"),
         ("git-repository", "Run from a Git repository root"),
         ("readme", "Add a README with setup and validation commands"),
         ("gitignore", "Add a project-appropriate .gitignore"),
@@ -244,13 +252,44 @@ def build_preflight(
             )
         ]
 
+    configuration: dict[str, object] | None = None
+    suppression_records: list[dict[str, object]] = []
+    try:
+        repository_config = load_repository_config(root)
+    except RepositoryConfigError as exc:
+        checks.append(
+            Check(
+                "configuration",
+                "warn",
+                f"Invalid {CONFIG_FILENAME}: {exc}",
+            )
+        )
+        configuration = {
+            "path": CONFIG_FILENAME,
+            "valid": False,
+            "error": str(exc),
+        }
+    else:
+        if repository_config is not None:
+            checks, instruction_findings, records = apply_repository_config(
+                repository_config,
+                checks,
+                instruction_findings,
+            )
+            configuration = {
+                "path": repository_config.path,
+                "version": repository_config.version,
+                "valid": True,
+            }
+            suppression_records = [item.to_dict() for item in records]
+
     instruction_totals = finding_summary(instruction_findings)
     projects = detect_project_signals(root)
     totals = summary(checks)
     state = readiness_state(checks, instructions, instruction_findings)
     actions = next_actions(checks, instructions, projects, instruction_findings)
 
-    return {
+    report: dict[str, object] = {
         "schema_version": PREFLIGHT_REPORT_SCHEMA_VERSION,
         "repository": str(root),
         "local_toolchain_checked": include_local_toolchain,
@@ -263,6 +302,10 @@ def build_preflight(
         "next_actions": [item.to_dict() for item in actions],
         "checks": [check.to_dict() for check in checks],
     }
+    if configuration is not None:
+        report["configuration"] = configuration
+        report["suppressions"] = suppression_records
+    return report
 
 
 def render_markdown(report: dict[str, object]) -> str:
@@ -313,6 +356,47 @@ def render_markdown(report: dict[str, object]) -> str:
             lines.append(f"- **{item['kind']}** — {item['message']} ({files}) — scope: `{scope}`")
     else:
         lines.append("- No cross-agent instruction drift or invalid package scripts detected.")
+
+    suppressions = report.get("suppressions", [])
+    configuration = report.get("configuration")
+    if isinstance(configuration, dict):
+        lines.extend(["", "## Repository configuration", ""])
+        if configuration.get("valid"):
+            lines.append(
+                f"- Loaded `{configuration.get('path', CONFIG_FILENAME)}` "
+                f"(version {configuration.get('version', '?')})."
+            )
+        else:
+            lines.append(
+                f"- Invalid `{configuration.get('path', CONFIG_FILENAME)}`: "
+                f"{configuration.get('error', 'unknown configuration error')}"
+            )
+
+        if isinstance(suppressions, list) and suppressions:
+            applied = sum(
+                1
+                for item in suppressions
+                if isinstance(item, dict) and item.get("applied")
+            )
+            lines.append(
+                f"- Suppressions: {applied} applied · {len(suppressions) - applied} unused."
+            )
+            for item in suppressions:
+                if not isinstance(item, dict):
+                    continue
+                status = "APPLIED" if item.get("applied") else "UNUSED"
+                target = str(item.get("target", "suppression"))
+                if target == "check":
+                    subject = f"check `{item.get('name', '')}`"
+                else:
+                    subject = (
+                        f"instruction `{item.get('kind', '')}` for "
+                        f"`{item.get('path', '')}` in scope "
+                        f"`{item.get('scope', '.')}`"
+                    )
+                lines.append(
+                    f"- **{status}** — {subject} — {item.get('reason', '')}"
+                )
 
     lines.extend(["", "## Next actions", ""])
 
