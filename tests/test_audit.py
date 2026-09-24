@@ -1,15 +1,36 @@
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 
 import pytest
 
 from codex_workspace_bootstrap.audit import (
     Check,
     _git_tracked_files,
+    _tool_check,
     audit_repository,
     summary,
 )
+
+
+@pytest.mark.parametrize("returncode", [0, 1])
+def test_tool_check_tolerates_non_locale_output(returncode: int) -> None:
+    check = _tool_check(
+        "example",
+        (
+            sys.executable,
+            "-c",
+            "import sys; sys.stdout.buffer.write(b'tool \\xff\\x81'); "
+            f"sys.exit({returncode})",
+        ),
+    )
+
+    assert check.status == ("pass" if returncode == 0 else "warn")
+    if returncode == 0:
+        assert check.message.startswith("tool ")
+    else:
+        assert "exit code 1" in check.message
 
 
 def _git(root: Path, *args: str) -> None:

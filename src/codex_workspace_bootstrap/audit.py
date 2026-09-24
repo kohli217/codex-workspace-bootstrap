@@ -89,6 +89,7 @@ def _tool_check(label: str, command: tuple[str, ...]) -> Check:
             command,
             capture_output=True,
             text=True,
+            errors="replace",
             timeout=5,
             check=False,
         )

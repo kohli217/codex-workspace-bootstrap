@@ -410,7 +410,7 @@ py -m pip install codex-workspace-bootstrap
 Pinned GitHub release artifact:
 
 ```powershell
-py -m pip install "https://github.com/kohli217/codex-workspace-bootstrap/releases/download/v0.10.0/codex_workspace_bootstrap-0.10.0-py3-none-any.whl"
+py -m pip install "https://github.com/kohli217/codex-workspace-bootstrap/releases/download/v1.0.0/codex_workspace_bootstrap-1.0.0-py3-none-any.whl"
 ```
 
 ## Development
