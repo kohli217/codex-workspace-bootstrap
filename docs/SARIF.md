@@ -51,8 +51,8 @@ jobs:
   preflight:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
           python-version: "3.13"
 
@@ -63,7 +63,7 @@ jobs:
         run: cwb preflight . --sarif codex-workspace-bootstrap.sarif
 
       - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd
         with:
           sarif_file: codex-workspace-bootstrap.sarif
           category: codex-workspace-bootstrap

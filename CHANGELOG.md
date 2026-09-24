@@ -2,6 +2,27 @@
 
 All notable changes to this project will be documented here.
 
+## [1.0.0] - 2026-09-23
+
+### Stable contracts
+- Declare the preflight report and root `.cwb.json` repository policy as explicit versioned machine-readable contracts, with JSON Schema available through `cwb schema preflight` and `cwb schema config`.
+- Protect one shared repository-only preflight contract across the CLI, reusable GitHub Action, and GitHub App instead of allowing delivery surfaces to drift independently.
+- Publish the v1.x semantic-versioning, deprecation, schema/config compatibility, and upgrade policy in `docs/STABILITY.md`.
+
+### Agent and repository coverage
+- Add conservative Windsurf `.windsurf/rules` discovery with always-on, glob, and model-decision trigger semantics.
+- Back Windsurf handling with fixed public regression patterns modeled from C2FO/vfs, BetterRTX/BetterRTX-Installer, and dxos/dxos without claiming third-party adoption.
+- Retain the broader v0.11 instruction-integrity baseline across Codex/OpenAI agents, GitHub Copilot, Cline, Claude Code, Gemini CLI, Continue, Cursor, and Windsurf.
+
+### GitHub UX
+- Explain `READY`, `NEEDS ATTENTION`, and `BLOCKED` directly near the top of the shared Markdown report used by CLI output, Action Job Summary, and GitHub App Check Runs.
+- Keep the explicit security boundary that `READY` means current CWB checks passed; it is not a security guarantee.
+
+### Release safety
+- Promote package metadata from Alpha to Production/Stable for the 1.0 release candidate.
+- Add an automatic CI guard that activates for package major version 1 or later and rejects incomplete release metadata, missing changelog/stability/schema documentation, or unexpected machine-contract version drift.
+- Keep Windows and Ubuntu CI, Action smoke tests, build/container smoke tests, CodeQL, dependency review, and CWB self-preflight as release gates.
+
 ## [0.11.0] - 2026-09-23
 
 ### Added

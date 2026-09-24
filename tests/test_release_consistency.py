@@ -13,6 +13,21 @@ from codex_workspace_bootstrap.preflight import PREFLIGHT_REPORT_SCHEMA_VERSION
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _documentation_paths() -> list[Path]:
+    return sorted(
+        path
+        for directory in (
+            ROOT,
+            ROOT / "docs",
+            ROOT / "deploy",
+            ROOT / "examples",
+            ROOT / "skills",
+            ROOT / ".github",
+        )
+        for path in (directory.glob("*.md") if directory == ROOT else directory.rglob("*.md"))
+    )
+
+
 def _project_version() -> str:
     data = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
     return str(data["project"]["version"])
@@ -32,22 +47,43 @@ def test_release_version_references_stay_in_sync() -> None:
     assert citation_match.group(1) == version
 
     expected_tag = f"v{version}"
-    for relative in ("README.md", "docs/GITHUB_ACTION.md", "docs/README.ja.md"):
+    for relative in ("README.md", "docs/GITHUB_ACTION.md", "docs/README.ja.md", "docs/STABILITY.md"):
         text = (ROOT / relative).read_text(encoding="utf-8")
         assert f"codex-workspace-bootstrap@{expected_tag}" in text, (
             f"{relative} does not reference the current Action tag {expected_tag}"
         )
+
+    action_pattern = re.compile(r"uses:\s*kohli217/codex-workspace-bootstrap@([^\s#]+)")
+    for path in _documentation_paths():
+        for ref in action_pattern.findall(path.read_text(encoding="utf-8")):
+            assert ref == expected_tag, (
+                f"{path.relative_to(ROOT)} documents stale Action ref {ref}; expected {expected_tag}"
+            )
+
+
+def test_documented_release_wheel_matches_package_version() -> None:
+    version = _project_version()
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    wheel_pattern = re.compile(
+        r"https://github\.com/kohli217/codex-workspace-bootstrap/releases/download/"
+        r"([^/\s]+)/codex_workspace_bootstrap-([^/\s]+)-py3-none-any\.whl"
+    )
+    wheels = wheel_pattern.findall(readme)
+    assert wheels, "README.md must document the pinned release wheel"
+    assert all(tag == f"v{version}" and wheel == version for tag, wheel in wheels), (
+        f"README.md release wheel references {wheels!r} do not match v{version}"
+    )
 
 
 def test_documented_third_party_actions_are_sha_pinned() -> None:
     action_pattern = re.compile(
         r"uses:\s*((?:actions/|github/codeql-action/)[^@\s]+)@([^\s#]+)"
     )
-    for relative in ("README.md", "docs/GITHUB_ACTION.md", "docs/README.ja.md"):
-        text = (ROOT / relative).read_text(encoding="utf-8")
+    for path in _documentation_paths():
+        text = path.read_text(encoding="utf-8")
         for action, ref in action_pattern.findall(text):
             assert re.fullmatch(r"[0-9a-f]{40}", ref), (
-                f"{relative} documents mutable ref {action}@{ref}; "
+                f"{path.relative_to(ROOT)} documents mutable ref {action}@{ref}; "
                 "pin third-party actions to a full commit SHA"
             )
 

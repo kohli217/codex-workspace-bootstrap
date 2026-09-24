@@ -26,11 +26,13 @@ Maintain `codex-workspace-bootstrap` as a small, safe, dependency-light tool tha
 Run:
 
 ```powershell
-python -m unittest discover -s tests
+python -m pytest -q
 python -m codex_workspace_bootstrap audit .
 ```
 
-When pytest is installed, this is also supported:
+Install the platform-appropriate hash-locked test requirements from `.github/requirements-test-*.txt` first. The suite uses pytest functions and fixtures; `unittest discover` does not run these tests.
+
+This is also supported:
 
 ```powershell
 pytest
